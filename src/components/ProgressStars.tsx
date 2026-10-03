@@ -1,0 +1,27 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { getStarCount } from "@/lib/rewards/RewardManager";
+import { subscribeRewards } from "@/lib/rewards/reward-events";
+
+export function ProgressStars({ moduleId }: { moduleId: string }) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    getStarCount(moduleId).then((c) => alive && setCount(c)).catch(() => {});
+    const off = subscribeRewards((e) => {
+      if (e.type === "star" && e.moduleId === moduleId) setCount(e.total);
+    });
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [moduleId]);
+
+  return (
+    <span aria-label={`${count} stars`} className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xl font-bold shadow">
+      ⭐ {count}
+    </span>
+  );
+}
