@@ -1,66 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { ActivityHeader } from "@/components/ActivityHeader";
-import { DragPiece } from "@/components/DragPiece";
-import { PageContainer } from "@/components/PageContainer";
-import { SuccessPop } from "@/components/SuccessPop";
-import { SHAPES, type ShapeDef } from "@/data/shapes";
+import dynamic from "next/dynamic";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
+import { SHAPES } from "@/data/shapes";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { finishActivity } from "@/lib/activity";
 
-function ShapeSvg({ shape, outline }: { shape: ShapeDef; outline?: boolean }) {
-  return (
-    <svg viewBox="0 0 100 100" className="h-28 w-28" aria-hidden>
-      <path d={shape.path} fill={outline ? "none" : shape.color} stroke={outline ? "#9aa" : "white"} strokeWidth={outline ? 3 : 2} strokeDasharray={outline ? "6 5" : undefined} />
-    </svg>
-  );
-}
+const ToyGame = dynamic(() => import("@/components/toy3d/ToyGame"), { ssr: false, loading: () => <LoadingSpinner /> });
+
+const ITEMS = SHAPES.map((s) => ({ id: s.id, label: s.label }));
 
 export default function ShapesPage() {
-  const [placed, setPlaced] = useState<string[]>([]);
-  const [round, setRound] = useState(0);
-
-  // Scaffolding: begin with 2 shapes, add one per round up to all of them.
-  const active = SHAPES.slice(0, Math.min(SHAPES.length, 2 + round));
-  const tray = active.filter((s) => !placed.includes(s.id));
-
-  const drop = (shape: ShapeDef, slot: string | null) => {
-    if (slot !== shape.id) {
-      audioManager.play("failure");
-      return;
-    }
-    audioManager.playNote(placed.length * 2);
-    audioManager.speak(shape.label);
-    const next = [...placed, shape.id];
-    setPlaced(next);
-    if (next.length === active.length) {
-      void finishActivity("shapes");
-      setTimeout(() => {
-        setPlaced([]);
-        setRound((r) => r + 1);
-      }, 1500);
-    }
-  };
-
+  const reduced = useAppReducedMotion();
   return (
-    <PageContainer>
-      <ActivityHeader title="Shapes" moduleId="shapes" />
-      <p className="text-center text-xl">Drag each shape to its outline</p>
-      <div className="flex flex-wrap justify-center gap-6">
-        {active.map((s) => (
-          <div key={s.id} data-slot={s.id} className="flex h-36 w-36 items-center justify-center rounded-3xl bg-white/60">
-            {placed.includes(s.id) ? <SuccessPop><ShapeSvg shape={s} /></SuccessPop> : <ShapeSvg shape={s} outline />}
-          </div>
-        ))}
-      </div>
-      <div className="mt-auto flex min-h-40 flex-wrap items-center justify-center gap-6 rounded-3xl bg-white/40 p-4">
-        {tray.map((s) => (
-          <DragPiece key={s.id} label={s.label} onDrop={(slot) => drop(s, slot)}>
-            <ShapeSvg shape={s} />
-          </DragPiece>
-        ))}
-      </div>
-    </PageContainer>
+    <ToyGame
+      title="Shapes"
+      moduleId="shapes"
+      items={ITEMS}
+      create={async (container) => {
+        const { SorterEngine } = await import("@/lib/shape-sorter/SorterEngine");
+        return new SorterEngine(container, {
+          reducedMotion: reduced,
+          onPlaced: ({ label, index }) => {
+            audioManager.playNote(index * 2 + 1);
+            audioManager.speak(label);
+          },
+          onWrong: () => audioManager.play("failure"),
+          onRound: ({ round }) => void finishActivity("shapes", { score: round }),
+        });
+      }}
+    >
+      {() => <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-xl font-bold text-slate-700 drop-shadow">Drag each shape to its hole, or just tap it!</p>}
+    </ToyGame>
   );
 }

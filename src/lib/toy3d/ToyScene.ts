@@ -99,6 +99,13 @@ export abstract class ToyScene implements ToyEngine {
     return this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z), p) ? p : null;
   }
 
+  /** Where the pointer ray crosses the horizontal plane y = `y` (for dragging along the floor). */
+  protected groundPoint(e: PointerEvent, y = 0): THREE.Vector3 | null {
+    this.aim(e);
+    const p = new THREE.Vector3();
+    return this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), p) ? p : null;
+  }
+
   /** Invisible, generously sized hit target so small fingers do not have to be precise. */
   protected hitBox(owner: unknown, w: number, h: number, d: number): THREE.Mesh {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ visible: false }));
