@@ -55,9 +55,10 @@ export class SorterEngine extends ToyScene {
   }
 
   protected onResize(aspect: number) {
-    const dist = 17 * Math.max(1, 1.15 / aspect);
-    this.stage.camera.position.set(0, 10, dist);
-    this.stage.camera.lookAt(0, 1.6, 0.6);
+    // Almost straight down, so outlines look like they do on a real shape-sorter toy.
+    const height = 20 * Math.max(1, 1.15 / aspect);
+    this.stage.camera.position.set(0, height, 3.4);
+    this.stage.camera.lookAt(0, 2, 0.7);
     this.layout();
   }
 
