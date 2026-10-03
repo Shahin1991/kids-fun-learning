@@ -38,8 +38,9 @@ export class MeadowEngine extends ToyScene {
       const outer = new THREE.Group();
       outer.add(rig.group);
       const slot: Slot = { item, index, outer, rig, x: 0, z: 0, forward: new Spring(0, 0, 90, 12), forwardUntil: 0, bubble: null };
-      outer.add(this.hitBox(slot, 2.0, rig.height + 0.8, 2.0));
-      outer.children[outer.children.length - 1].position.y = (rig.height + 0.8) / 2;
+      // Only slightly larger than the animal so a front animal never swallows taps meant for the row behind.
+      outer.add(this.hitBox(slot, 1.8, rig.height + 0.15, 1.8));
+      outer.children[outer.children.length - 1].position.y = (rig.height + 0.15) / 2;
       this.stage.scene.add(outer);
       this.pickables.push(outer);
       this.slots.push(slot);

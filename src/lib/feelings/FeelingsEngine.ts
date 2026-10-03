@@ -53,7 +53,9 @@ export class FeelingsEngine extends ToyScene {
       const ball = new THREE.Mesh(new THREE.SphereGeometry(1.2, 40, 30), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.25 }));
       group.add(ball);
       const fb: FaceBall = { item, index, emotion: item.id as Emotion, group, ball, x: 0, z: 0, squash: new Spring(0, 0, 220, 9), pop: new Spring(0, 0, 200, 10), react: 0, fx: 0, phase: Math.random() * 6, tex };
-      group.add(this.hitBox(fb, 3.1, 3.1, 3.1));
+      const hit = new THREE.Mesh(new THREE.SphereGeometry(1.4, 12, 10), new THREE.MeshBasicMaterial({ visible: false }));
+      hit.userData.owner = fb;
+      group.add(hit);
       this.stage.scene.add(group);
       this.pickables.push(group);
       this.faces.push(fb);

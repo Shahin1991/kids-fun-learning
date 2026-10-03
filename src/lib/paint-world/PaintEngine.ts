@@ -28,6 +28,7 @@ interface Ball {
   phase: number;
   nextWobble: number;
   title: { sprite: THREE.Sprite; dispose: () => void; life: number } | null;
+  lift: number;
 }
 
 interface Blob {
@@ -86,6 +87,8 @@ export class PaintEngine extends ToyScene {
   private found = new Set<string>();
   private lastMilestone = 0;
   private blobGeo = new THREE.SphereGeometry(0.4, 14, 10);
+  private shelfMat = new THREE.MeshStandardMaterial({ color: 0xe0a96d, roughness: 0.8 });
+  private shelves: THREE.Mesh[] = [];
 
   constructor(container: HTMLElement, private opts: PaintOptions = {}) {
     super(container, 0xffefc2, opts);
@@ -103,8 +106,10 @@ export class PaintEngine extends ToyScene {
       shadow.rotation.x = -Math.PI / 2;
       shadow.position.y = 0.03;
       this.stage.scene.add(shadow);
-      const ball: Ball = { item, index, hex, group, mesh, x: 0, z: 0, squash: new Spring(0, 0, 200, 8), y: 0, vy: 0, airborne: false, phase: Math.random() * 6, nextWobble: 1 + Math.random() * 3, title: null };
-      group.add(this.hitBox(ball, 3.4, 3.4, 3.4));
+      const ball: Ball = { item, index, hex, group, mesh, x: 0, z: 0, squash: new Spring(0, 0, 200, 8), y: 0, vy: 0, airborne: false, phase: Math.random() * 6, nextWobble: 1 + Math.random() * 3, title: null, lift: 0 };
+      const hit = new THREE.Mesh(new THREE.SphereGeometry(1.45, 12, 10), new THREE.MeshBasicMaterial({ visible: false }));
+      hit.userData.owner = ball;
+      group.add(hit);
       this.stage.scene.add(group);
       this.pickables.push(group);
       this.balls.push(ball);
@@ -122,14 +127,28 @@ export class PaintEngine extends ToyScene {
       const c = i % cols;
       const r = Math.floor(i / cols);
       b.x = (c - (cols - 1) / 2) * spacing;
-      b.z = 2.5 - r * Math.min(4.2, spacing * 1.1);
+      b.z = 2.5 - r * Math.min(4.6, spacing * 1.15);
+      // Back rows stand on a shelf so they are never hidden behind the front row.
+      b.lift = r * 2.2;
       const s = Math.min(1.25, spacing / 3.1);
       b.group.scale.setScalar(s);
       (b.group.userData.shadow as THREE.Mesh).scale.setScalar(s);
     });
+    // Build one shelf per extra row.
+    this.shelves.forEach((m) => {
+      this.stage.scene.remove(m);
+      m.geometry.dispose();
+    });
+    this.shelves = [];
+    for (let r = 1; r < rows; r++) {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(cols * spacing + 2, r * 2.2, 3.8), this.shelfMat);
+      shelf.position.set(0, (r * 2.2) / 2, 2.5 - r * Math.min(4.6, spacing * 1.15));
+      this.stage.scene.add(shelf);
+      this.shelves.push(shelf);
+    }
     const cam = this.stage.camera;
-    cam.position.set(0, 3.6 + rows * 0.5, dist);
-    cam.lookAt(0, 4.2, -3);
+    cam.position.set(0, 5.2 + rows * 0.6, dist);
+    cam.lookAt(0, 4.4, -3);
   }
 
   activate(id: string) {
@@ -212,9 +231,9 @@ export class PaintEngine extends ToyScene {
       }
       const sq = b.squash.step(dt);
       const base = b.group.scale.x;
-      b.group.position.set(b.x, 1.25 * base + b.y * base, b.z);
+      b.group.position.set(b.x, 1.25 * base + b.y * base + b.lift, b.z);
       b.mesh.scale.set(1 + sq * 0.35, 1 - sq * 0.45, 1 + sq * 0.35);
-      (b.group.userData.shadow as THREE.Mesh).position.set(b.x, 0.03, b.z);
+      (b.group.userData.shadow as THREE.Mesh).position.set(b.x, 0.03 + b.lift, b.z);
       if (b.title) {
         b.title.life -= dt;
         const k = Math.min(1, (1.8 - b.title.life) * 5, b.title.life * 3);
@@ -258,5 +277,6 @@ export class PaintEngine extends ToyScene {
     this.balls.forEach((b) => b.title?.dispose());
     this.splats.forEach((s) => s.tex.dispose());
     this.blobGeo.dispose();
+    this.shelfMat.dispose();
   }
 }
