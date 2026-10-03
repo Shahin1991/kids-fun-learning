@@ -48,7 +48,8 @@ export interface BuiltVehicle {
   steeringWheel: THREE.Object3D | null;
   headAnchors: THREE.Object3D[];
   setPaint: (hex: string) => void;
-  setBrake: (on: boolean) => void;
+  /** night 0..1 switches headlights on as it gets dark; braking flares the tail lights */
+  setLights: (night: number, braking: boolean) => void;
   /** Flashes the light bar (no-op for vehicles without one) */
   tick: (timeSec: number, flashing: boolean) => void;
   dispose: () => void;
@@ -170,6 +171,10 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
 
   // Lights with additive glow
   const glowMats: THREE.SpriteMaterial[] = [];
+  const headGlows: THREE.Sprite[] = [];
+  const tailGlows: THREE.Sprite[] = [];
+  const poolMat = mat(new THREE.MeshBasicMaterial({ map: getGlowTexture(), color: 0xfff1c0, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 }));
+  const poolGeo = cache.get("beampool", () => new THREE.PlaneGeometry(3.4, 18).rotateX(-Math.PI / 2));
   const headAnchors: THREE.Object3D[] = [];
   const frontZ = -L / 2;
   const lightY = Math.min(beltY - 0.12, 0.85);
@@ -187,7 +192,11 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
       sp.scale.setScalar(size);
       sp.position.set(s * (W / 2 - (z < 0 ? 0.4 : 0.35)), lightY, z);
       group.add(sp);
+      (z < 0 ? headGlows : tailGlows).push(sp);
     }
+    // Light cast on the road ahead
+    const pool = add(poolGeo, poolMat, s * (W / 2 - 0.5), 0.07, frontZ - 9.5);
+    pool.renderOrder = 2;
   }
 
   // Emergency liveries and light bar
@@ -320,8 +329,19 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     headAnchors,
     setPaint: (hex) => paint.color.set(hex),
     tick: (t, on) => tick(t, on),
-    setBrake: (on) => {
-      tailMat.emissiveIntensity = on ? 2.4 : 0.6;
+    setLights: (night, braking) => {
+      const on = Math.min(1, Math.max(0, (night - 0.15) / 0.5));
+      headMat.emissiveIntensity = 0.25 + 3.2 * on;
+      poolMat.opacity = on * 0.55;
+      for (const g of headGlows) {
+        (g.material as THREE.SpriteMaterial).opacity = 0.08 + 0.9 * on;
+        g.scale.setScalar(1.1 + 1.2 * on);
+      }
+      tailMat.emissiveIntensity = braking ? 5 : 0.35 + 0.9 * on;
+      for (const g of tailGlows) {
+        (g.material as THREE.SpriteMaterial).opacity = braking ? 1 : 0.12 + 0.5 * on;
+        g.scale.setScalar(braking ? 2.1 : 0.9);
+      }
     },
     dispose: () => {
       mats.forEach((m) => m.dispose());

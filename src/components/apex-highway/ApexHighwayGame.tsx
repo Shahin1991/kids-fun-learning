@@ -92,9 +92,12 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
   const [touch, setTouch] = useState(false);
   const [ready, setReady] = useState(false);
   const bestRef = useRef(0);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     prefsRef.current = prefs;
+    // Don't overwrite saved prefs with the defaults before they have been read.
+    if (!loadedRef.current) return;
     try {
       localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     } catch {
@@ -113,6 +116,7 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
       const saved = readPrefs();
       setPrefs(saved);
       prefsRef.current = saved;
+      loadedRef.current = true;
       bestRef.current = readBest();
       setBest(bestRef.current);
       onMq();

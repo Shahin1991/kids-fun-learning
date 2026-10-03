@@ -386,6 +386,7 @@ export class ApexEngine {
       }
       let target = t.baseSpeed;
       if (ahead && ahead.d - t.d < 24) target = Math.min(target, ahead.speed - 0.5);
+      t.built.setLights(this.world.night, target < t.speed - 0.4);
       t.speed += (target - t.speed) * Math.min(1, dt * 1.5);
 
       t.changeIn -= dt;
@@ -543,7 +544,7 @@ export class ApexEngine {
     for (const w of this.player.spinGroups) w.rotation.x -= (this.speed / this.spec.wheelRadius) * dt;
     for (const s of this.player.steerGroups) s.rotation.y = -this.steer * 0.45;
     if (this.player.steeringWheel) this.player.steeringWheel.rotation.z = -this.steer * 1.6;
-    this.player.setBrake(this.keys.brake && this.phase === "playing");
+    this.player.setLights(this.world.night, this.keys.brake && this.phase === "playing");
   }
 
   // ---- camera ----
