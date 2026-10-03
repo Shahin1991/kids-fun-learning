@@ -37,7 +37,21 @@ export function pentatonic(step: number): number {
   return PENTATONIC[Math.max(0, Math.min(PENTATONIC.length - 1, step))];
 }
 
+/** A short balloon "pop": a noise crack over a quick falling tone. */
+export function renderPop(pitch: number): string {
+  const n = Math.floor(SAMPLE_RATE * 0.16);
+  const samples = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / SAMPLE_RATE;
+    const env = Math.exp(-t * 34);
+    const body = Math.sin(2 * Math.PI * 520 * pitch * t * Math.exp(-t * 8));
+    samples[i] = ((Math.random() * 2 - 1) * 0.6 + body * 0.5) * env * 0.85;
+  }
+  return encodeWavDataUri(samples, SAMPLE_RATE);
+}
+
 export const tones = {
+  pop: (variant: number) => renderPop(0.85 + variant * 0.2),
   success: () => renderNotes([{ freq: 523.25, duration: 0.12 }, { freq: 659.25, duration: 0.18 }]),
   // Deliberately soft and neutral: a low, gentle "bloop", never a buzzer.
   gentle: () => renderNotes([{ freq: 330, duration: 0.15, volume: 0.2 }, { freq: 294, duration: 0.2, volume: 0.15 }], "triangle"),

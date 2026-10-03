@@ -42,6 +42,15 @@ class AudioManager {
     this.get(`note-${step}`, () => tones.tap(step)).play();
   }
 
+  /** Balloon pop; three pitch variants plus a little random rate keep it from sounding repetitive. */
+  playPop(variant = 0) {
+    if (!this.soundEnabled) return;
+    const v = Math.abs(Math.floor(variant)) % 3;
+    const h = this.get(`pop-${v}`, () => tones.pop(v));
+    h.rate(0.92 + Math.random() * 0.2);
+    h.play();
+  }
+
   setMusic(enabled: boolean) {
     this.musicEnabled = enabled;
     if (enabled) {
