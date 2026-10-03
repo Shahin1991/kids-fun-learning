@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { applyBend } from "./curve";
 import { getGlowTexture } from "./vehicle-builder";
 
 export const LANE_COUNT = 4;
@@ -92,14 +93,14 @@ export class World {
     }
 
     this.grass = new THREE.MeshStandardMaterial({ color: DAY.grass, roughness: 1 });
-    const grassMesh = new THREE.Mesh(new THREE.PlaneGeometry(500, LEN + SEG * 3), this.grass);
+    const grassMesh = new THREE.Mesh(new THREE.PlaneGeometry(500, LEN + SEG * 3, 1, 130), this.grass);
     grassMesh.rotation.x = -Math.PI / 2;
     grassMesh.position.set(0, -0.05, -LEN / 2 + SEG * 1.5);
     this.road.add(grassMesh);
 
     const asphalt = this.makeAsphalt(aniso);
     const roadMat = new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.9 });
-    const segGeo = new THREE.PlaneGeometry(LANE_COUNT * LANE_W, SEG);
+    const segGeo = new THREE.PlaneGeometry(LANE_COUNT * LANE_W, SEG, 1, 10);
     for (let i = 0; i < SEGS; i++) {
       const m = new THREE.Mesh(segGeo, roadMat);
       m.rotation.x = -Math.PI / 2;
@@ -113,6 +114,8 @@ export class World {
     this.pools = lamps.pools;
     this.buildScenery();
     this.buildGantry();
+    applyBend(this.road);
+    applyBend(this.gantry);
     this.root.add(this.road, this.gantry);
     this.setNight(0);
   }
@@ -154,7 +157,7 @@ export class World {
 
   private buildGuardrails() {
     const metal = new THREE.MeshStandardMaterial({ color: 0xb4bcc4, metalness: 0.7, roughness: 0.4 });
-    const railGeo = new THREE.BoxGeometry(0.08, 0.32, LEN + SEG * 2);
+    const railGeo = new THREE.BoxGeometry(0.08, 0.32, LEN + SEG * 2, 1, 1, 110);
     const postGeo = new THREE.BoxGeometry(0.1, 0.8, 0.1);
     const count = Math.floor((LEN + SEG * 2) / 4);
     for (const s of [-1, 1]) {

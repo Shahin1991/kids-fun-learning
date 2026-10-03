@@ -14,6 +14,7 @@ export class ApexAudio {
   private scrape!: GainNode;
   private horn: OscillatorNode[] = [];
   private hornGain!: GainNode;
+  private sirenGain!: GainNode;
   private spec: VehicleSpec | null = null;
   private muted = false;
   private paused = false;
@@ -63,6 +64,23 @@ export class ApexAudio {
       o.start();
       this.horn.push(o);
     }
+    // Wailing siren: a sawtooth whose pitch is swept by a slow sine LFO.
+    this.sirenGain = this.t(ctx.createGain());
+    this.sirenGain.gain.value = 0;
+    const sirenFilter = this.t(ctx.createBiquadFilter());
+    sirenFilter.type = "lowpass";
+    sirenFilter.frequency.value = 2600;
+    const sirenOsc = this.t(ctx.createOscillator());
+    sirenOsc.type = "sawtooth";
+    sirenOsc.frequency.value = 950;
+    const lfo = this.t(ctx.createOscillator());
+    lfo.frequency.value = 0.8;
+    const lfoGain = this.t(ctx.createGain());
+    lfoGain.gain.value = 380;
+    lfo.connect(lfoGain).connect(sirenOsc.frequency);
+    sirenOsc.connect(sirenFilter).connect(this.sirenGain).connect(this.master);
+    sirenOsc.start();
+    lfo.start();
     if (this.spec) this.setVehicle(this.spec);
   }
 
@@ -123,6 +141,10 @@ export class ApexAudio {
 
   setHorn(on: boolean) {
     if (this.ctx) this.hornGain.gain.setTargetAtTime(on ? 0.12 : 0, this.ctx.currentTime, 0.02);
+  }
+
+  setSiren(on: boolean) {
+    if (this.ctx) this.sirenGain.gain.setTargetAtTime(on ? 0.14 : 0, this.ctx.currentTime, 0.05);
   }
 
   private burst(dur: number, filterType: BiquadFilterType, f0: number, f1: number, vol: number, delay = 0) {

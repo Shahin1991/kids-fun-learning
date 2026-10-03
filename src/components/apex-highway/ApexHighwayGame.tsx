@@ -320,7 +320,7 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
               </div>
             </div>
           </div>
-          <p className="text-xs opacity-70">Challenge game: crashing ends the run. Keys: WASD/arrows, Space brake, C camera, N night, M mute, H horn, P pause.</p>
+          <p className="text-xs opacity-70">Challenge game: crashing ends the run. Keys: WASD/arrows, Space brake, C camera, N night, M mute, H horn (siren on emergency vehicles), L emergency lights, P pause. Bends push you outward, so steer into them.</p>
           <button type="button" disabled={!ready} onClick={start} className="sticky bottom-0 w-full rounded-xl bg-cyan-500 py-3 text-xl font-bold shadow-lg disabled:opacity-50">Start driving</button>
         </div>
       )}

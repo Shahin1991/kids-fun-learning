@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { ApexAudio } from "./audio";
+import { applyBend, bendUniform, curvatureAt } from "./curve";
 import { buildVehicle, disposeGlowTexture, GeometryCache, type BuiltVehicle } from "./vehicle-builder";
-import { getVehicleSpec, TRAFFIC_KINDS, type VehicleSpec } from "./vehicle-specs";
+import { EMERGENCY_KINDS, getVehicleSpec, TRAFFIC_KINDS, type VehicleSpec } from "./vehicle-specs";
 import { LANE_COUNT, ROAD_HALF, World } from "./world";
 
 export type CameraMode = "follow" | "chase" | "cockpit";
@@ -46,6 +47,7 @@ interface Traffic {
   changeIn: number;
   lastD: number;
   scored: boolean;
+  flashing: boolean;
   spheres: number[];
   r: number;
 }
@@ -80,7 +82,8 @@ export class ApexEngine {
   private phase: Phase = "garage";
   private camMode: CameraMode = "follow";
   private keys: Record<InputKey, boolean> = { left: false, right: false, brake: false, gas: false };
-  private hornOn = false;
+  private sirenOn = false;
+  private lightsLatched = false;
   private muted = false;
   private nightTarget = 0;
 
@@ -104,6 +107,7 @@ export class ApexEngine {
   private garageAngle = 0.6;
   private viewShift = { x: 0, y: 0 };
   private hudAt = 0;
+  private timeSec = 0;
 
   private raf = 0;
   private lastT = 0;
@@ -159,6 +163,7 @@ export class ApexEngine {
     this.player.dispose();
     this.player = this.makePlayer();
     this.audio.setVehicle(this.spec);
+    this.setSiren(false);
   }
 
   setPaint(hex: string) {
@@ -250,6 +255,7 @@ export class ApexEngine {
   // ---- setup helpers ----
   private makePlayer(): BuiltVehicle {
     const v = buildVehicle(this.spec, this.color, this.cache, true);
+    applyBend(v.group);
     this.scene.add(v.group);
     // The two spotlights are re-parented to the new body instead of being recreated.
     this.spots.forEach((s, i) => {
@@ -317,20 +323,23 @@ export class ApexEngine {
     if (k === "c") this.setCameraMode(this.camMode === "follow" ? "chase" : this.camMode === "chase" ? "cockpit" : "follow");
     else if (k === "n") this.setNight(this.nightTarget < 0.5);
     else if (k === "m") this.setMuted(!this.muted);
-    else if (k === "h") {
-      this.hornOn = true;
-      this.audio.setHorn(true);
-    } else if (k === "p" || e.key === "Escape") this.pause(this.phase === "playing");
+    else if (k === "h") this.setSiren(true);
+    else if (k === "l") this.lightsLatched = !this.lightsLatched;
+    else if (k === "p" || e.key === "Escape") this.pause(this.phase === "playing");
   };
 
   private onKeyUp = (e: KeyboardEvent) => {
     const map: Record<string, InputKey> = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "gas", w: "gas", W: "gas", ArrowDown: "brake", s: "brake", S: "brake", " ": "brake" };
     if (e.key in map) this.keys[map[e.key]] = false;
-    if (e.key.toLowerCase() === "h") {
-      this.hornOn = false;
-      this.audio.setHorn(false);
-    }
+    if (e.key.toLowerCase() === "h") this.setSiren(false);
   };
+
+  /** H: siren on emergency vehicles, horn on everything else. */
+  private setSiren(on: boolean) {
+    this.sirenOn = on && Boolean(this.spec.features.siren);
+    this.audio.setSiren(this.sirenOn);
+    this.audio.setHorn(on && !this.spec.features.siren);
+  }
 
   private onVisibility = () => {
     if (document.hidden) this.pause(true);
@@ -349,16 +358,19 @@ export class ApexEngine {
       const busy = new Set(this.traffic.filter((t) => Math.abs(t.d - d) < 30).map((t) => Math.round(t.lane)));
       busy.add(lane);
       if (busy.size >= LANE_COUNT) continue;
-      const kind = TRAFFIC_KINDS[Math.floor(Math.random() * TRAFFIC_KINDS.length)];
+      const emergency = Math.random() < 0.12;
+      const pool = emergency ? EMERGENCY_KINDS : TRAFFIC_KINDS;
+      const kind = pool[Math.floor(Math.random() * pool.length)];
       const spec = getVehicleSpec(kind);
       const hue = Math.floor(Math.random() * 360);
       const built = buildVehicle(spec, `hsl(${hue},55%,${35 + Math.random() * 25}%)`, this.cache, false);
-      const base = 17 + (LANE_COUNT - 1 - lane) * 5 + Math.random() * 3 - (kind === "bus" ? 5 : 0);
+      const base = 17 + (LANE_COUNT - 1 - lane) * 5 + Math.random() * 3 - (kind === "bus" || kind === "fire" ? 5 : 0) + (emergency ? 4 : 0);
       const r = (spec.width / 2) * 0.92;
       const n = Math.max(1, Math.round(spec.length / spec.width));
       const spheres = Array.from({ length: n }, (_, i) => (n === 1 ? 0 : ((i / (n - 1)) - 0.5) * (spec.length - spec.width)));
-      const t: Traffic = { built, lane, x: this.world.laneX(lane), d, speed: base, baseSpeed: base, changeIn: 4 + Math.random() * 8, lastD: d, scored: false, spheres, r };
+      const t: Traffic = { built, lane, x: this.world.laneX(lane), d, speed: base, baseSpeed: base, changeIn: 4 + Math.random() * 8, lastD: d, scored: false, flashing: emergency && Math.random() < 0.7, spheres, r };
       built.group.position.set(t.x, 0, -d);
+      applyBend(built.group);
       this.scene.add(built.group);
       this.traffic.push(t);
       return;
@@ -389,6 +401,7 @@ export class ApexEngine {
       t.d += (t.speed - this.speed) * dt;
       t.built.group.position.set(t.x, 0, -t.d);
       for (const w of t.built.spinGroups) w.rotation.x -= (t.speed / t.built.spec.wheelRadius) * dt;
+      t.built.tick(this.timeSec, t.flashing);
     }
     this.traffic = this.traffic.filter((t) => {
       if (t.d < -90 || t.d > 320) {
@@ -443,7 +456,7 @@ export class ApexEngine {
     this.shake = 1;
     this.crashT = 0;
     this.audio.crash();
-    this.audio.setHorn(false);
+    this.setSiren(false);
     this.emitSparks(new THREE.Vector3((this.x + t.x) / 2, 0.8, -t.d * 0.5), 60, 8);
     this.speed *= 0.5;
   }
@@ -494,6 +507,8 @@ export class ApexEngine {
     const target = this.steer * lock * Math.min(1, this.speed / 3);
     this.heading += (target - this.heading) * Math.min(1, dt * 6);
     this.x += this.speed * Math.sin(this.heading) * dt;
+    // Bends push the car toward the outside of the curve, so the driver has to steer into it.
+    this.x -= bendUniform.value * this.speed * this.speed * 0.25 * dt;
 
     const limit = ROAD_HALF - spec.width / 2 - 0.05;
     this.scraping = false;
@@ -555,6 +570,7 @@ export class ApexEngine {
         pos = new THREE.Vector3(this.x * 0.7, 3.4 + this.spec.wheelRadius, this.spec.length * 0.5 + 7.5);
         look = new THREE.Vector3(this.x * 0.85, 1.2, -14);
       }
+      look.x += bendUniform.value * (this.camMode === "cockpit" ? 1800 : 800);
       const k = this.camMode === "cockpit" ? 1 : 1 - Math.exp(-dt * 6);
       this.camPos.lerp(pos, k);
       this.camLook.lerp(look, k);
@@ -613,6 +629,10 @@ export class ApexEngine {
       this.speed = 0;
     }
 
+    this.timeSec = t / 1000;
+    const bendTarget = this.phase === "garage" ? 0 : curvatureAt(this.distance);
+    bendUniform.value += (bendTarget - bendUniform.value) * Math.min(1, dt * 2);
+    this.player.tick(this.timeSec, this.lightsLatched || this.sirenOn);
     this.applyPlayerPose(dt);
     this.updateSparks(dt);
     this.world.update(this.distance, dt, this.camera.position);

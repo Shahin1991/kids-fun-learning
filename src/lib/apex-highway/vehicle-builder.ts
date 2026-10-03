@@ -49,6 +49,8 @@ export interface BuiltVehicle {
   headAnchors: THREE.Object3D[];
   setPaint: (hex: string) => void;
   setBrake: (on: boolean) => void;
+  /** Flashes the light bar (no-op for vehicles without one) */
+  tick: (timeSec: number, flashing: boolean) => void;
   dispose: () => void;
 }
 
@@ -122,10 +124,11 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   for (const w of spec.windows ?? []) {
     for (const s of [-1, 1]) add(box(`win${w.x0}`, 0.02, w.y1 - w.y0, w.x1 - w.x0), glass, s * (W / 2 + 0.02), (w.y0 + w.y1) / 2, -(w.x0 + w.x1) / 2);
   }
-  if (spec.id === "bus") {
-    add(box("busfront", W - 0.3, 0.9, 0.03), glass, 0, 2.2, -(4.5 + 0.02));
-    add(box("busrear", W - 0.6, 0.6, 0.03), glass, 0, 2.2, 4.5 + 0.02);
+  if (spec.frontGlass) {
+    const g = spec.frontGlass;
+    add(box("frontglass", g.w, g.h, 0.03), glass, 0, g.y, -(g.u + 0.02));
   }
+  if (spec.id === "bus") add(box("busrear", W - 0.6, 0.6, 0.03), glass, 0, 2.2, 4.5 + 0.02);
 
   // Trim, door seams, handles, mirrors
   const beltY = Math.max(...spec.body.map((p) => p[1])) - 0.06;
@@ -185,6 +188,63 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
       sp.position.set(s * (W / 2 - (z < 0 ? 0.4 : 0.35)), lightY, z);
       group.add(sp);
     }
+  }
+
+  // Emergency liveries and light bar
+  let tick: (t: number, on: boolean) => void = () => {};
+  const accent = (c: number) => mat(new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 }));
+  if (f.livery === "police") {
+    const blue = accent(0x1d4ed8);
+    for (const s of [-1, 1]) {
+      add(box("pstripe", 0.012, 0.14, L * 0.72), blue, s * (W / 2 + 0.012), 0.72, 0);
+      add(box("pdoor", 0.012, 0.3, 0.9), blue, s * (W / 2 + 0.013), 0.55, -0.4);
+    }
+  } else if (f.livery === "ambulance") {
+    const red = accent(0xd32f2f);
+    for (const s of [-1, 1]) {
+      add(box("astripe", 0.012, 0.2, 3.7), red, s * (W / 2 + 0.012), 1.3, 0.95);
+      add(box("across1", 0.012, 0.8, 0.22), red, s * (W / 2 + 0.013), 1.95, 1.2);
+      add(box("across2", 0.012, 0.22, 0.8), red, s * (W / 2 + 0.013), 1.95, 1.2);
+    }
+  } else if (f.livery === "fire") {
+    const white = accent(0xf5f5f5);
+    for (const s of [-1, 1]) {
+      add(box("fstripe", 0.012, 0.16, L - 0.6), white, s * (W / 2 + 0.012), 1.4, 0);
+      for (const u of [-3.1, -1.7]) add(box("shutter", 0.012, 0.85, 1.2), dark, s * (W / 2 + 0.013), 1.85, -u);
+    }
+  }
+  if (f.ladder) {
+    for (const s of [-1, 1]) add(box("ladderrail", 0.06, 0.08, 7.2), chrome, s * 0.4, 2.85, 0.4);
+    for (const s of [-1, 1]) for (const z of [-2.5, 0.4, 3.3]) add(box("ladderpost", 0.06, 0.4, 0.06), dark, s * 0.4, 2.65, z);
+    for (let i = 0; i < 15; i++) add(box("rung", 0.8, 0.04, 0.04), chrome, 0, 2.85, -3 + i * 0.5);
+  }
+  if (f.lightbar) {
+    const lb = f.lightbar;
+    const redMat = mat(new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff1111, emissiveIntensity: 0.2 }));
+    const blueMat = mat(new THREE.MeshStandardMaterial({ color: 0x000055, emissive: 0x1144ff, emissiveIntensity: 0.2 }));
+    add(box("lbbase", 1.3, 0.08, 0.34), dark, 0, lb.y, -lb.u);
+    add(box("lbred", 0.6, 0.12, 0.3), redMat, -0.33, lb.y + 0.09, -lb.u);
+    add(box("lbblue", 0.6, 0.12, 0.3), blueMat, 0.33, lb.y + 0.09, -lb.u);
+    const glow = (color: number, x: number) => {
+      const sm = new THREE.SpriteMaterial({ map: getGlowTexture(), color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 });
+      glowMats.push(sm);
+      const sp = new THREE.Sprite(sm);
+      sp.scale.setScalar(2.6);
+      sp.position.set(x, lb.y + 0.2, -lb.u);
+      group.add(sp);
+      return sm;
+    };
+    const redGlow = glow(0xff2020, -0.4);
+    const blueGlow = glow(0x2a63ff, 0.4);
+    tick = (time, on) => {
+      const phase = Math.floor(time * 8) % 4;
+      const red = on && phase < 2;
+      const blue = on && phase >= 2;
+      redMat.emissiveIntensity = red ? 5 : 0.2;
+      blueMat.emissiveIntensity = blue ? 5 : 0.2;
+      redGlow.opacity = red ? 0.95 : 0;
+      blueGlow.opacity = blue ? 0.95 : 0;
+    };
   }
 
   // Wheels with arches
@@ -259,6 +319,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     steeringWheel,
     headAnchors,
     setPaint: (hex) => paint.color.set(hex),
+    tick: (t, on) => tick(t, on),
     setBrake: (on) => {
       tailMat.emissiveIntensity = on ? 2.4 : 0.6;
     },

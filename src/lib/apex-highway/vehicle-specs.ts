@@ -1,5 +1,5 @@
 // Pure data: dimensions in metres, profile points are [x along length (front +), y up].
-export type VehicleKind = "sedan" | "coupe" | "suv" | "pickup" | "van" | "bus";
+export type VehicleKind = "sedan" | "coupe" | "suv" | "pickup" | "van" | "bus" | "police" | "ambulance" | "fire";
 type Pt = [number, number];
 
 export interface BoxSpec {
@@ -22,7 +22,22 @@ export interface VehicleSpec {
   boxes?: BoxSpec[];
   /** Dark side-window strips */
   windows?: BoxSpec[];
-  features: { spoiler?: boolean; roofRack?: boolean; bed?: boolean; cargo?: boolean; busUnits?: boolean; stripe?: boolean };
+  features: {
+    spoiler?: boolean;
+    roofRack?: boolean;
+    bed?: boolean;
+    cargo?: boolean;
+    busUnits?: boolean;
+    stripe?: boolean;
+    ladder?: boolean;
+    /** Flashing red/blue light bar at (u along length, y) */
+    lightbar?: { u: number; y: number };
+    livery?: "police" | "ambulance" | "fire";
+    /** H plays a siren instead of the horn */
+    siren?: boolean;
+  };
+  /** Front windscreen slab for boxy bodies */
+  frontGlass?: { u: number; y: number; w: number; h: number };
   driver: { x: number; y: number; z: number };
   topSpeedKmh: number;
   accel: number;
@@ -87,10 +102,42 @@ export const VEHICLES: VehicleSpec[] = [
     body: [[-4.5, 0.45], [-4.5, 1.0], [4.5, 1.0], [4.5, 0.45]],
     boxes: [{ x0: -4.5, x1: 4.5, y0: 1.0, y1: 3.1 }],
     windows: [{ x0: -4.0, x1: 3.3, y0: 1.7, y1: 2.6 }],
-    features: { busUnits: true, stripe: true }, driver: { x: -0.8, y: 1.9, z: 3.5 },
+    frontGlass: { u: 4.5, y: 2.2, w: 2.2, h: 0.9 },
+    features: { busUnits: true, stripe: true }, driver: { x: -0.8, y: 1.9, z: -3.5 },
     topSpeedKmh: 110, accel: 2.2, brake: 7, lock: 0.34,
     rating: { speed: 0.25, accel: 0.2, brake: 0.4, steer: 0.25 },
     engine: { base: 32, filter: 520, wave: "sawtooth", rpmRange: 1.8 }, defaultColor: "#ff7043",
+  },
+  {
+    id: "police", name: "Police Car", length: 4.8, width: 1.9, wheelbase: 2.85, wheelRadius: 0.34,
+    body: [[-2.4, 0.38], [-2.4, 0.9], [-2.05, 1.0], [1.25, 1.0], [2.05, 0.87], [2.4, 0.72], [2.4, 0.38]],
+    cabin: [[-1.3, 1.0], [-0.9, 1.52], [0.6, 1.52], [1.3, 1.0]],
+    features: { lightbar: { u: -0.15, y: 1.6 }, livery: "police", siren: true }, driver: { x: -0.4, y: 1.15, z: 0.1 },
+    topSpeedKmh: 230, accel: 7.5, brake: 10, lock: 0.52,
+    rating: { speed: 0.82, accel: 0.78, brake: 0.8, steer: 0.75 },
+    engine: { base: 62, filter: 1300, wave: "sawtooth", rpmRange: 2.9 }, defaultColor: "#f4f6f8",
+  },
+  {
+    id: "ambulance", name: "Ambulance", length: 5.6, width: 2.05, wheelbase: 3.4, wheelRadius: 0.38,
+    body: [[-2.8, 0.42], [-2.8, 1.0], [2.3, 1.0], [2.8, 0.85], [2.8, 0.42]],
+    cabin: [[0.9, 1.0], [0.9, 2.15], [1.3, 2.15], [2.15, 1.3], [2.3, 1.0]],
+    boxes: [{ x0: -2.8, x1: 0.9, y0: 1.0, y1: 2.55 }],
+    windows: [{ x0: 0.95, x1: 1.6, y0: 1.5, y1: 2.0 }],
+    features: { lightbar: { u: 1.1, y: 2.25 }, livery: "ambulance", siren: true }, driver: { x: -0.5, y: 1.7, z: 1.2 },
+    topSpeedKmh: 170, accel: 4.2, brake: 8, lock: 0.42,
+    rating: { speed: 0.5, accel: 0.42, brake: 0.55, steer: 0.4 },
+    engine: { base: 48, filter: 700, wave: "sawtooth", rpmRange: 2.1 }, defaultColor: "#f4f6f8",
+  },
+  {
+    id: "fire", name: "Fire Engine", length: 8, width: 2.5, wheelbase: 4.6, wheelRadius: 0.5,
+    body: [[-4.0, 0.5], [-4.0, 1.1], [4.0, 1.1], [4.0, 0.5]],
+    boxes: [{ x0: -4.0, x1: 0.5, y0: 1.1, y1: 2.5 }, { x0: 0.6, x1: 3.7, y0: 1.1, y1: 2.7 }],
+    windows: [{ x0: 0.9, x1: 3.3, y0: 1.75, y1: 2.45 }],
+    frontGlass: { u: 3.7, y: 2.15, w: 2.2, h: 0.8 },
+    features: { ladder: true, lightbar: { u: 2.2, y: 2.78 }, livery: "fire", siren: true }, driver: { x: -0.6, y: 2.3, z: -2.3 },
+    topSpeedKmh: 120, accel: 2.8, brake: 7.5, lock: 0.36,
+    rating: { speed: 0.3, accel: 0.25, brake: 0.45, steer: 0.3 },
+    engine: { base: 36, filter: 560, wave: "sawtooth", rpmRange: 1.9 }, defaultColor: "#d32f2f",
   },
 ];
 
@@ -104,3 +151,4 @@ export function getVehicleSpec(id: string): VehicleSpec {
 }
 
 export const TRAFFIC_KINDS: VehicleKind[] = ["sedan", "suv", "van", "pickup", "bus"];
+export const EMERGENCY_KINDS: VehicleKind[] = ["police", "ambulance", "fire"];
