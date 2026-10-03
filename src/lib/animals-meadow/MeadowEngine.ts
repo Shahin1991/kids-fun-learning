@@ -21,6 +21,7 @@ interface Slot {
   forward: Spring;
   forwardUntil: number;
   bubble: { sprite: THREE.Sprite; dispose: () => void; life: number } | null;
+  lift: number;
 }
 
 export class MeadowEngine extends ToyScene {
@@ -29,6 +30,8 @@ export class MeadowEngine extends ToyScene {
   private found = new Set<string>();
   private camY = 5;
   private camZ = 12;
+  private mounds: THREE.Mesh[] = [];
+  private moundMat = new THREE.MeshStandardMaterial({ color: 0x7ccf63, roughness: 1 });
 
   constructor(container: HTMLElement, private opts: MeadowOptions = {}) {
     super(container, 0xa9dcff, opts);
@@ -37,7 +40,7 @@ export class MeadowEngine extends ToyScene {
       const rig = buildAnimal(item.id);
       const outer = new THREE.Group();
       outer.add(rig.group);
-      const slot: Slot = { item, index, outer, rig, x: 0, z: 0, forward: new Spring(0, 0, 90, 12), forwardUntil: 0, bubble: null };
+      const slot: Slot = { item, index, outer, rig, x: 0, z: 0, forward: new Spring(0, 0, 90, 12), forwardUntil: 0, bubble: null, lift: 0 };
       // Only slightly larger than the animal so a front animal never swallows taps meant for the row behind.
       outer.add(this.hitBox(slot, 1.8, rig.height + 0.15, 1.8));
       outer.children[outer.children.length - 1].position.y = (rig.height + 0.15) / 2;
@@ -58,11 +61,25 @@ export class MeadowEngine extends ToyScene {
       const r = Math.floor(i / cols);
       s.x = (c - (cols - 1) / 2) * spacing + (r % 2 ? spacing * 0.22 : -spacing * 0.12);
       s.z = -r * Math.min(5.5, spacing * 1.25) + 1.5;
+      // Back rows stand on a grassy terrace so they are never hidden behind the front row.
+      s.lift = r * 1.6;
       const scale = Math.min(1.9, spacing / 2.0);
       s.outer.scale.setScalar(scale);
     });
+    this.mounds.forEach((m) => {
+      this.stage.scene.remove(m);
+      m.geometry.dispose();
+    });
+    this.mounds = [];
+    for (let r = 1; r < rows; r++) {
+      const mound = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 1, r * 1.6, 40), this.moundMat);
+      mound.scale.set(cols * spacing * 0.62, 1, 3.4);
+      mound.position.set(0, (r * 1.6) / 2, -r * Math.min(5.5, spacing * 1.25) + 1.5);
+      this.stage.scene.add(mound);
+      this.mounds.push(mound);
+    }
     this.camZ = dist;
-    this.camY = 8 + rows * 1.2;
+    this.camY = 8 + rows * 1.4;
     const cam = this.stage.camera;
     cam.position.set(0, this.camY, this.camZ);
     cam.lookAt(0, 0.3, -rows * 1.25);
@@ -112,7 +129,7 @@ export class MeadowEngine extends ToyScene {
         s.forwardUntil = 0;
       }
       const f = s.forward.step(dt);
-      s.outer.position.set(s.x, 0, s.z + f);
+      s.outer.position.set(s.x, s.lift, s.z + f);
       s.rig.update(dt, this.time, this.reduced);
       if (s.bubble) {
         s.bubble.life -= dt;
@@ -132,5 +149,6 @@ export class MeadowEngine extends ToyScene {
 
   protected onDestroy() {
     for (const s of this.slots) s.bubble?.dispose();
+    this.moundMat.dispose();
   }
 }

@@ -26,6 +26,7 @@ interface FaceBall {
   fx: number;
   phase: number;
   tex: THREE.CanvasTexture;
+  lift: number;
 }
 
 const REACT_TIME = 1.8;
@@ -35,6 +36,8 @@ export class FeelingsEngine extends ToyScene {
   private floaters: Floaters;
   private found = new Set<string>();
   private lastMilestone = 0;
+  private shelfMat = new THREE.MeshStandardMaterial({ color: 0xe0a96d, roughness: 0.8 });
+  private shelves: THREE.Mesh[] = [];
 
   constructor(container: HTMLElement, private opts: FeelingsOptions = {}) {
     super(container, 0xffe8f0, opts);
@@ -52,7 +55,7 @@ export class FeelingsEngine extends ToyScene {
       const group = new THREE.Group();
       const ball = new THREE.Mesh(new THREE.SphereGeometry(1.2, 40, 30), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.25 }));
       group.add(ball);
-      const fb: FaceBall = { item, index, emotion: item.id as Emotion, group, ball, x: 0, z: 0, squash: new Spring(0, 0, 220, 9), pop: new Spring(0, 0, 200, 10), react: 0, fx: 0, phase: Math.random() * 6, tex };
+      const fb: FaceBall = { item, index, emotion: item.id as Emotion, group, ball, x: 0, z: 0, squash: new Spring(0, 0, 220, 9), pop: new Spring(0, 0, 200, 10), react: 0, fx: 0, phase: Math.random() * 6, tex, lift: 0 };
       const hit = new THREE.Mesh(new THREE.SphereGeometry(1.4, 12, 10), new THREE.MeshBasicMaterial({ visible: false }));
       hit.userData.owner = fb;
       group.add(hit);
@@ -72,12 +75,25 @@ export class FeelingsEngine extends ToyScene {
       const c = i % cols;
       const r = Math.floor(i / cols);
       f.x = (c - (cols - 1) / 2) * spacing;
-      f.z = 1.5 - r * Math.min(5, spacing * 1.35);
+      f.z = 1.5 - r * Math.min(4.6, spacing * 1.2);
       f.group.scale.setScalar(Math.min(1.25, spacing / 2.9));
+      // Back rows stand on a shelf so every face is fully visible and easy to reach.
+      f.lift = r * 2.4;
     });
+    this.shelves.forEach((m) => {
+      this.stage.scene.remove(m);
+      m.geometry.dispose();
+    });
+    this.shelves = [];
+    for (let r = 1; r < rows; r++) {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(cols * spacing + 1.6, r * 2.4, 3.6), this.shelfMat);
+      shelf.position.set(0, (r * 2.4) / 2, 1.5 - r * Math.min(4.6, spacing * 1.2));
+      this.stage.scene.add(shelf);
+      this.shelves.push(shelf);
+    }
     const cam = this.stage.camera;
-    cam.position.set(0, 7.5 + rows * 1.0, dist);
-    cam.lookAt(0, 1.2, -2.2);
+    cam.position.set(0, 5 + rows * 1.2, dist);
+    cam.lookAt(0, 2.6 + (rows - 1) * 0.8, -2.2);
   }
 
   activate(id: string) {
@@ -196,7 +212,7 @@ export class FeelingsEngine extends ToyScene {
           }
         }
       }
-      f.group.position.set(f.x + dx * base, 1.2 * base + (dy + hop * 0.12) * base, f.z);
+      f.group.position.set(f.x + dx * base, 1.2 * base + (dy + hop * 0.12) * base + f.lift, f.z);
       f.group.rotation.set(0, rotY, rotZ);
       f.ball.scale.set(sx, sy, sx);
       f.ball.position.y = 0;
@@ -205,5 +221,6 @@ export class FeelingsEngine extends ToyScene {
 
   protected onDestroy() {
     this.faces.forEach((f) => f.tex.dispose());
+    this.shelfMat.dispose();
   }
 }
