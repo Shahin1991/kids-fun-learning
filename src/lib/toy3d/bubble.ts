@@ -37,3 +37,33 @@ export function makeBubble(text: string): { sprite: THREE.Sprite; dispose: () =>
     },
   };
 }
+
+/** Big outlined word (e.g. a colour name) as a sprite. */
+export function makeTitle(text: string, fill: string): { sprite: THREE.Sprite; dispose: () => void } {
+  const c = document.createElement("canvas");
+  c.width = 640;
+  c.height = 220;
+  const g = c.getContext("2d")!;
+  g.font = "900 150px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.lineJoin = "round";
+  g.lineWidth = 26;
+  g.strokeStyle = "#ffffff";
+  g.strokeText(text, 320, 112, 600);
+  g.fillStyle = fill;
+  g.fillText(text, 320, 112, 600);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.renderOrder = 10;
+  sprite.scale.set(5.2, 1.8, 1);
+  return {
+    sprite,
+    dispose: () => {
+      tex.dispose();
+      mat.dispose();
+    },
+  };
+}

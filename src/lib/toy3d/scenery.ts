@@ -105,4 +105,29 @@ export function addMeadow(scene: THREE.Scene): Drifter {
   return addClouds(scene, 6, 9, -22);
 }
 
+/** A cosy playroom: floor, back wall (returned so its colour can change) and a round rug. */
+export function addToyRoom(scene: THREE.Scene, wall = 0xffefc2, floor = 0xc99560) {
+  scene.add(new THREE.AmbientLight(0xffffff, 0.62 * Math.PI));
+  const key = new THREE.DirectionalLight(0xfff4dc, 0.9 * Math.PI);
+  key.position.set(5, 12, 10);
+  scene.add(key);
+  const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(80, 40), new THREE.MeshStandardMaterial({ color: floor, roughness: 0.9 }));
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.position.z = -6;
+  scene.add(floorMesh);
+  const wallMat = new THREE.MeshStandardMaterial({ color: wall, roughness: 1 });
+  const wallMesh = new THREE.Mesh(new THREE.PlaneGeometry(80, 40), wallMat);
+  wallMesh.position.set(0, 19, -8);
+  scene.add(wallMesh);
+  const skirting = new THREE.Mesh(new THREE.BoxGeometry(80, 0.5, 0.3), mat(0xffffff));
+  skirting.position.set(0, 0.25, -7.85);
+  scene.add(skirting);
+  const rug = new THREE.Mesh(new THREE.CircleGeometry(10, 48), mat(0xff9fb8));
+  rug.rotation.x = -Math.PI / 2;
+  rug.position.set(0, 0.02, -1);
+  rug.scale.set(1.5, 1, 0.8);
+  scene.add(rug);
+  return { wallMat, wallMesh };
+}
+
 export { cone as unitCone, cyl as unitCylinder, sphere as unitSphere, mat as toyMaterial };
