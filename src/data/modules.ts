@@ -33,6 +33,7 @@ export const MODULES: LearningModule[] = [
   { id: "numbers", title: "Numbers", ageGroup: "early-learning", route: "/early-learning/numbers", icon: "🔢", colorToken: "kid-green", description: "Count and add" },
   { id: "memory", title: "Memory Match", ageGroup: "early-learning", route: "/early-learning/memory", icon: "🃏", colorToken: "kid-purple", description: "Flip cards and find pairs" },
   { id: "bubble-pop", title: "Bubble Pop", ageGroup: "early-learning", route: "/early-learning/bubble-pop", icon: "🫧", colorToken: "kid-blue", description: "Pop the matching bubble" },
+  { id: "block-tower", title: "Block Tower", ageGroup: "early-learning", route: "/early-learning/block-tower", icon: "🧱", colorToken: "kid-red", description: "Stack wobbly blocks, then knock them down" },
   { id: "balance-scale", title: "Balance Scale", ageGroup: "early-learning", route: "/early-learning/balance-scale", icon: "⚖️", colorToken: "kid-orange", description: "Make both sides equal" },
 
   { id: "math-racer", title: "Math Racer", ageGroup: "advanced", route: "/advanced/math-racer", icon: "🏎️", colorToken: "kid-red", description: "Answer to race down the road" },

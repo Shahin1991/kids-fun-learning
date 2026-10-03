@@ -9,3 +9,8 @@
 - No synchronous `setState` in an effect body; wrap in `setTimeout(fn, 0)` or call from async callbacks.
 - Don't mutate or read refs during render; no impure calls (`Date.now`, `Math.random`) in render. Use lazy `useState` initialisers and `ClientOnly` for random content.
 - Declare helpers before the effects that use them.
+
+## Block Tower physics
+- Uses `cannon-es` (pure JS, no WASM) with Three.js rendering; Rapier would add a ~1.5 MB WASM binary.
+- Settings were tuned in a headless simulation: friction 0.8, no bounce, low spin and a short drop keep towers stackable. Blocks are mostly locked to the screen plane (`linearFactor.z`, `angularFactor`).
+- Sounds are played by the page through `audioManager` so they follow the sound toggle; pitch rises with tower height.
