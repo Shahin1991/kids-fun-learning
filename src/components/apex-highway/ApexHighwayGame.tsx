@@ -78,6 +78,41 @@ function TouchButton({ label, onChange, children }: { label: string; onChange: (
   );
 }
 
+/** A car pedal: ribbed rubber pad on a metal plate that tilts down while held. */
+function Pedal({ label, accent, className, onChange, children }: { label: string; accent: string; className: string; onChange: (down: boolean) => void; children: React.ReactNode }) {
+  const [down, setDown] = useState(false);
+  const set = (v: boolean) => {
+    setDown(v);
+    onChange(v);
+  };
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={down}
+      className={`relative flex touch-none select-none flex-col items-center justify-end gap-1 rounded-2xl pb-2 text-sm font-extrabold tracking-widest text-white/90 transition-transform duration-75 ${className}`}
+      style={{
+        background: "repeating-linear-gradient(180deg, #23252b 0 7px, #3b3f48 7px 11px)",
+        border: "3px solid #aab3bd",
+        boxShadow: down ? "inset 0 5px 12px rgba(0,0,0,0.7), 0 2px 0 #0d0f14" : "inset 0 2px 0 rgba(255,255,255,0.25), 0 9px 0 #0d0f14, 0 14px 20px rgba(0,0,0,0.5)",
+        transform: down ? "perspective(260px) translateY(7px) rotateX(16deg)" : "perspective(260px) rotateX(0deg)",
+        transformOrigin: "50% 100%",
+      }}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        set(true);
+      }}
+      onPointerUp={() => set(false)}
+      onPointerCancel={() => set(false)}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <span className="absolute inset-x-3 top-2 h-1.5 rounded-full" style={{ background: down ? accent : "rgba(255,255,255,0.18)", boxShadow: down ? `0 0 10px ${accent}` : undefined }} />
+      <span className="text-3xl drop-shadow">{children}</span>
+      <span style={{ textShadow: "0 1px 0 #000" }}>{label.toUpperCase()}</span>
+    </button>
+  );
+}
+
 export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -218,9 +253,9 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
                 <TouchButton label="Steer left" onChange={(down) => engineRef.current?.setInput("left", down)}>◀</TouchButton>
                 <TouchButton label="Steer right" onChange={(down) => engineRef.current?.setInput("right", down)}>▶</TouchButton>
               </div>
-              <div className="absolute bottom-4 right-4 flex gap-3">
-                <TouchButton label="Brake" onChange={(down) => engineRef.current?.setInput("brake", down)}>🛑</TouchButton>
-                <TouchButton label="Gas" onChange={(down) => engineRef.current?.setInput("gas", down)}>⛽</TouchButton>
+              <div className="absolute bottom-5 right-4 flex items-end gap-4">
+                <Pedal label="Brake" accent="#ff5252" className="h-24 w-36" onChange={(down) => engineRef.current?.setInput("brake", down)}>🛑</Pedal>
+                <Pedal label="Gas" accent="#4ade80" className="h-36 w-24" onChange={(down) => engineRef.current?.setInput("gas", down)}>⚡</Pedal>
               </div>
             </>
           )}

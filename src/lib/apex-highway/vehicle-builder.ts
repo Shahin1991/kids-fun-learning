@@ -36,8 +36,77 @@ export function getGlowTexture(): THREE.CanvasTexture {
   return glowTexture;
 }
 export function disposeGlowTexture() {
+  labelTextures.forEach((t) => t.dispose());
+  labelTextures.clear();
   glowTexture?.dispose();
   glowTexture = null;
+}
+
+const labelTextures = new Map<string, THREE.CanvasTexture>();
+function getLabelTexture(text: string): THREE.CanvasTexture {
+  let t = labelTextures.get(text);
+  if (!t) {
+    const c = document.createElement("canvas");
+    c.width = 512;
+    c.height = 80;
+    const g = c.getContext("2d")!;
+    g.font = "bold 62px sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillStyle = "#ffffff";
+    g.fillText(text, 256, 44);
+    t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    labelTextures.set(text, t);
+  }
+  return t;
+}
+
+type Pt = [number, number];
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const smooth = (a: number, b: number, v: number) => {
+  const t = clamp01((v - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
+
+/** Appends an open chain of points with rounded interior corners (quadratic fillets). */
+function roundedChain(shape: THREE.Shape, pts: Pt[], radius: number) {
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [p0, p1, p2] = [pts[i - 1], pts[i], pts[i + 1]];
+    const d0 = Math.hypot(p0[0] - p1[0], p0[1] - p1[1]);
+    const d2 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    const r = Math.min(radius, d0 * 0.45, d2 * 0.45);
+    shape.lineTo(p1[0] + ((p0[0] - p1[0]) / d0) * r, p1[1] + ((p0[1] - p1[1]) / d0) * r);
+    shape.quadraticCurveTo(p1[0], p1[1], p1[0] + ((p2[0] - p1[0]) / d2) * r, p1[1] + ((p2[1] - p1[1]) / d2) * r);
+  }
+  shape.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+}
+
+/** Closed polygon with every corner rounded. */
+function roundedClosed(pts: Pt[], radius: number): THREE.Shape {
+  const shape = new THREE.Shape();
+  const n = pts.length;
+  const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const start = mid(pts[n - 1], pts[0]);
+  shape.moveTo(start[0], start[1]);
+  roundedChain(shape, [start, ...pts, start].map((p) => p as Pt), radius);
+  shape.closePath();
+  return shape;
+}
+
+/** Lower body: rounded profile with semicircular wheel arches cut into the bottom edge. */
+function bodyShape(pts: Pt[], radius: number, arches: { u: number; r: number; cy: number }[]): THREE.Shape {
+  const shape = new THREE.Shape();
+  shape.moveTo(pts[0][0], pts[0][1]);
+  roundedChain(shape, pts, radius);
+  const y0 = pts[0][1];
+  for (const a of [...arches].sort((m, n) => n.u - m.u)) {
+    const a0 = Math.asin(Math.max(-1, Math.min(1, (y0 - a.cy) / a.r)));
+    shape.lineTo(a.u + a.r * Math.cos(a0), y0);
+    shape.absarc(a.u, a.cy, a.r, a0, Math.PI - a0, false);
+  }
+  shape.closePath();
+  return shape;
 }
 
 export interface BuiltVehicle {
@@ -84,36 +153,71 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     return mesh;
   };
 
-  const extrude = (key: string, pts: [number, number][], width: number, bevel: number) =>
+  const hw = W / 2;
+  const halfL = L / 2;
+  const shaped = !spec.boxes;
+  const bodyYs = spec.body.map((p) => p[1]);
+  const bodyBottom = Math.min(...bodyYs);
+  const bodyTop = Math.max(...bodyYs);
+  const R = spec.wheelRadius;
+  const archR = Math.min(R * 1.22, bodyTop - 0.05 - R);
+  const hasArches = archR >= R * 1.05;
+
+  const extrude = (key: string, shape: () => THREE.Shape, width: number, bevel: number, deform?: (v: THREE.Vector3) => void) =>
     cache.get(`${spec.id}:${key}`, () => {
-      const shape = new THREE.Shape();
-      pts.forEach(([x, y], i) => (i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y)));
-      shape.closePath();
-      const geo = new THREE.ExtrudeGeometry(shape, { depth: width - bevel * 2, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 3, curveSegments: 6 });
+      const geo = new THREE.ExtrudeGeometry(shape(), { depth: width - bevel * 2, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 3, curveSegments: 10 });
       geo.translate(0, 0, -(width - bevel * 2) / 2);
       geo.rotateY(Math.PI / 2);
-      return toCreasedNormals(geo, Math.PI / 5);
+      if (deform) {
+        const pos = geo.getAttribute("position");
+        const v = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i);
+          deform(v);
+          pos.setXYZ(i, v.x, v.y, v.z);
+        }
+      }
+      return toCreasedNormals(geo, Math.PI / 4);
     });
 
-  add(extrude("body", spec.body, W - 0.1, 0.06), paint, 0, 0, 0, true);
+  // Real bodies narrow toward the roof and the nose/tail and have a slightly crowned hood.
+  const bodyDeform = (v: THREE.Vector3) => {
+    const t = clamp01((v.y - bodyBottom) / (bodyTop - bodyBottom));
+    const plan = 1 - 0.16 * Math.pow(Math.min(1, Math.abs(v.z) / halfL), 3);
+    v.x *= (1 - 0.06 * smooth(0.5, 1, t)) * plan;
+    if (t > 0.9) v.y += 0.04 * (1 - Math.min(1, (v.x / hw) ** 2));
+  };
+  const cabin0 = spec.cabin;
+  const roofTop = cabin0 ? cabin0[1][1] : 0;
+  const cabinTaper = (y: number) => (shaped && cabin0 ? 1 - 0.2 * clamp01((y - cabin0[0][1]) / (roofTop - cabin0[0][1])) : 1);
+  const cabinDeform = (v: THREE.Vector3) => {
+    const plan = 1 - 0.1 * Math.pow(Math.min(1, Math.abs(v.z) / halfL), 3);
+    v.x *= cabinTaper(v.y) * plan;
+  };
+
+  const archSpec = hasArches ? [-1, 1].map((sz) => ({ u: sz * (spec.wheelbase / 2), r: archR, cy: R })) : [];
+  add(extrude("body", () => bodyShape(spec.body, shaped ? 0.2 : 0.08, archSpec), W - 0.1, 0.06, shaped ? bodyDeform : undefined), paint, 0, 0, 0, true);
   for (const b of spec.boxes ?? []) add(box(`box${b.x0}`, W - 0.05, b.y1 - b.y0, b.x1 - b.x0), paint, 0, (b.y0 + b.y1) / 2, -(b.x0 + b.x1) / 2, true);
 
   const cabin = spec.cabin;
   if (cabin) {
-    add(extrude("cabin", cabin, W - 0.22, 0.03), glass, 0, 0, 0);
+    add(extrude("cabin", () => roundedClosed(cabin, shaped ? 0.32 : 0.05), W - 0.22, 0.03, shaped ? cabinDeform : undefined), glass, 0, 0, 0);
     // Roof slab and pillars
     const roofLen = cabin[2][0] - cabin[1][0];
     const roofY = cabin[1][1];
-    add(box("roof", W - 0.2, 0.06, roofLen + 0.1), paint, 0, roofY + 0.02, -(cabin[1][0] + cabin[2][0]) / 2, true);
-    const bar = (a: [number, number], b: [number, number], x: number) => {
+    add(box("roof", (W - 0.2) * cabinTaper(roofY) * 0.97, 0.06, shaped ? roofLen - 0.1 : roofLen + 0.1), paint, 0, roofY + 0.02, -(cabin[1][0] + cabin[2][0]) / 2, true);
+    const bar = (a: [number, number], b: [number, number], x0: number) => {
+      const x = x0 * cabinTaper((a[1] + b[1]) / 2);
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
       const m = add(box(`bar${a}${b}`, 0.07, len, 0.07), paint, x, (a[1] + b[1]) / 2, -(a[0] + b[0]) / 2);
       m.rotation.x = Math.atan2(-(b[0] - a[0]), b[1] - a[1]);
     };
     for (const s of [-1, 1]) {
       const x = s * (W / 2 - 0.1);
-      bar(cabin[3], cabin[2], x);
-      bar(cabin[0], cabin[1], x);
+      if (!shaped) {
+        bar(cabin[3], cabin[2], x);
+        bar(cabin[0], cabin[1], x);
+      }
       const midU = (cabin[1][0] + cabin[2][0]) / 2;
       bar([midU, cabin[0][1]], [midU, roofY], x);
     }
@@ -199,15 +303,36 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     pool.renderOrder = 2;
   }
 
+  // Bumpers, grille and number plates
+  if (detailed) {
+    const bumperY = bodyBottom + 0.16;
+    add(box("bumpf", W - 0.14, 0.2, 0.14), dark, 0, bumperY, frontZ - 0.03);
+    add(box("bumpr", W - 0.14, 0.2, 0.14), dark, 0, bumperY, -frontZ + 0.03);
+    add(box("grille", W * 0.4, 0.16, 0.05), dark, 0, lightY - 0.02, frontZ - 0.04);
+    add(box("grilleframe", W * 0.4 + 0.04, 0.02, 0.05), chrome, 0, lightY + 0.08, frontZ - 0.045);
+    const plate = mat(new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 }));
+    add(box("plater", 0.5, 0.12, 0.02), plate, 0, bumperY + 0.2, -frontZ + 0.1);
+    add(box("platef", 0.5, 0.12, 0.02), plate, 0, bumperY + 0.2, frontZ - 0.1);
+  }
+
   // Emergency liveries and light bar
   let tick: (t: number, on: boolean) => void = () => {};
   const accent = (c: number) => mat(new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 }));
   if (f.livery === "police") {
     const blue = accent(0x1d4ed8);
     for (const s of [-1, 1]) {
-      add(box("pstripe", 0.012, 0.14, L * 0.72), blue, s * (W / 2 + 0.012), 0.72, 0);
-      add(box("pdoor", 0.012, 0.3, 0.9), blue, s * (W / 2 + 0.013), 0.55, -0.4);
+      add(box("pstripe", 0.012, 0.26, L * 0.72), blue, s * (W / 2 + 0.012), 0.74, 0);
+      const label = new THREE.Mesh(
+        cache.get("policelabel", () => new THREE.PlaneGeometry(1.7, 0.27)),
+        mat(new THREE.MeshBasicMaterial({ map: getLabelTexture("POLICE"), transparent: true, depthWrite: false })),
+      );
+      label.position.set(s * (W / 2 + 0.022), 0.74, -0.3);
+      label.rotation.y = s * (Math.PI / 2);
+      group.add(label);
     }
+    // Push bar on the front bumper
+    add(box("pushbar", W - 0.5, 0.1, 0.1), dark, 0, bodyBottom + 0.42, frontZ - 0.16);
+    for (const s of [-1, 1]) add(box("pushpost", 0.08, 0.34, 0.08), dark, s * (W / 2 - 0.35), bodyBottom + 0.3, frontZ - 0.12);
   } else if (f.livery === "ambulance") {
     const red = accent(0xd32f2f);
     for (const s of [-1, 1]) {
@@ -259,17 +384,17 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   // Wheels with arches
   const spinGroups: THREE.Group[] = [];
   const steerGroups: THREE.Group[] = [];
-  const R = spec.wheelRadius;
   const tyreW = 0.26;
   const tyreGeo = cache.get(`${spec.id}:tyre`, () => new THREE.CylinderGeometry(R, R, tyreW, 28).rotateZ(Math.PI / 2));
   const rimGeo = cache.get(`${spec.id}:rim`, () => new THREE.CylinderGeometry(R * 0.62, R * 0.62, tyreW + 0.02, 20).rotateZ(Math.PI / 2));
   const spokeGeo = cache.get(`${spec.id}:spoke`, () => new THREE.BoxGeometry(tyreW + 0.04, 0.05, R * 1.2));
-  const archGeo = cache.get(`${spec.id}:arch`, () => new THREE.CylinderGeometry(R * 1.18, R * 1.18, 0.05, 24).rotateZ(Math.PI / 2));
+  const wellR = hasArches ? archR * 0.97 : R * 1.18;
+  const wellGeo = cache.get(`${spec.id}:well`, () => new THREE.CylinderGeometry(wellR, wellR, hasArches ? 0.7 : 0.05, 24).rotateZ(Math.PI / 2));
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const wx = sx * (W / 2 - 0.12);
       const wz = sz * (spec.wheelbase / 2);
-      add(archGeo, dark, sx * (W / 2 - 0.02), R, wz);
+      add(wellGeo, dark, sx * (hasArches ? W / 2 - 0.4 : W / 2 - 0.02), R, wz);
       const steer = new THREE.Group();
       steer.position.set(wx, R, wz);
       const spin = new THREE.Group();
