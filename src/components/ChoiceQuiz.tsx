@@ -30,13 +30,13 @@ export function ChoiceQuiz({ moduleId, items }: { moduleId: string; items: FactI
 
   return (
     <div className="flex flex-1 flex-col items-center gap-6">
-      <button type="button" onClick={() => audioManager.speak(round.target.label)} className="rounded-3xl bg-white px-6 py-3 text-4xl font-extrabold shadow-md">
+      <button type="button" onClick={() => audioManager.speak(round.target.label)} className="rounded-3xl bg-surface px-6 py-3 text-4xl font-extrabold shadow-md">
         🔊 {round.target.label}
       </button>
       <div className="flex flex-wrap justify-center gap-4">
         {round.choices.map((c) => (
           <ShakeOnWrong key={c.id} trigger={wobble.id === c.id ? wobble.n : 0}>
-            <button type="button" aria-label={c.label} onClick={() => pick(c.id)} className="flex min-h-touch min-w-40 items-center justify-center rounded-3xl bg-white p-4 shadow-md active:scale-95">
+            <button type="button" aria-label={c.label} onClick={() => pick(c.id)} className="flex min-h-touch min-w-40 items-center justify-center rounded-3xl bg-surface p-4 shadow-md active:scale-95">
               <ItemArt art={c.art} emoji={c.emoji} label={c.label} size={96} />
             </button>
           </ShakeOnWrong>

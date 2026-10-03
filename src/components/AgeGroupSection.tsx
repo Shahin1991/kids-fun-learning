@@ -5,7 +5,7 @@ export function AgeGroupSection({ ageGroup, modules }: { ageGroup: AgeGroup; mod
   if (modules.length === 0) return null;
   const token = ageGroup === "early-learning" ? "early" : ageGroup;
   return (
-    <section aria-labelledby={`group-${ageGroup}`} className="rounded-3xl p-4" style={{ background: `color-mix(in srgb, var(--color-${token}) 35%, white)` }}>
+    <section aria-labelledby={`group-${ageGroup}`} className="rounded-3xl p-4" style={{ background: `color-mix(in srgb, var(--color-${token}) var(--tint), var(--surface))` }}>
       <h2 id={`group-${ageGroup}`} className="mb-3 text-3xl font-extrabold" style={{ color: `var(--color-${token}-dark)` }}>
         {AGE_GROUP_LABELS[ageGroup]}
       </h2>

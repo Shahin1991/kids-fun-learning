@@ -12,7 +12,7 @@ export interface ParadeGameProps {
   className?: string;
 }
 
-const ROUND = "flex min-h-touch min-w-touch items-center justify-center rounded-full bg-white/90 text-3xl shadow active:scale-95";
+const ROUND = "flex min-h-touch min-w-touch items-center justify-center rounded-full bg-surface/90 text-3xl shadow active:scale-95";
 const PILL = "flex min-h-touch items-center justify-center rounded-3xl px-6 text-2xl font-bold shadow active:scale-95";
 
 export default function ParadeGame({ onPrompt, onCorrect, onWrong, onExit, reducedMotion, className = "" }: ParadeGameProps) {
@@ -75,15 +75,15 @@ export default function ParadeGame({ onPrompt, onCorrect, onWrong, onExit, reduc
         type="button"
         onClick={() => engineRef.current?.repeat()}
         aria-label={`Find ${prompt}. Tap to hear it again`}
-        className="absolute left-1/2 top-3 flex min-h-touch -translate-x-1/2 items-center gap-3 rounded-full bg-white/95 px-6 text-3xl font-extrabold text-slate-700 shadow active:scale-95"
+        className="absolute left-1/2 top-3 flex min-h-touch -translate-x-1/2 items-center gap-3 rounded-full bg-surface/95 px-6 text-3xl font-extrabold text-foreground shadow active:scale-95"
       >
         🔊 {failed ? "3D is not available" : `Find ${prompt}`}
       </button>
       <div className="absolute inset-x-0 bottom-3 flex justify-center gap-3">
-        <button type="button" aria-pressed={mode === "letters"} onClick={() => pick("letters")} className={`${PILL} ${mode === "letters" ? "bg-kid-blue text-white" : "bg-white/90 text-slate-700"}`}>
+        <button type="button" aria-pressed={mode === "letters"} onClick={() => pick("letters")} className={`${PILL} ${mode === "letters" ? "bg-kid-blue text-white" : "bg-surface/90 text-foreground"}`}>
           🔤 Letters
         </button>
-        <button type="button" aria-pressed={mode === "numbers"} onClick={() => pick("numbers")} className={`${PILL} ${mode === "numbers" ? "bg-kid-green text-white" : "bg-white/90 text-slate-700"}`}>
+        <button type="button" aria-pressed={mode === "numbers"} onClick={() => pick("numbers")} className={`${PILL} ${mode === "numbers" ? "bg-kid-green text-white" : "bg-surface/90 text-foreground"}`}>
           🔢 Numbers
         </button>
       </div>

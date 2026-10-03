@@ -25,3 +25,8 @@
 - Animals are procedural rounded toys (`toy3d/animals.ts`: quad / bird / frog templates + per-species specs); faces are drawn on canvas (`toy3d/faces.ts`); shape outlines live in `toy3d/outlines.ts`.
 - Shapes and Big/Small sort mode also accept a plain tap (sends the piece home), so dragging is optional.
 - Tap Party deliberately awards no stars (spec).
+
+## Dark mode
+- Colours come from CSS tokens in `src/app/globals.css` (`--background`, `--foreground`, `--surface`, `--*-dark`); `:root[data-theme="dark"]` overrides them. Use `bg-surface` / `text-foreground` instead of `bg-white` / `text-slate-*`, and `text-ink` for text on fixed bright colours.
+- `ThemeProvider` keeps the choice (`system | light | dark`) in localStorage; an inline script in `layout.tsx` sets `data-theme` before first paint to avoid a flash. Toggle: home header; full control in the parent dashboard.
+- The 3D game worlds keep their own bright scenes; only the surrounding UI (header, pills, buttons) follows the theme.

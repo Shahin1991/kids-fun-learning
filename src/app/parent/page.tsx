@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTheme, type ThemePref } from "@/components/ThemeProvider";
 import { useSetMotionOverride } from "@/components/ReducedMotionProvider";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -17,6 +18,7 @@ import { getSettings, updateSettings } from "@/lib/storage/settings";
 export default function ParentDashboard() {
   const router = useRouter();
   const setMotionOverride = useSetMotionOverride();
+  const { pref: themePref, setPref: setThemePref } = useTheme();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [progress, setProgress] = useState<Record<string, ProgressRecord[]>>({});
   const [stars, setStars] = useState<Record<string, number>>({});
@@ -99,6 +101,15 @@ export default function ParentDashboard() {
         <div className="flex flex-wrap gap-2">
           {([[null, "Follow device"], [true, "Reduce motion"], [false, "Full motion"]] as const).map(([v, label]) => (
             <Button key={label} variant={settings.reducedMotion === v ? "primary" : "ghost"} onClick={() => setMotion(v)}>{label}</Button>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-2 text-2xl font-bold">Appearance</h2>
+        <div className="flex flex-wrap gap-2">
+          {([["system", "Follow device"], ["light", "☀️ Light"], ["dark", "🌙 Dark"]] as [ThemePref, string][]).map(([v, label]) => (
+            <Button key={v} variant={themePref === v ? "primary" : "ghost"} onClick={() => setThemePref(v)}>{label}</Button>
           ))}
         </div>
       </Card>

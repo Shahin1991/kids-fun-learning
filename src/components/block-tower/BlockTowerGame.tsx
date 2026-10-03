@@ -11,7 +11,7 @@ export interface BlockTowerGameProps {
   className?: string;
 }
 
-const ROUND = "flex min-h-touch min-w-touch items-center justify-center rounded-full bg-white/90 text-3xl shadow active:scale-95";
+const ROUND = "flex min-h-touch min-w-touch items-center justify-center rounded-full bg-surface/90 text-3xl shadow active:scale-95";
 const PILL = "flex min-h-touch min-w-touch items-center justify-center gap-2 rounded-3xl px-5 text-2xl font-bold shadow active:scale-95";
 
 export default function BlockTowerGame({ onMilestone, onSound, onExit, reducedMotion, className = "" }: BlockTowerGameProps) {
@@ -68,7 +68,7 @@ export default function BlockTowerGame({ onMilestone, onSound, onExit, reducedMo
           ✕
         </button>
       )}
-      <div role="status" className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-xl font-bold text-slate-700 shadow">
+      <div role="status" className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-surface/90 px-5 py-2 text-xl font-bold text-foreground shadow">
         {status}
       </div>
       <button type="button" aria-label="Start over" onClick={() => engineRef.current?.reset()} className={`${ROUND} absolute right-3 top-3`}>
@@ -82,7 +82,7 @@ export default function BlockTowerGame({ onMilestone, onSound, onExit, reducedMo
             setModeState("build");
             engineRef.current?.setMode("build");
           }}
-          className={`${PILL} ${mode === "build" ? "bg-kid-blue text-white" : "bg-white/90 text-slate-700"}`}
+          className={`${PILL} ${mode === "build" ? "bg-kid-blue text-white" : "bg-surface/90 text-foreground"}`}
         >
           🧱 Build
         </button>
@@ -93,7 +93,7 @@ export default function BlockTowerGame({ onMilestone, onSound, onExit, reducedMo
             setModeState("knock");
             engineRef.current?.setMode("knock");
           }}
-          className={`${PILL} ${mode === "knock" ? "bg-kid-orange text-white" : "bg-white/90 text-slate-700"}`}
+          className={`${PILL} ${mode === "knock" ? "bg-kid-orange text-white" : "bg-surface/90 text-foreground"}`}
         >
           👆 Poke
         </button>

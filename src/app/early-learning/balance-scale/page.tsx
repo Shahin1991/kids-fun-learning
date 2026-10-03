@@ -31,7 +31,7 @@ export default function BalanceScalePage() {
       <button
         type="button"
         onClick={() => setChallenge((c) => !c)}
-        className="absolute bottom-4 right-4 min-h-touch rounded-3xl bg-white/90 px-6 text-xl font-bold shadow"
+        className="absolute bottom-4 right-4 min-h-touch rounded-3xl bg-surface/90 px-6 text-xl font-bold shadow"
       >
         {challenge ? "🧩 Puzzle mode" : "🎲 Free play"} · switch
       </button>

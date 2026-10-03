@@ -56,11 +56,11 @@ export default function BalloonGame({ onPop, onMilestone, onExit, reducedMotion,
   return (
     <div ref={containerRef} className={`relative touch-none overflow-hidden ${className}`} style={{ position: "relative", overflow: "hidden", touchAction: "none" }}>
       {onExit && (
-        <button type="button" aria-label="Exit" onClick={onExit} className="absolute left-3 top-3 flex min-h-touch min-w-touch items-center justify-center rounded-full bg-white/90 text-3xl shadow active:scale-95">
+        <button type="button" aria-label="Exit" onClick={onExit} className="absolute left-3 top-3 flex min-h-touch min-w-touch items-center justify-center rounded-full bg-surface/90 text-3xl shadow active:scale-95">
           ✕
         </button>
       )}
-      <div role="status" className="absolute right-3 top-3 flex min-h-touch items-center rounded-full bg-white/90 px-5 text-3xl font-extrabold text-slate-700 shadow">
+      <div role="status" className="absolute right-3 top-3 flex min-h-touch items-center rounded-full bg-surface/90 px-5 text-3xl font-extrabold text-foreground shadow">
         {failed ? "3D is not available" : `🎈 ${total}`}
       </div>
     </div>

@@ -27,7 +27,7 @@ export function BadgeToast() {
       {badge && (
         <motion.div
           role="status"
-          className="fixed inset-x-4 top-4 z-50 mx-auto flex max-w-sm items-center gap-3 rounded-3xl bg-white p-4 shadow-xl"
+          className="fixed inset-x-4 top-4 z-50 mx-auto flex max-w-sm items-center gap-3 rounded-3xl bg-surface p-4 shadow-xl"
           initial={{ y: -80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -80, opacity: 0 }}

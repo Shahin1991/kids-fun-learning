@@ -20,7 +20,7 @@ export function ProgressStars({ moduleId }: { moduleId: string }) {
   }, [moduleId]);
 
   return (
-    <span aria-label={`${count} stars`} className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xl font-bold shadow">
+    <span aria-label={`${count} stars`} className="flex items-center gap-1 rounded-full bg-surface px-3 py-1 text-xl font-bold shadow">
       ⭐ {count}
     </span>
   );

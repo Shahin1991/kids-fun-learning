@@ -6,8 +6,8 @@ type Variant = "primary" | "secondary" | "ghost";
 
 const STYLES: Record<Variant, string> = {
   primary: "bg-kid-blue text-white shadow-md",
-  secondary: "bg-kid-yellow text-foreground shadow-md",
-  ghost: "bg-white/70 text-foreground",
+  secondary: "bg-kid-yellow text-ink shadow-md",
+  ghost: "bg-surface/70 text-foreground",
 };
 
 export function Button({ variant = "primary", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {

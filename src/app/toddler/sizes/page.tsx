@@ -44,7 +44,7 @@ export default function SizesPage() {
       {(engine) => (
         <>
           <div className="pointer-events-none absolute inset-x-0 top-20 flex justify-center">
-            <p role="status" className="rounded-full bg-white/95 px-6 py-2 text-3xl font-extrabold text-slate-700 shadow">
+            <p role="status" className="rounded-full bg-surface/95 px-6 py-2 text-3xl font-extrabold text-foreground shadow">
               {mode === "tap" ? `Tap the ${ask === "small" ? "SMALL" : "BIG"} one!  🔥 ${streak}` : "Small ➜ Big: put them on the steps"}
             </p>
           </div>
@@ -58,7 +58,7 @@ export default function SizesPage() {
                   setMode(m);
                   (engine as SizeEngine | null)?.setMode(m);
                 }}
-                className={`min-h-touch rounded-3xl px-6 text-2xl font-bold shadow active:scale-95 ${mode === m ? "bg-kid-green text-white" : "bg-white/90 text-slate-700"}`}
+                className={`min-h-touch rounded-3xl px-6 text-2xl font-bold shadow active:scale-95 ${mode === m ? "bg-kid-green text-white" : "bg-surface/90 text-foreground"}`}
               >
                 {m === "tap" ? "🐘 Big or Small" : "🪜 Sort Them"}
               </button>

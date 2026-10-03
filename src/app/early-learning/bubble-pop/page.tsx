@@ -52,7 +52,7 @@ function Game({ mode, onBack }: { mode: BubbleMode; onBack: () => void }) {
         <Button variant="ghost" onClick={onBack}>← Modes</Button>
         <span className="text-xl font-bold">Popped: {popped}</span>
       </div>
-      <button type="button" onClick={() => ask(round)} className="mx-auto rounded-3xl bg-white px-6 py-3 text-3xl font-extrabold shadow">
+      <button type="button" onClick={() => ask(round)} className="mx-auto rounded-3xl bg-surface px-6 py-3 text-3xl font-extrabold shadow">
         🔊 Pop the {round.target.name}!
       </button>
       <div className="flex flex-1 flex-wrap items-center justify-center gap-6">

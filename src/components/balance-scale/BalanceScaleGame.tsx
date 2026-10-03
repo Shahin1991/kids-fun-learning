@@ -12,8 +12,8 @@ export interface BalanceScaleGameProps {
   className?: string;
 }
 
-const PILL = "absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-xl font-bold text-slate-700 shadow";
-const ROUND_BTN = "absolute top-3 flex min-h-touch min-w-touch items-center justify-center rounded-full bg-white/90 text-3xl shadow active:scale-95";
+const PILL = "absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-surface/90 px-5 py-2 text-xl font-bold text-foreground shadow";
+const ROUND_BTN = "absolute top-3 flex min-h-touch min-w-touch items-center justify-center rounded-full bg-surface/90 text-3xl shadow active:scale-95";
 
 export default function BalanceScaleGame({ sharedAudioCtx, mode = "sandbox", targetWeight, onBalanced, onExit, className = "" }: BalanceScaleGameProps) {
   const containerRef = useRef<HTMLDivElement>(null);

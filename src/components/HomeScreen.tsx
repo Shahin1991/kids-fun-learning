@@ -8,6 +8,7 @@ import { LogoLongPress } from "./LogoLongPress";
 import { MusicToggle } from "./MusicToggle";
 import { PageContainer } from "./PageContainer";
 import { SoundToggle } from "./SoundToggle";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function HomeScreen() {
   const [disabled, setDisabled] = useState<string[]>([]);
@@ -23,6 +24,7 @@ export function HomeScreen() {
           <span className="text-4xl font-extrabold text-toddler-dark">🌈 Kids Learning Hub</span>
         </LogoLongPress>
         <div className="flex gap-2">
+          <ThemeToggle />
           <MusicToggle />
           <SoundToggle />
         </div>

@@ -38,13 +38,13 @@ export default function UnlockPage() {
       <h1 className="text-3xl font-extrabold">Parent area</h1>
       <p>Enter your PIN</p>
       <ShakeOnWrong trigger={wobble}>
-        <div aria-live="polite" className="flex h-16 min-w-48 items-center justify-center rounded-2xl bg-white text-4xl tracking-widest shadow">
+        <div aria-live="polite" className="flex h-16 min-w-48 items-center justify-center rounded-2xl bg-surface text-4xl tracking-widest shadow">
           {"•".repeat(pin.length) || " "}
         </div>
       </ShakeOnWrong>
       <div className="grid grid-cols-3 gap-3">
         {KEYS.map((k) => (
-          <button key={k} type="button" onClick={() => press(k)} className="min-h-touch min-w-touch rounded-2xl bg-white text-3xl font-bold shadow active:scale-95">
+          <button key={k} type="button" onClick={() => press(k)} className="min-h-touch min-w-touch rounded-2xl bg-surface text-3xl font-bold shadow active:scale-95">
             {k}
           </button>
         ))}

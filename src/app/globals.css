@@ -1,21 +1,43 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --background: #fffaf0;
   --foreground: #3b2f4a;
+  --surface: #ffffff;
+  --tint: 32%;
+  --toddler-dark: #e0457b;
+  --early-dark: #1e88c9;
+  --advanced-dark: #2f9e44;
+  --others-dark: #7a3fd1;
+}
+
+/* Dark theme: set on <html> by ThemeProvider (and by a tiny script before first paint). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #17122a;
+  --foreground: #f3eeff;
+  --surface: #261f3f;
+  --tint: 20%;
+  --toddler-dark: #ff8fbd;
+  --early-dark: #6fd0ff;
+  --advanced-dark: #86e293;
+  --others-dark: #d2adff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-ink: #3b2f4a;
   --color-toddler: #ff8fb1;
-  --color-toddler-dark: #e0457b;
+  --color-toddler-dark: var(--toddler-dark);
   --color-early: #5cc8ff;
-  --color-early-dark: #1e88c9;
+  --color-early-dark: var(--early-dark);
   --color-advanced: #7ddc8a;
-  --color-advanced-dark: #2f9e44;
+  --color-advanced-dark: var(--advanced-dark);
   --color-others: #b583ff;
-  --color-others-dark: #7a3fd1;
+  --color-others-dark: var(--others-dark);
   --color-kid-red: #ff6b6b;
   --color-kid-blue: #4d96ff;
   --color-kid-green: #6bcb77;

@@ -19,7 +19,7 @@ export default function AlphabetPage() {
   return (
     <PageContainer>
       <ActivityHeader title="Alphabet" moduleId="alphabet" />
-      <div className="flex min-h-44 items-center justify-center rounded-3xl bg-white p-4 shadow-md" aria-live="polite">
+      <div className="flex min-h-44 items-center justify-center rounded-3xl bg-surface p-4 shadow-md" aria-live="polite">
         {current ? (
           <SuccessPop key={current.letter} className="flex items-center gap-6">
             <span className="text-8xl font-extrabold text-kid-blue">{current.letter}</span>
@@ -32,7 +32,7 @@ export default function AlphabetPage() {
       </div>
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">
         {ALPHABET.map((a, i) => (
-          <button key={a.letter} type="button" onClick={() => pick(a, i)} className="min-h-touch rounded-2xl bg-white text-4xl font-extrabold shadow active:scale-95">
+          <button key={a.letter} type="button" onClick={() => pick(a, i)} className="min-h-touch rounded-2xl bg-surface text-4xl font-extrabold shadow active:scale-95">
             {a.letter}
           </button>
         ))}

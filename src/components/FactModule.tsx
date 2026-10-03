@@ -49,7 +49,7 @@ export function FactModule({ moduleId, title, categories }: { moduleId: string; 
       </div>
       {mode === "learn" ? (
         <>
-          <div className="min-h-32 rounded-3xl bg-white p-4 text-center shadow-md" aria-live="polite">
+          <div className="min-h-32 rounded-3xl bg-surface p-4 text-center shadow-md" aria-live="polite">
             {selected ? (
               <SuccessPop key={selected.id} className="flex flex-col items-center gap-1">
                 <ItemArt art={selected.art} emoji={selected.emoji} label={selected.label} size={96} />
@@ -62,7 +62,7 @@ export function FactModule({ moduleId, title, categories }: { moduleId: string; 
           </div>
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
             {cat.items.map((item, i) => (
-              <button key={item.id} type="button" aria-label={item.label} onClick={() => open(item, i)} className="flex min-h-touch flex-col items-center rounded-2xl bg-white p-2 shadow active:scale-95">
+              <button key={item.id} type="button" aria-label={item.label} onClick={() => open(item, i)} className="flex min-h-touch flex-col items-center rounded-2xl bg-surface p-2 shadow active:scale-95">
                 <ItemArt art={item.art} emoji={item.emoji} label={item.label} size={72} />
                 <span className="text-sm font-bold">{item.label}</span>
               </button>

@@ -59,14 +59,14 @@ export default function ToyGame({ create, title, moduleId, items, className = ""
         <div className="pointer-events-auto">
           <HomeButton />
         </div>
-        <h1 className="mt-2 rounded-full bg-white/90 px-5 py-2 text-2xl font-extrabold text-slate-700 shadow">{failed ? "3D is not available on this device" : title}</h1>
+        <h1 className="mt-2 rounded-full bg-surface/90 px-5 py-2 text-2xl font-extrabold text-foreground shadow">{failed ? "3D is not available on this device" : title}</h1>
         <div className="pointer-events-auto flex items-center gap-2">
           {moduleId && <ProgressStars moduleId={moduleId} />}
           <SoundToggle />
         </div>
       </div>
       {items && engine?.activate && (
-        <div className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-3 focus-within:left-3 focus-within:z-20 focus-within:flex focus-within:flex-wrap focus-within:gap-2 focus-within:rounded-2xl focus-within:bg-white/95 focus-within:p-2">
+        <div className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-3 focus-within:left-3 focus-within:z-20 focus-within:flex focus-within:flex-wrap focus-within:gap-2 focus-within:rounded-2xl focus-within:bg-surface/95 focus-within:p-2">
           {items.map((it) => (
             <button key={it.id} type="button" onClick={() => engine.activate?.(it.id)} className="rounded-xl bg-kid-blue px-3 py-2 font-bold text-white">
               {it.label}

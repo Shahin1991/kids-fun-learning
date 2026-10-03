@@ -10,7 +10,7 @@ export function ModuleCard({ module: m }: { module: LearningModule }) {
     <TapBounce>
       <Link
         href={m.route}
-        className="flex min-h-touch flex-col items-center gap-1 rounded-3xl bg-white p-4 text-center shadow-md"
+        className="flex min-h-touch flex-col items-center gap-1 rounded-3xl bg-surface p-4 text-center shadow-md"
         style={{ borderBottom: `8px solid var(--color-${m.colorToken})` }}
       >
         <span className="text-6xl" aria-hidden>{m.icon}</span>

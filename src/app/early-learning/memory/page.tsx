@@ -69,7 +69,7 @@ function Game({ level, onBack }: { level: Level; onBack: () => void }) {
         {cards.map((c) => {
           const shown = open.includes(c.id) || matched.includes(c.face);
           return (
-            <button key={c.id} type="button" aria-label={shown ? c.face : "Hidden card"} onClick={() => flip(c)} className={`aspect-square min-h-touch rounded-2xl text-5xl shadow-md transition-transform ${shown ? "bg-white" : "bg-kid-purple"}`}>
+            <button key={c.id} type="button" aria-label={shown ? c.face : "Hidden card"} onClick={() => flip(c)} className={`aspect-square min-h-touch rounded-2xl text-5xl shadow-md transition-transform ${shown ? "bg-surface" : "bg-kid-purple"}`}>
               {shown ? c.face : "❓"}
             </button>
           );

@@ -46,7 +46,7 @@ export default function TapFunPage() {
                   setStyle(s.id);
                   (engine as PartyEngine | null)?.setStyle(s.id);
                 }}
-                className={`flex min-h-touch min-w-touch items-center justify-center rounded-full text-4xl shadow-lg active:scale-95 ${style === s.id ? "bg-kid-yellow" : "bg-white/90"}`}
+                className={`flex min-h-touch min-w-touch items-center justify-center rounded-full text-4xl shadow-lg active:scale-95 ${style === s.id ? "bg-kid-yellow" : "bg-surface/90"}`}
               >
                 {s.icon}
               </button>

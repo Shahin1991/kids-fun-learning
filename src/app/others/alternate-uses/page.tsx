@@ -85,7 +85,7 @@ export default function AlternateUsesPage() {
           )}
           <p className="text-xl font-bold">{uses.length} {uses.length === 1 ? "idea" : "ideas"}</p>
           <ul className="flex flex-wrap gap-2">
-            {uses.map((u) => <li key={u} className="rounded-full bg-white px-4 py-2 text-xl shadow">{u}</li>)}
+            {uses.map((u) => <li key={u} className="rounded-full bg-surface px-4 py-2 text-xl shadow">{u}</li>)}
           </ul>
           {phase === "done" && <Button onClick={start}>Play again</Button>}
         </>
