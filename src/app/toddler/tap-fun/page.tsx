@@ -1,83 +1,59 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { useState } from "react";
-import { HomeButton } from "@/components/HomeButton";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
-import { SoundToggle } from "@/components/SoundToggle";
 import { audioManager } from "@/lib/audio/AudioManager";
+import type { PartyEngine, PartyStyle } from "@/lib/party-stage/PartyEngine";
 
-const STYLES = [
-  { id: "firework", icon: "🎆", particles: ["✨", "⭐", "💥"] },
-  { id: "confetti", icon: "🎉", particles: ["🟥", "🟦", "🟩", "🟨", "🟪"] },
-  { id: "bubble", icon: "🫧", particles: ["🫧", "⚪"] },
-  { id: "splash", icon: "💦", particles: ["💧", "💦", "🔵"] },
-] as const;
+const ToyGame = dynamic(() => import("@/components/toy3d/ToyGame"), { ssr: false, loading: () => <LoadingSpinner /> });
 
-interface Burst {
-  id: number;
-  x: number;
-  y: number;
-  style: (typeof STYLES)[number];
-}
+const STYLES: { id: PartyStyle; icon: string; label: string }[] = [
+  { id: "firework", icon: "🎆", label: "Fireworks" },
+  { id: "confetti", icon: "🎉", label: "Confetti" },
+  { id: "bubble", icon: "🫧", label: "Bubbles" },
+  { id: "splash", icon: "💦", label: "Splash" },
+];
 
-let nextId = 0;
-
-// No stars or achievements here on purpose: this is pure free play.
+// No stars or achievements on purpose: Tap Party is pure free play.
 export default function TapFunPage() {
   const reduced = useAppReducedMotion();
-  const [style, setStyle] = useState<(typeof STYLES)[number]>(STYLES[0]);
-  const [bursts, setBursts] = useState<Burst[]>([]);
-
-  const burst = (e: React.PointerEvent) => {
-    const id = nextId++;
-    audioManager.playNote(Math.floor((e.clientX / window.innerWidth) * 10));
-    setBursts((b) => [...b.slice(-8), { id, x: e.clientX, y: e.clientY, style }]);
-    setTimeout(() => setBursts((b) => b.filter((x) => x.id !== id)), 1200);
-  };
-
+  const [style, setStyle] = useState<PartyStyle>("firework");
   return (
-    <main className="relative min-h-dvh touch-none overflow-hidden" onPointerDown={burst}>
-      <header className="relative z-10 flex items-center justify-between p-3" onPointerDown={(e) => e.stopPropagation()}>
-        <HomeButton />
-        <div className="flex gap-2">
-          {STYLES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              aria-label={s.id}
-              aria-pressed={style.id === s.id}
-              onClick={() => setStyle(s)}
-              className={`min-h-touch min-w-touch rounded-full text-4xl shadow-md ${style.id === s.id ? "bg-kid-yellow" : "bg-white"}`}
-            >
-              {s.icon}
-            </button>
-          ))}
-        </div>
-        <SoundToggle />
-      </header>
-      <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-3xl font-bold opacity-40">Tap anywhere!</p>
-      <AnimatePresence>
-        {bursts.map((b) =>
-          b.style.particles.flatMap((p, pi) =>
-            Array.from({ length: reduced ? 1 : 4 }, (_, i) => {
-              const angle = ((pi * 4 + i) / (b.style.particles.length * 4)) * Math.PI * 2;
-              return (
-                <motion.span
-                  key={`${b.id}-${pi}-${i}`}
-                  className="pointer-events-none absolute text-3xl"
-                  style={{ left: b.x, top: b.y }}
-                  initial={{ x: 0, y: 0, opacity: 1, scale: 0.5 }}
-                  animate={{ x: Math.cos(angle) * 110, y: Math.sin(angle) * 110 + (b.style.id === "splash" ? 40 : 0), opacity: 0, scale: 1.2 }}
-                  transition={{ duration: reduced ? 0.3 : 1 }}
-                >
-                  {p}
-                </motion.span>
-              );
-            }),
-          ),
-        )}
-      </AnimatePresence>
-    </main>
+    <ToyGame
+      title="Tap Party"
+      items={STYLES.map((s) => ({ id: s.id, label: s.label }))}
+      create={async (container) => {
+        const { PartyEngine } = await import("@/lib/party-stage/PartyEngine");
+        return new PartyEngine(container, {
+          reducedMotion: reduced,
+          onBurst: ({ x }) => audioManager.playNote(Math.round(x * 9)),
+        });
+      }}
+    >
+      {(engine) => (
+        <>
+          <p className="pointer-events-none absolute inset-x-0 top-24 text-center text-3xl font-extrabold text-white/70 drop-shadow">Tap anywhere!</p>
+          <div className="absolute inset-x-0 bottom-3 flex justify-center gap-3">
+            {STYLES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                aria-label={s.label}
+                aria-pressed={style === s.id}
+                onClick={() => {
+                  setStyle(s.id);
+                  (engine as PartyEngine | null)?.setStyle(s.id);
+                }}
+                className={`flex min-h-touch min-w-touch items-center justify-center rounded-full text-4xl shadow-lg active:scale-95 ${style === s.id ? "bg-kid-yellow" : "bg-white/90"}`}
+              >
+                {s.icon}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </ToyGame>
   );
 }

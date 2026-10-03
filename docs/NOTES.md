@@ -19,3 +19,9 @@
 - Letters and numbers are chunky tubes built from stroke data in `src/lib/parade/glyphs.ts` (no font file; three's npm package ships none).
 - Balloon shapes are registered by name in `src/lib/balloons/BalloonEngine.ts` (`SHAPES` + `ENABLED_SHAPES`); an animal balloon is one new builder function returning `{ group, body, string }`.
 - Both games share `src/lib/fx/stage.ts` (renderer/teardown) and `src/lib/fx/confetti.ts`.
+
+## 3D toddler games (toy3d kit)
+- Animals, Colors, Shapes, Tap Party, Feelings and Big/Small are Three.js scenes built on `src/lib/toy3d/ToyScene.ts` (renderer, loop, picking, confetti, teardown) and shown through the generic `src/components/toy3d/ToyGame.tsx` shell, which also renders hidden keyboard buttons for each item.
+- Animals are procedural rounded toys (`toy3d/animals.ts`: quad / bird / frog templates + per-species specs); faces are drawn on canvas (`toy3d/faces.ts`); shape outlines live in `toy3d/outlines.ts`.
+- Shapes and Big/Small sort mode also accept a plain tap (sends the piece home), so dragging is optional.
+- Tap Party deliberately awards no stars (spec).
