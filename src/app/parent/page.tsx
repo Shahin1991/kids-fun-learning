@@ -118,6 +118,10 @@ export default function ParentDashboard() {
         </div>
       </Card>
 
+      <p className="text-center text-sm opacity-60">
+        Artwork: <a className="underline" href="https://github.com/jdecked/twemoji">Twemoji</a>, CC-BY 4.0
+      </p>
+
       <Button
         variant="secondary"
         onClick={() => {

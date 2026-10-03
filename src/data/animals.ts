@@ -6,17 +6,19 @@ export interface TapItem {
   phrase: string;
   /** Pentatonic step 0-9 so each item has its own pitch */
   color?: string;
+  /** Illustration path under /public; emoji is the fallback */
+  art?: string;
 }
 
 export const ANIMALS: TapItem[] = [
-  { id: "dog", label: "Dog", emoji: "🐶", phrase: "Woof woof!" },
-  { id: "cat", label: "Cat", emoji: "🐱", phrase: "Meow meow!" },
-  { id: "cow", label: "Cow", emoji: "🐮", phrase: "Moo moo!" },
-  { id: "duck", label: "Duck", emoji: "🦆", phrase: "Quack quack!" },
-  { id: "pig", label: "Pig", emoji: "🐷", phrase: "Oink oink!" },
-  { id: "sheep", label: "Sheep", emoji: "🐑", phrase: "Baa baa!" },
-  { id: "lion", label: "Lion", emoji: "🦁", phrase: "Roar!" },
-  { id: "frog", label: "Frog", emoji: "🐸", phrase: "Ribbit ribbit!" },
-  { id: "horse", label: "Horse", emoji: "🐴", phrase: "Neigh!" },
-  { id: "chick", label: "Chick", emoji: "🐥", phrase: "Cheep cheep!" },
+  { id: "dog", art: "/art/animals/dog.svg", label: "Dog", emoji: "🐶", phrase: "Woof woof!" },
+  { id: "cat", art: "/art/animals/cat.svg", label: "Cat", emoji: "🐱", phrase: "Meow meow!" },
+  { id: "cow", art: "/art/animals/cow.svg", label: "Cow", emoji: "🐮", phrase: "Moo moo!" },
+  { id: "duck", art: "/art/animals/duck.svg", label: "Duck", emoji: "🦆", phrase: "Quack quack!" },
+  { id: "pig", art: "/art/animals/pig.svg", label: "Pig", emoji: "🐷", phrase: "Oink oink!" },
+  { id: "sheep", art: "/art/animals/sheep.svg", label: "Sheep", emoji: "🐑", phrase: "Baa baa!" },
+  { id: "lion", art: "/art/animals/lion.svg", label: "Lion", emoji: "🦁", phrase: "Roar!" },
+  { id: "frog", art: "/art/animals/frog.svg", label: "Frog", emoji: "🐸", phrase: "Ribbit ribbit!" },
+  { id: "horse", art: "/art/animals/horse.svg", label: "Horse", emoji: "🐴", phrase: "Neigh!" },
+  { id: "chick", art: "/art/animals/chick.svg", label: "Chick", emoji: "🐥", phrase: "Cheep cheep!" },
 ];

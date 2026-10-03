@@ -5,6 +5,7 @@ import type { FactItem } from "@/data/facts";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { finishActivity } from "@/lib/activity";
 import { makeChoiceRound } from "@/lib/choice-round";
+import { ItemArt } from "./ItemArt";
 import { ShakeOnWrong } from "./ShakeOnWrong";
 
 /** Shows a name; the child taps the matching picture. Starts with 2 choices and widens to 4. */
@@ -35,8 +36,8 @@ export function ChoiceQuiz({ moduleId, items }: { moduleId: string; items: FactI
       <div className="flex flex-wrap justify-center gap-4">
         {round.choices.map((c) => (
           <ShakeOnWrong key={c.id} trigger={wobble.id === c.id ? wobble.n : 0}>
-            <button type="button" aria-label={c.label} onClick={() => pick(c.id)} className="flex min-h-touch min-w-40 items-center justify-center rounded-3xl bg-white p-4 text-8xl shadow-md active:scale-95">
-              {c.emoji}
+            <button type="button" aria-label={c.label} onClick={() => pick(c.id)} className="flex min-h-touch min-w-40 items-center justify-center rounded-3xl bg-white p-4 shadow-md active:scale-95">
+              <ItemArt art={c.art} emoji={c.emoji} label={c.label} size={96} />
             </button>
           </ShakeOnWrong>
         ))}

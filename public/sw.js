@@ -1,7 +1,7 @@
 // Bump VERSION on each deploy (build.mjs does this) so old caches are dropped.
 const VERSION = "__BUILD_ID__";
 const CACHE = `kids-hub-${VERSION}`;
-const PRECACHE = ["/", "/offline"];
+const PRECACHE = ["/", "/offline", ...__PRECACHE_ART__];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));

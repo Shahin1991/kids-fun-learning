@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { TapItem } from "@/data/animals";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { useAppReducedMotion } from "./ReducedMotionProvider";
+import { ItemArt } from "./ItemArt";
 import { ActivityHeader } from "./ActivityHeader";
 import { PageContainer } from "./PageContainer";
 
@@ -39,7 +40,7 @@ export function TapLearn({ moduleId, title, items }: { moduleId: string; title: 
               boxShadow: active === item.id && item.color ? `0 0 40px 10px ${item.color}` : undefined,
             }}
           >
-            {item.emoji && <span className="text-7xl" aria-hidden>{item.emoji}</span>}
+            <ItemArt art={item.art} emoji={item.emoji} label={item.label} size={88} />
             <span className={`text-2xl font-extrabold ${item.color ? "text-white drop-shadow" : ""}`}>{item.label}</span>
           </motion.button>
         ))}
