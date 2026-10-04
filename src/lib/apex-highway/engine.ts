@@ -6,7 +6,7 @@ import { buildVehicle, disposeGlowTexture, GeometryCache, type BuiltVehicle } fr
 import { EMERGENCY_KINDS, getVehicleSpec, TRAFFIC_KINDS, type VehicleSpec } from "./vehicle-specs";
 import { LANE_COUNT, ROAD_HALF, World } from "./world";
 
-export type CameraMode = "follow" | "chase" | "cockpit";
+export type CameraMode = "follow" | "cockpit";
 export type Phase = "garage" | "playing" | "paused" | "crashed";
 export type InputKey = "left" | "right" | "brake" | "gas";
 
@@ -152,6 +152,7 @@ export class ApexEngine {
     window.addEventListener("keyup", this.onKeyUp);
     document.addEventListener("visibilitychange", this.onVisibility);
     window.addEventListener("pagehide", this.onPageHide);
+    window.addEventListener("blur", this.releaseInputs);
     this.resize();
     this.applyNight(0);
     this.raf = requestAnimationFrame(this.loop);
@@ -239,6 +240,7 @@ export class ApexEngine {
     window.removeEventListener("keyup", this.onKeyUp);
     document.removeEventListener("visibilitychange", this.onVisibility);
     window.removeEventListener("pagehide", this.onPageHide);
+    window.removeEventListener("blur", this.releaseInputs);
     this.audio.dispose();
     this.clearTraffic();
     this.player.dispose();
@@ -323,7 +325,7 @@ export class ApexEngine {
     }
     if (e.repeat) return;
     const k = e.key.toLowerCase();
-    if (k === "c") this.setCameraMode(this.camMode === "follow" ? "chase" : this.camMode === "chase" ? "cockpit" : "follow");
+    if (k === "c") this.setCameraMode(this.camMode === "follow" ? "cockpit" : "follow");
     else if (k === "n") this.setNight(this.nightTarget < 0.5);
     else if (k === "m") this.setMuted(!this.muted);
     else if (k === "h") this.setSiren(true);
@@ -349,6 +351,12 @@ export class ApexEngine {
 
   private onVisibility = () => {
     if (document.hidden) this.pause(true);
+    this.releaseInputs();
+  };
+
+  /** A key or pedal released while the window was unfocused would otherwise stay "held". */
+  private releaseInputs = () => {
+    this.keys = { left: false, right: false, brake: false, gas: false };
   };
 
   // ---- traffic ----
@@ -502,8 +510,9 @@ export class ApexEngine {
     const vmax = (spec.topSpeedKmh / 3.6) * 1.04;
     const gas = this.keys.gas ? 1 : 0;
     const prev = this.speed;
-    // Thrust tapers near top speed; drag grows with the square of speed.
-    let a = gas * spec.accel * (1 - (this.speed / vmax) ** 2) - (0.35 + 0.0001 * this.speed * this.speed);
+    // Thrust only comes from the pedal and tapers near top speed. Lifting off coasts down
+    // like a real car: engine braking plus rolling and air drag that grows with speed squared.
+    let a = gas * spec.accel * (1 - (this.speed / vmax) ** 2) - (0.6 + 0.0007 * this.speed * this.speed);
     if (this.keys.brake) a = -spec.brake;
     this.speed = Math.max(0, this.speed + a * dt);
     this.accel = (this.speed - prev) / Math.max(dt, 1e-4);
@@ -577,9 +586,6 @@ export class ApexEngine {
       if (this.camMode === "cockpit") {
         pos = new THREE.Vector3(this.x + d.x, d.y + 0.35, this.cockpitZ());
         look = new THREE.Vector3(this.x + d.x * 0.5 + this.heading * 30, d.y + 0.2, -60);
-      } else if (this.camMode === "chase") {
-        pos = new THREE.Vector3(this.x, 1.9, this.spec.length * 0.5 + 4.2);
-        look = new THREE.Vector3(this.x, 1.2, -12);
       } else {
         pos = new THREE.Vector3(this.x * 0.7, 3.4 + this.spec.wheelRadius, this.spec.length * 0.5 + 7.5);
         look = new THREE.Vector3(this.x * 0.85, 1.2, -14);

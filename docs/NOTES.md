@@ -39,3 +39,9 @@
 ## Math Racer (3D)
 - `lib/math-racer/RacerEngine.ts` builds a scrolling road, trees and rival cars around a coupe from the Apex Highway vehicle builder. Right answer = `boost()` (speed lines, flame, hop); wrong = `wobble()` only, so the car never loses speed or progress. Answer 10 and `finish()` brings in a finish gantry, confetti and a win panel.
 - The question pill deliberately has no exit animation, so the new question always shows even if frames are dropped.
+
+## Apex Highway / arcade updates
+- Chase camera removed (Follow and Cockpit remain; saved "chase" prefs fall back to Follow).
+- Coasting: thrust only comes from the pedal; lifting off gives engine braking + speed-squared drag. Inputs are released on blur, tab hide and lost pointer capture.
+- Van, bus, ambulance and fire engine upper bodies are rounded, raked extrusions with tumblehome and crowned roofs (`rakeFront`/`rakeRear` on `BoxSpec`).
+- City Bloxx (`/others/city-bloxx`): pure logic in `lib/arcade/bloxx.ts`.

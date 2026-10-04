@@ -17,7 +17,10 @@ const DEFAULT_PREFS: Prefs = { vehicle: "sedan", color: VEHICLES[0].defaultColor
 
 function readPrefs(): Prefs {
   try {
-    return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
+    const saved = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
+    // The old chase view was removed; saved choices fall back to the follow camera.
+    if (saved.camera !== "cockpit") saved.camera = "follow";
+    return saved;
   } catch {
     return DEFAULT_PREFS;
   }
@@ -104,6 +107,7 @@ function Pedal({ label, accent, className, onChange, children }: { label: string
       }}
       onPointerUp={() => set(false)}
       onPointerCancel={() => set(false)}
+      onLostPointerCapture={() => set(false)}
       onContextMenu={(e) => e.preventDefault()}
     >
       <span className="absolute inset-x-3 top-2 h-1.5 rounded-full" style={{ background: down ? accent : "rgba(255,255,255,0.18)", boxShadow: down ? `0 0 10px ${accent}` : undefined }} />
@@ -217,7 +221,7 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
     engineRef.current?.start();
   };
   const playing = phase === "playing" || phase === "paused";
-  const camLabels: Record<CameraMode, string> = { follow: "Follow", chase: "Chase", cockpit: "Cockpit" };
+  const camLabels: Record<CameraMode, string> = { follow: "Follow", cockpit: "Cockpit" };
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-900 text-white" style={{ position: "relative", overflow: "hidden", touchAction: "none" }}>
@@ -235,7 +239,7 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
             {hud.combo > 1 && <div className="text-xl font-bold text-amber-300">×{hud.combo}</div>}
           </div>
           <div className="absolute right-2 top-3 flex gap-1.5 sm:right-3 sm:gap-2">
-            <button type="button" aria-label="Change camera" className={ICON_BTN} onClick={() => update({ camera: prefs.camera === "follow" ? "chase" : prefs.camera === "chase" ? "cockpit" : "follow" })}>🎥</button>
+            <button type="button" aria-label="Change camera" className={ICON_BTN} onClick={() => update({ camera: prefs.camera === "follow" ? "cockpit" : "follow" })}>🎥</button>
             <button type="button" aria-label="Toggle day and night" className={ICON_BTN} onClick={() => update({ night: !prefs.night })}>{prefs.night ? "🌙" : "☀️"}</button>
             <button type="button" aria-label={muted ? "Unmute" : "Mute"} className={ICON_BTN} onClick={() => engineRef.current?.setMuted(!muted)}>{muted ? "🔇" : "🔊"}</button>
             <button type="button" aria-label={phase === "paused" ? "Resume" : "Pause"} className={ICON_BTN} onClick={() => engineRef.current?.pause(phase === "playing")}>{phase === "paused" ? "▶" : "⏸"}</button>

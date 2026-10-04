@@ -196,12 +196,29 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   };
 
   const archSpec = hasArches ? [-1, 1].map((sz) => ({ u: sz * (spec.wheelbase / 2), r: archR, cy: R })) : [];
-  add(extrude("body", () => bodyShape(spec.body, shaped ? 0.2 : 0.08, archSpec), W - 0.1, 0.06, shaped ? bodyDeform : undefined), paint, 0, 0, 0, true);
-  for (const b of spec.boxes ?? []) add(box(`box${b.x0}`, W - 0.05, b.y1 - b.y0, b.x1 - b.x0), paint, 0, (b.y0 + b.y1) / 2, -(b.x0 + b.x1) / 2, true);
+  add(extrude("body", () => bodyShape(spec.body, shaped ? 0.2 : 0.14, archSpec), W - 0.1, 0.06, shaped ? bodyDeform : undefined), paint, 0, 0, 0, true);
+  // Upper bodies (van, bus, ambulance, fire engine): rounded, raked profiles that lean in
+  // toward the roof, taper at the ends and have a slightly crowned roof.
+  const boxInset = (b: BoxSpec, y: number) => 0.07 * smooth(0.4, 1, clamp01((y - b.y0) / (b.y1 - b.y0)));
+  for (const b of spec.boxes ?? []) {
+    const fr = b.rakeFront ?? 0;
+    const rr = b.rakeRear ?? 0;
+    const prof: Pt[] = [[b.x0, b.y0], [b.x1, b.y0], [b.x1 - fr, b.y1], [b.x0 + rr, b.y1]];
+    const bh = b.y1 - b.y0;
+    const bl = b.x1 - b.x0;
+    const mid = (b.x0 + b.x1) / 2;
+    const deform = (v: THREE.Vector3) => {
+      const t = clamp01((v.y - b.y0) / bh);
+      const end = Math.min(1, Math.abs(v.z + mid) / (bl / 2));
+      v.x *= (1 - boxInset(b, v.y)) * (1 - 0.1 * Math.pow(end, 3));
+      if (t > 0.85) v.y += 0.07 * (1 - Math.min(1, (v.x / hw) ** 2)) * smooth(0.85, 1, t);
+    };
+    add(extrude(`upper${b.x0}`, () => roundedClosed(prof, Math.min(0.5, bh * 0.28)), W - 0.05, 0.08, deform), paint, 0, 0, 0, true);
+  }
 
   const cabin = spec.cabin;
   if (cabin) {
-    add(extrude("cabin", () => roundedClosed(cabin, shaped ? 0.32 : 0.05), W - 0.22, 0.03, shaped ? cabinDeform : undefined), glass, 0, 0, 0);
+    add(extrude("cabin", () => roundedClosed(cabin, shaped ? 0.32 : 0.2), W - 0.22, 0.03, shaped ? cabinDeform : undefined), glass, 0, 0, 0);
     // Roof slab and pillars
     const roofLen = cabin[2][0] - cabin[1][0];
     const roofY = cabin[1][1];
@@ -227,11 +244,23 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     }
   }
   for (const w of spec.windows ?? []) {
-    for (const s of [-1, 1]) add(box(`win${w.x0}`, 0.02, w.y1 - w.y0, w.x1 - w.x0), glass, s * (W / 2 + 0.02), (w.y0 + w.y1) / 2, -(w.x0 + w.x1) / 2);
+    const ub = (spec.boxes ?? []).find((b) => w.y0 >= b.y0 && w.y1 <= b.y1 + 1e-6 && w.x0 >= b.x0 && w.x1 <= b.x1);
+    const half = (W - 0.05) / 2;
+    const inAt = (y: number) => (ub ? boxInset(ub, y) : 0);
+    const yMid = (w.y0 + w.y1) / 2;
+    for (const s of [-1, 1]) {
+      const m = add(box(`win${w.x0}`, 0.02, w.y1 - w.y0, w.x1 - w.x0), glass, s * (half * (1 - inAt(yMid)) + 0.012), yMid, -(w.x0 + w.x1) / 2);
+      // Lean with the tumblehome so the glass sits flush on the curved side
+      m.rotation.z = s * Math.atan((half * (inAt(w.y1) - inAt(w.y0))) / (w.y1 - w.y0));
+    }
   }
   if (spec.frontGlass) {
     const g = spec.frontGlass;
-    add(box("frontglass", g.w, g.h, 0.03), glass, 0, g.y, -(g.u + 0.02));
+    const fb = (spec.boxes ?? []).reduce<BoxSpec | null>((a, b) => (!a || b.x1 > a.x1 ? b : a), null);
+    const rake = fb?.rakeFront ?? 0;
+    const frac = fb ? (g.y - fb.y0) / (fb.y1 - fb.y0) : 0;
+    const gm = add(box("frontglass", g.w, g.h, 0.03), glass, 0, g.y, -(g.u - rake * frac + 0.02));
+    if (fb && rake) gm.rotation.x = Math.atan(rake / (fb.y1 - fb.y0));
   }
   if (spec.id === "bus") add(box("busrear", W - 0.6, 0.6, 0.03), glass, 0, 2.2, 4.5 + 0.02);
 

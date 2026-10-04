@@ -7,6 +7,9 @@ export interface BoxSpec {
   x1: number;
   y0: number;
   y1: number;
+  /** How far the top edge is pulled in at the front / rear, so the box is raked rather than square */
+  rakeFront?: number;
+  rakeRear?: number;
 }
 
 export interface VehicleSpec {
@@ -90,7 +93,7 @@ export const VEHICLES: VehicleSpec[] = [
     id: "van", name: "Cargo Van", length: 5.3, width: 2.0, wheelbase: 3.2, wheelRadius: 0.38,
     body: [[-2.65, 0.4], [-2.65, 1.0], [2.2, 1.0], [2.65, 0.85], [2.65, 0.4]],
     cabin: [[0.7, 1.0], [0.7, 2.2], [1.15, 2.2], [2.05, 1.3], [2.2, 1.0]],
-    boxes: [{ x0: -2.65, x1: 0.7, y0: 1.0, y1: 2.5 }],
+    boxes: [{ x0: -2.65, x1: 0.7, y0: 1.0, y1: 2.5, rakeRear: 0.12 }],
     windows: [{ x0: 0.85, x1: 1.5, y0: 1.5, y1: 2.0 }],
     features: { cargo: true }, driver: { x: -0.5, y: 1.7, z: 1.2 },
     topSpeedKmh: 150, accel: 3.5, brake: 7.5, lock: 0.42,
@@ -100,7 +103,7 @@ export const VEHICLES: VehicleSpec[] = [
   {
     id: "bus", name: "City Bus", length: 9, width: 2.5, wheelbase: 5.6, wheelRadius: 0.5,
     body: [[-4.5, 0.45], [-4.5, 1.0], [4.5, 1.0], [4.5, 0.45]],
-    boxes: [{ x0: -4.5, x1: 4.5, y0: 1.0, y1: 3.1 }],
+    boxes: [{ x0: -4.5, x1: 4.5, y0: 1.0, y1: 3.1, rakeFront: 0.3, rakeRear: 0.15 }],
     windows: [{ x0: -4.0, x1: 3.3, y0: 1.7, y1: 2.6 }],
     frontGlass: { u: 4.5, y: 2.2, w: 2.2, h: 0.9 },
     features: { busUnits: true, stripe: true }, driver: { x: -0.8, y: 1.9, z: -3.5 },
@@ -121,7 +124,7 @@ export const VEHICLES: VehicleSpec[] = [
     id: "ambulance", name: "Ambulance", length: 5.6, width: 2.05, wheelbase: 3.4, wheelRadius: 0.38,
     body: [[-2.8, 0.42], [-2.8, 1.0], [2.3, 1.0], [2.8, 0.85], [2.8, 0.42]],
     cabin: [[0.9, 1.0], [0.9, 2.15], [1.3, 2.15], [2.15, 1.3], [2.3, 1.0]],
-    boxes: [{ x0: -2.8, x1: 0.9, y0: 1.0, y1: 2.55 }],
+    boxes: [{ x0: -2.8, x1: 0.9, y0: 1.0, y1: 2.55, rakeRear: 0.2 }],
     windows: [{ x0: 0.95, x1: 1.6, y0: 1.5, y1: 2.0 }],
     features: { lightbar: { u: 1.1, y: 2.25 }, livery: "ambulance", siren: true }, driver: { x: -0.5, y: 1.7, z: 1.2 },
     topSpeedKmh: 170, accel: 4.2, brake: 8, lock: 0.42,
@@ -131,7 +134,7 @@ export const VEHICLES: VehicleSpec[] = [
   {
     id: "fire", name: "Fire Engine", length: 8, width: 2.5, wheelbase: 4.6, wheelRadius: 0.5,
     body: [[-4.0, 0.5], [-4.0, 1.1], [4.0, 1.1], [4.0, 0.5]],
-    boxes: [{ x0: -4.0, x1: 0.5, y0: 1.1, y1: 2.5 }, { x0: 0.6, x1: 3.7, y0: 1.1, y1: 2.7 }],
+    boxes: [{ x0: -4.0, x1: 0.5, y0: 1.1, y1: 2.5, rakeRear: 0.12 }, { x0: 0.6, x1: 3.7, y0: 1.1, y1: 2.7, rakeFront: 0.45 }],
     windows: [{ x0: 0.9, x1: 3.3, y0: 1.75, y1: 2.45 }],
     frontGlass: { u: 3.7, y: 2.15, w: 2.2, h: 0.8 },
     features: { ladder: true, lightbar: { u: 2.2, y: 2.78 }, livery: "fire", siren: true }, driver: { x: -0.6, y: 2.3, z: -2.3 },
