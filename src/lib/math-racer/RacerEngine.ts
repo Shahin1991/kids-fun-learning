@@ -216,8 +216,9 @@ export class RacerEngine extends ToyScene {
 
   protected onResize(aspect: number) {
     const cam = this.stage.camera;
-    cam.position.set(0, 3.6 + (aspect < 1 ? 1.2 : 0), 10.5 + (aspect < 1 ? 5 : 0));
-    cam.lookAt(0, 1.3, -12);
+    // Looking slightly down keeps the car in the middle of the screen, above the question and answers.
+    cam.position.set(0, 4.6 + (aspect < 1 ? 1.4 : 0), 10.5 + (aspect < 1 ? 5 : 0));
+    cam.lookAt(0, 0.2, -13);
   }
 
   // ---- simulation ----

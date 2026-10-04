@@ -35,3 +35,7 @@
 - Alphabet = Letter Land (`lib/letter-land/LetterEngine.ts`): giant tube letter + picture + word, 26 tappable letters, and a Trace mode (beads from `trace.ts`, lit by dragging).
 - Numbers = Counting Garden (`lib/counting-garden/CountingEngine.ts`): tap animals to count them one by one, then tap the giant number answer; questions and levels come from `lib/numbers/questions.ts`.
 - Lesson: invisible tap boxes must hug the object. Oversized boxes on items near the camera swallow taps meant for things behind them.
+
+## Math Racer (3D)
+- `lib/math-racer/RacerEngine.ts` builds a scrolling road, trees and rival cars around a coupe from the Apex Highway vehicle builder. Right answer = `boost()` (speed lines, flame, hop); wrong = `wobble()` only, so the car never loses speed or progress. Answer 10 and `finish()` brings in a finish gantry, confetti and a win panel.
+- The question pill deliberately has no exit animation, so the new question always shows even if frames are dropped.
