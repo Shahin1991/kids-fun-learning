@@ -228,19 +228,19 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
 
       {playing && hud && (
         <>
-          <div className={`${GLASS} absolute left-1/2 top-3 flex -translate-x-1/2 gap-4 px-4 py-2 text-center`}>
+          <div className={`${GLASS} absolute left-1/2 top-[4.25rem] flex -translate-x-1/2 gap-3 px-3 py-1.5 text-center sm:top-3 sm:gap-4 sm:px-4 sm:py-2`}>
             <div><div className="text-xs opacity-70">Score</div><div className="text-xl font-bold tabular-nums">{hud.score}</div></div>
             <div><div className="text-xs opacity-70">Distance</div><div className="text-xl font-bold tabular-nums">{(hud.distance / 1000).toFixed(2)} km</div></div>
             <div><div className="text-xs opacity-70">Best</div><div className="text-xl font-bold tabular-nums">{Math.max(best, hud.score)}</div></div>
             {hud.combo > 1 && <div className="text-xl font-bold text-amber-300">×{hud.combo}</div>}
           </div>
-          <div className="absolute right-3 top-3 flex gap-2">
+          <div className="absolute right-2 top-3 flex gap-1.5 sm:right-3 sm:gap-2">
             <button type="button" aria-label="Change camera" className={ICON_BTN} onClick={() => update({ camera: prefs.camera === "follow" ? "chase" : prefs.camera === "chase" ? "cockpit" : "follow" })}>🎥</button>
             <button type="button" aria-label="Toggle day and night" className={ICON_BTN} onClick={() => update({ night: !prefs.night })}>{prefs.night ? "🌙" : "☀️"}</button>
             <button type="button" aria-label={muted ? "Unmute" : "Mute"} className={ICON_BTN} onClick={() => engineRef.current?.setMuted(!muted)}>{muted ? "🔇" : "🔊"}</button>
             <button type="button" aria-label={phase === "paused" ? "Resume" : "Pause"} className={ICON_BTN} onClick={() => engineRef.current?.pause(phase === "playing")}>{phase === "paused" ? "▶" : "⏸"}</button>
           </div>
-          <div className={`${GLASS} pointer-events-none absolute left-3 top-[4.5rem] origin-top-left scale-75 px-3 pb-2 text-center md:scale-100`}>
+          <div className={`${GLASS} pointer-events-none absolute left-3 top-[8.5rem] origin-top-left scale-75 px-3 pb-2 text-center sm:top-[4.5rem] md:scale-100`}>
             <Speedometer speed={hud.speedKmh} max={hud.maxKmh} />
             <div className="-mt-6 flex items-center justify-center gap-3 text-sm">
               <span className="font-bold">Gear {hud.gear === 0 ? "N" : hud.gear}</span>
@@ -248,16 +248,17 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
             </div>
           </div>
           {touch && phase === "playing" && (
-            <>
-              <div className="absolute bottom-4 left-4 flex gap-3">
+            // One row for all controls: steering on the left, pedals on the right, and they can never overlap.
+            <div className="absolute inset-x-3 bottom-4 flex items-end justify-between gap-2">
+              <div className="flex gap-2">
                 <TouchButton label="Steer left" onChange={(down) => engineRef.current?.setInput("left", down)}>◀</TouchButton>
                 <TouchButton label="Steer right" onChange={(down) => engineRef.current?.setInput("right", down)}>▶</TouchButton>
               </div>
-              <div className="absolute bottom-5 right-4 flex items-end gap-4">
-                <Pedal label="Brake" accent="#ff5252" className="h-24 w-36" onChange={(down) => engineRef.current?.setInput("brake", down)}>🛑</Pedal>
-                <Pedal label="Gas" accent="#4ade80" className="h-36 w-24" onChange={(down) => engineRef.current?.setInput("gas", down)}>⚡</Pedal>
+              <div className="flex items-end gap-2 pb-1 sm:gap-4">
+                <Pedal label="Brake" accent="#ff5252" className="h-20 w-20 sm:h-24 sm:w-36" onChange={(down) => engineRef.current?.setInput("brake", down)}>🛑</Pedal>
+                <Pedal label="Gas" accent="#4ade80" className="h-28 w-20 sm:h-36 sm:w-24" onChange={(down) => engineRef.current?.setInput("gas", down)}>⚡</Pedal>
               </div>
-            </>
+            </div>
           )}
           {phase === "paused" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40">

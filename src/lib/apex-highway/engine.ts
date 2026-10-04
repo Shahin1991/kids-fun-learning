@@ -547,6 +547,12 @@ export class ApexEngine {
     this.player.setLights(this.world.night, this.keys.brake && this.phase === "playing");
   }
 
+  /** Tall phone screens need a wider vertical view or the road and car get cut off at the sides. */
+  private narrowBoost() {
+    const a = this.camera.aspect;
+    return a >= 1 ? 1 : Math.min(1.5, 1 + (1 / a - 1) * 0.5);
+  }
+
   // ---- camera ----
   private updateCamera(dt: number) {
     const cam = this.camera;
@@ -556,7 +562,7 @@ export class ApexEngine {
       this.camPos.set(Math.sin(this.garageAngle) * r, 2.1 + this.spec.wheelRadius, Math.cos(this.garageAngle) * r);
       this.camLook.set(0, 0.9, 0);
       cam.position.copy(this.camPos);
-      cam.fov = 45;
+      cam.fov = 45 * this.narrowBoost();
     } else {
       let pos: THREE.Vector3;
       let look: THREE.Vector3;
@@ -576,7 +582,7 @@ export class ApexEngine {
       this.camPos.lerp(pos, k);
       this.camLook.lerp(look, k);
       cam.position.copy(this.camPos);
-      const targetFov = 58 + Math.min(1, this.speed / 70) * 18;
+      const targetFov = (58 + Math.min(1, this.speed / 70) * 18) * this.narrowBoost();
       cam.fov += (targetFov - cam.fov) * Math.min(1, dt * 3);
     }
     if (this.shake > 0) {
