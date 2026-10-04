@@ -7,7 +7,7 @@ import { finishActivity } from "@/lib/activity";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { FOLDS, SHAPE_DEFS, type FoldId, type TileShape } from "@/lib/magna-tiles/geometry";
 import type { MagnaEngine, MagnaState } from "@/lib/magna-tiles/MagnaEngine";
-import { TILE_COLORS } from "@/lib/magna-tiles/MagnaEngine";
+import { TILE_COLORS, VIEWS } from "@/lib/magna-tiles/MagnaEngine";
 
 const SHAPES: TileShape[] = ["square", "triangle", "rect"];
 const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
@@ -37,7 +37,8 @@ export default function MagnaTilesGame() {
   const [shape, setShape] = useState<TileShape>("square");
   const [color, setColor] = useState(TILE_COLORS[4]);
   const [fold, setFold] = useState<FoldId>("wall");
-  const [info, setInfo] = useState<MagnaState>({ count: 0, selected: false, canRefold: false });
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const [info, setInfo] = useState<MagnaState>({ view: 6, count: 0, selected: false, canRefold: false });
 
   return (
     <ToyGame
@@ -62,8 +63,31 @@ export default function MagnaTilesGame() {
       {() => (
         <>
           <p className="pointer-events-none absolute inset-x-0 top-20 px-4 text-center text-base font-bold text-slate-700 drop-shadow sm:text-xl">
-            {info.count === 0 ? "Tap the floor to put down your first tile!" : info.selected ? "Tap a glowing edge to snap on another tile" : "Tap a tile to pick it, drag to look around"}
+            {info.count === 0 ? "Tap the floor to put down your first tile!" : info.selected ? "Tap a glowing edge to snap on another tile" : "Tap a tile to pick it. Swipe sideways or use 🧭 to change view"}
           </p>
+          <div className="absolute right-3 top-20 flex flex-col items-end gap-2">
+            <button type="button" aria-expanded={viewsOpen} onClick={() => setViewsOpen((o) => !o)} className={`${btn} bg-surface/95 text-foreground`}>
+              🧭 {VIEWS[info.view].label}
+            </button>
+            {viewsOpen && (
+              <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-surface/95 p-2 shadow-lg" role="group" aria-label="Viewpoint">
+                {VIEWS.map((v, i) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    aria-pressed={info.view === i}
+                    onClick={() => {
+                      engine.current?.setView(i);
+                      audioManager.playNote(2);
+                    }}
+                    className={`min-h-14 min-w-16 rounded-xl px-1 text-sm font-extrabold leading-tight ${info.view === i ? "bg-kid-blue text-white" : "bg-tint text-foreground"}`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-t-3xl bg-surface/95 p-3 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
             <div className="flex flex-wrap items-center justify-center gap-2">
               {SHAPES.map((s) => (

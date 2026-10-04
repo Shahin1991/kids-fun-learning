@@ -1,5 +1,4 @@
-infinite magna tiles builder
-lego builder
+Infinite Magna Tiles builder
+Lego builder
 House builder
-bead builder
-
+Bead builder

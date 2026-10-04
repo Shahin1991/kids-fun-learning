@@ -46,4 +46,4 @@
 - Van, bus, ambulance and fire engine upper bodies are rounded, raked extrusions with tumblehome and crowned roofs (`rakeFront`/`rakeRear` on `BoxSpec`).
 - City Bloxx (`/others/city-bloxx`): pure logic in `lib/arcade/bloxx.ts`.
 - Cake Bakery (`/early-learning/cake-bakery`): SVG step game (flavor, stir, bake, frost, decorate).
-- Magna Tiles (`/early-learning/magna-tiles`): `lib/magna-tiles/geometry.ts` (hinge maths, tested) + `MagnaEngine` (ToyScene subclass with orbit camera). Tiles snap on edges with a chosen inside angle (Flat/Open/Wall/Tent/Pyramid) and a Flip side toggle; the selected leaf tile can be re-folded live.
+- Magna Tiles (`/early-learning/magna-tiles`): `lib/magna-tiles/geometry.ts` (hinge maths, tested) + `MagnaEngine` (ToyScene subclass with orbit camera). The camera rests on one of 12 fixed views (`VIEWS`: front, right, back, left, top, bottom, 4 corners, front/back high), chosen from the 🧭 menu or by swiping sideways; no free orbit. Tiles snap on edges with a chosen inside angle (Flat/Open/Wall/Tent/Pyramid) and a Flip side toggle; the selected leaf tile can be re-folded live.

@@ -22,7 +22,26 @@ import {
 export const TILE_COLORS = [0xff5a6e, 0xff9f43, 0xffd93d, 0x4cd97b, 0x3ab7ff, 0xa66cff, 0xff7ac8];
 const MILESTONES = [5, 12, 25];
 
+/** The twelve fixed viewpoints; the camera always rests on one of these. */
+export const VIEWS = [
+  { id: "front", label: "Front", yaw: 0, pitch: 0 },
+  { id: "right", label: "Right", yaw: 90, pitch: 0 },
+  { id: "back", label: "Back", yaw: 180, pitch: 0 },
+  { id: "left", label: "Left", yaw: 270, pitch: 0 },
+  { id: "top", label: "Top", yaw: 0, pitch: 89 },
+  { id: "bottom", label: "Bottom", yaw: 0, pitch: -89 },
+  { id: "front-right", label: "Front right", yaw: 45, pitch: 35 },
+  { id: "back-right", label: "Back right", yaw: 135, pitch: 35 },
+  { id: "back-left", label: "Back left", yaw: 225, pitch: 35 },
+  { id: "front-left", label: "Front left", yaw: 315, pitch: 35 },
+  { id: "front-high", label: "Front high", yaw: 0, pitch: 45 },
+  { id: "back-high", label: "Back high", yaw: 180, pitch: 45 },
+] as const;
+/** Swiping sideways steps around this ring of eight views. */
+const RING = [0, 6, 1, 7, 2, 8, 3, 9];
+
 export interface MagnaState {
+  view: number;
   count: number;
   selected: boolean;
   /** The selected tile can still be turned to a new fold angle */
@@ -72,8 +91,9 @@ export class MagnaEngine extends ToyScene {
   private milestones = new Set<number>();
 
   // orbit camera
-  private yaw = 0.7;
-  private pitch = 0.85;
+  private viewIndex = 6;
+  private yaw = (VIEWS[6].yaw * Math.PI) / 180;
+  private pitch = (VIEWS[6].pitch * Math.PI) / 180;
   private zoom = 1;
   private fit = 5.5;
   private portrait = 1;
@@ -126,7 +146,7 @@ export class MagnaEngine extends ToyScene {
     this.refoldSelected();
   }
   get state(): MagnaState {
-    return { count: this.tiles.length, selected: this.selectedId !== null, canRefold: this.canRefold() };
+    return { view: this.viewIndex, count: this.tiles.length, selected: this.selectedId !== null, canRefold: this.canRefold() };
   }
 
   undo() {
@@ -158,6 +178,15 @@ export class MagnaEngine extends ToyScene {
   }
   resize() {
     super.resize();
+  }
+
+  setView(i: number) {
+    this.viewIndex = ((i % VIEWS.length) + VIEWS.length) % VIEWS.length;
+    this.emit();
+  }
+  private swipeView(dir: 1 | -1) {
+    const at = RING.indexOf(this.viewIndex);
+    this.setView(at < 0 ? 0 : RING[(at + dir + RING.length) % RING.length]);
   }
 
   // ---- tiles ----
@@ -350,7 +379,7 @@ export class MagnaEngine extends ToyScene {
       this.emit();
       return;
     }
-    const f = this.owner(e, [this.floor]);
+    const f = this.floor.visible ? this.owner(e, [this.floor]) : null;
     if (f) {
       if (this.selectedId !== null) {
         this.selectedId = null;
@@ -377,8 +406,6 @@ export class MagnaEngine extends ToyScene {
   protected onMove(e: PointerEvent) {
     const p = this.pointers.get(e.pointerId);
     if (!p) return;
-    const dx = e.clientX - p.x;
-    const dy = e.clientY - p.y;
     p.x = e.clientX;
     p.y = e.clientY;
     if (this.pointers.size >= 2) {
@@ -388,15 +415,19 @@ export class MagnaEngine extends ToyScene {
       return;
     }
     if (this.downAt && !this.moved && Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y) > 8) this.moved = true;
-    if (this.moved) {
-      this.yaw -= dx * 0.008;
-      this.pitch = THREE.MathUtils.clamp(this.pitch + dy * 0.006, 0.15, 1.45);
-    }
   }
 
   protected onUp(e: PointerEvent) {
     const had = this.pointers.delete(e.pointerId);
-    if (had && this.downAt && this.downAt.id === e.pointerId && !this.moved && e.type === "pointerup") this.tap(e);
+    if (had && this.downAt && this.downAt.id === e.pointerId && e.type === "pointerup") {
+      if (!this.moved) this.tap(e);
+      else {
+        // A sideways swipe steps to the next fixed view instead of free-turning the camera.
+        const dx = e.clientX - this.downAt.x;
+        const dy = e.clientY - this.downAt.y;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) this.swipeView(dx > 0 ? -1 : 1);
+      }
+    }
     if (this.pointers.size === 0) this.downAt = null;
   }
 
@@ -412,6 +443,13 @@ export class MagnaEngine extends ToyScene {
 
   // ---- frame update ----
   private placeCamera(snap = false) {
+    const v = VIEWS[this.viewIndex];
+    const ty = (v.yaw * Math.PI) / 180;
+    const tp = (v.pitch * Math.PI) / 180;
+    const k = snap ? 1 : 0.14;
+    this.yaw += (((ty - this.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * k;
+    this.pitch += (tp - this.pitch) * k;
+    this.floor.visible = this.pitch > -0.05;
     this.target.lerp(this.goal, snap ? 1 : 0.05);
     const dist = this.fit * this.zoom * this.portrait;
     const cp = Math.cos(this.pitch);
