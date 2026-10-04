@@ -1,42 +1,62 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
-import { ActivityHeader } from "@/components/ActivityHeader";
-import { PageContainer } from "@/components/PageContainer";
-import { SuccessPop } from "@/components/SuccessPop";
-import { ALPHABET, type LetterEntry } from "@/data/alphabet";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
+import { ALPHABET } from "@/data/alphabet";
 import { audioManager } from "@/lib/audio/AudioManager";
+import { finishActivity } from "@/lib/activity";
+import type { LetterEngine, LetterMode } from "@/lib/letter-land/LetterEngine";
+
+const ToyGame = dynamic(() => import("@/components/toy3d/ToyGame"), { ssr: false, loading: () => <LoadingSpinner /> });
+
+const ITEMS = ALPHABET.map((a) => ({ id: a.letter, label: a.letter }));
 
 export default function AlphabetPage() {
-  const [current, setCurrent] = useState<LetterEntry | null>(null);
-
-  const pick = (entry: LetterEntry, index: number) => {
-    setCurrent(entry);
-    audioManager.playNote(index % 10);
-    audioManager.speak(`${entry.letter}. ${entry.letter} is for ${entry.word}`);
-  };
-
+  const reduced = useAppReducedMotion();
+  const [mode, setMode] = useState<LetterMode>("learn");
   return (
-    <PageContainer>
-      <ActivityHeader title="Alphabet" moduleId="alphabet" />
-      <div className="flex min-h-44 items-center justify-center rounded-3xl bg-surface p-4 shadow-md" aria-live="polite">
-        {current ? (
-          <SuccessPop key={current.letter} className="flex items-center gap-6">
-            <span className="text-8xl font-extrabold text-kid-blue">{current.letter}</span>
-            <span className="text-7xl" aria-hidden>{current.emoji}</span>
-            <span className="text-3xl font-bold">{current.word}</span>
-          </SuccessPop>
-        ) : (
-          <p className="text-2xl">Tap a letter!</p>
-        )}
-      </div>
-      <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">
-        {ALPHABET.map((a, i) => (
-          <button key={a.letter} type="button" onClick={() => pick(a, i)} className="min-h-touch rounded-2xl bg-surface text-4xl font-extrabold shadow active:scale-95">
-            {a.letter}
-          </button>
-        ))}
-      </div>
-    </PageContainer>
+    <ToyGame
+      title="Alphabet"
+      moduleId="alphabet"
+      items={ITEMS}
+      create={async (container) => {
+        const { LetterEngine } = await import("@/lib/letter-land/LetterEngine");
+        return new LetterEngine(container, {
+          reducedMotion: reduced,
+          onSelect: ({ letter, word, index }) => {
+            audioManager.playNote(index % 10);
+            audioManager.speak(`${letter}. ${letter} is for ${word}`);
+          },
+          onTrace: ({ n, total }) => audioManager.playNote(Math.min(9, Math.floor((n / total) * 9))),
+          onTraceDone: ({ letter }) => {
+            audioManager.play("success");
+            audioManager.speak(`Great job! ${letter}!`);
+            void finishActivity("alphabet", { score: 1 });
+          },
+          onMilestone: ({ found }) => void finishActivity("alphabet", { score: found }),
+        });
+      }}
+    >
+      {(engine) => (
+        <div className="absolute inset-x-0 top-20 flex justify-center gap-3">
+          {(["learn", "trace"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={mode === m}
+              onClick={() => {
+                setMode(m);
+                (engine as LetterEngine | null)?.setMode(m);
+              }}
+              className={`min-h-touch rounded-3xl px-6 text-2xl font-bold shadow active:scale-95 ${mode === m ? "bg-kid-blue text-white" : "bg-surface/90 text-foreground"}`}
+            >
+              {m === "learn" ? "👀 Learn" : "✏️ Trace it!"}
+            </button>
+          ))}
+        </div>
+      )}
+    </ToyGame>
   );
 }

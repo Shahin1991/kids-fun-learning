@@ -30,3 +30,8 @@
 - Colours come from CSS tokens in `src/app/globals.css` (`--background`, `--foreground`, `--surface`, `--*-dark`); `:root[data-theme="dark"]` overrides them. Use `bg-surface` / `text-foreground` instead of `bg-white` / `text-slate-*`, and `text-ink` for text on fixed bright colours.
 - `ThemeProvider` keeps the choice (`system | light | dark`) in localStorage; an inline script in `layout.tsx` sets `data-theme` before first paint to avoid a flash. Toggle: home header; full control in the parent dashboard.
 - The 3D game worlds keep their own bright scenes; only the surrounding UI (header, pills, buttons) follows the theme.
+
+## Alphabet & Numbers (3D)
+- Alphabet = Letter Land (`lib/letter-land/LetterEngine.ts`): giant tube letter + picture + word, 26 tappable letters, and a Trace mode (beads from `trace.ts`, lit by dragging).
+- Numbers = Counting Garden (`lib/counting-garden/CountingEngine.ts`): tap animals to count them one by one, then tap the giant number answer; questions and levels come from `lib/numbers/questions.ts`.
+- Lesson: invisible tap boxes must hug the object. Oversized boxes on items near the camera swallow taps meant for things behind them.
