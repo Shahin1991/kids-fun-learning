@@ -59,7 +59,7 @@ export default function ToyGame({ create, title, moduleId, items, className = ""
         <div className="pointer-events-auto">
           <HomeButton />
         </div>
-        <h1 className="mt-2 rounded-full bg-surface/90 px-5 py-2 text-2xl font-extrabold text-foreground shadow">{failed ? "3D is not available on this device" : title}</h1>
+        <h1 className="mt-2 max-w-[42%] truncate rounded-full bg-surface/90 px-4 py-2 text-lg font-extrabold text-foreground shadow sm:max-w-none sm:px-5 sm:text-2xl">{failed ? "3D is not available on this device" : title}</h1>
         <div className="pointer-events-auto flex items-center gap-2">
           {moduleId && <ProgressStars moduleId={moduleId} />}
           <SoundToggle />
