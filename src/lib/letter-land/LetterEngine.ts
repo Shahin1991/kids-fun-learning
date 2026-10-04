@@ -82,7 +82,7 @@ export class LetterEngine extends ToyScene {
       const mesh = new THREE.Mesh(this.glyph(entry.letter), mat);
       group.add(mesh);
       const tile: Tile = { entry, index, group, mesh, mat, hop: new Spring(0, 0, 220, 9), x: 0, z: 0, scale: 1, phase: Math.random() * 6, next: 0 };
-      const hit = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.7, 1), new THREE.MeshBasicMaterial({ visible: false }));
+      const hit = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.7, 1), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
       hit.userData.owner = tile;
       group.add(hit);
       this.stage.scene.add(group);
@@ -150,7 +150,7 @@ export class LetterEngine extends ToyScene {
     const group = new THREE.Group();
     const mesh = new THREE.Mesh(this.glyph(entry.letter), mat);
     group.add(mesh);
-    const hit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.9, 1.2), new THREE.MeshBasicMaterial({ visible: false }));
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.9, 1.2), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
     hit.userData.owner = "big";
     group.add(hit);
     this.stage.scene.add(group);

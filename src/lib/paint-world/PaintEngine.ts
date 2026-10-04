@@ -107,7 +107,7 @@ export class PaintEngine extends ToyScene {
       shadow.position.y = 0.03;
       this.stage.scene.add(shadow);
       const ball: Ball = { item, index, hex, group, mesh, x: 0, z: 0, squash: new Spring(0, 0, 200, 8), y: 0, vy: 0, airborne: false, phase: Math.random() * 6, nextWobble: 1 + Math.random() * 3, title: null, lift: 0 };
-      const hit = new THREE.Mesh(new THREE.SphereGeometry(1.45, 12, 10), new THREE.MeshBasicMaterial({ visible: false }));
+      const hit = new THREE.Mesh(new THREE.SphereGeometry(1.45, 12, 10), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
       hit.userData.owner = ball;
       group.add(hit);
       this.stage.scene.add(group);

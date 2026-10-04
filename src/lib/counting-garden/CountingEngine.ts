@@ -34,6 +34,8 @@ interface Choice {
   wobble: Spring;
   drop: Spring;
   phase: number;
+  /** becomes true once the number has landed; until then it cannot be tapped */
+  ready: boolean;
 }
 
 export class CountingEngine extends ToyScene {
@@ -111,7 +113,7 @@ export class CountingEngine extends ToyScene {
         const outer = new THREE.Group();
         outer.add(rig.group);
         const c: Critter = { rig, outer, x: 0, z: 0, counted: false, label: null };
-        const hit = new THREE.Mesh(new THREE.BoxGeometry(2.2, rig.height + 0.4, 2.2), new THREE.MeshBasicMaterial({ visible: false }));
+        const hit = new THREE.Mesh(new THREE.BoxGeometry(2.2, rig.height + 0.4, 2.2), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hit.position.y = (rig.height + 0.4) / 2;
         hit.userData.owner = c;
         outer.add(hit);
@@ -139,12 +141,11 @@ export class CountingEngine extends ToyScene {
         group.add(zero);
       }
       // Just a little bigger than the number itself, so it never covers the animals behind it.
-      const hit = new THREE.Mesh(new THREE.BoxGeometry(value === 10 ? 2.4 : 1.5, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
-      const ch: Choice = { value, group, mat, x: 0, wobble: new Spring(0, 0, 260, 11), drop: new Spring(this.reduced ? 0 : 6 + i, 0, 100, 10), phase: Math.random() * 6 };
+      const hit = new THREE.Mesh(new THREE.BoxGeometry(value === 10 ? 2.4 : 1.5, 1.8, 0.9), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+      const ch: Choice = { value, group, mat, x: 0, wobble: new Spring(0, 0, 260, 11), drop: new Spring(this.reduced ? 0 : 6 + i, 0, 100, 10), phase: Math.random() * 6, ready: false };
       hit.userData.owner = ch;
       group.add(hit);
       this.stage.scene.add(group);
-      this.pickables.push(group);
       this.choices.push(ch);
     });
 
@@ -258,6 +259,11 @@ export class CountingEngine extends ToyScene {
     for (const ch of this.choices) {
       const w = ch.wobble.step(dt);
       const drop = Math.max(0, ch.drop.step(dt));
+      // A number that is still falling must not block taps meant for the animals behind it.
+      if (!ch.ready && drop < 0.25) {
+        ch.ready = true;
+        this.pickables.push(ch.group);
+      }
       const s = ch.group.scale.x;
       ch.group.position.set(ch.x + w * 0.2, 0.75 * s + 0.15 + drop + Math.abs(Math.sin(t * 2 + ch.phase)) * 0.12 * idle, 6.6);
       ch.group.rotation.z = w * 0.15;

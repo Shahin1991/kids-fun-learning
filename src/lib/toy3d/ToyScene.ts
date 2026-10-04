@@ -85,11 +85,13 @@ export abstract class ToyScene implements ToyEngine {
 
   protected pick(e: PointerEvent): PickInfo | null {
     this.aim(e);
-    const hit = this.raycaster.intersectObjects(this.pickables, true)[0];
-    if (!hit) return null;
-    let o: THREE.Object3D | null = hit.object;
-    while (o && o.userData.owner === undefined) o = o.parent;
-    return o ? { owner: o.userData.owner, point: hit.point } : null;
+    // Surfaces without an owner (an animal's body poking out of its tap box) are skipped, not treated as a miss.
+    for (const hit of this.raycaster.intersectObjects(this.pickables, true)) {
+      let o: THREE.Object3D | null = hit.object;
+      while (o && o.userData.owner === undefined) o = o.parent;
+      if (o) return { owner: o.userData.owner, point: hit.point };
+    }
+    return null;
   }
 
   /** Where the pointer ray crosses the plane z = `z` (for dragging). */
@@ -108,7 +110,8 @@ export abstract class ToyScene implements ToyEngine {
 
   /** Invisible, generously sized hit target so small fingers do not have to be precise. */
   protected hitBox(owner: unknown, w: number, h: number, d: number): THREE.Mesh {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ visible: false }));
+    // DoubleSide so a ray that first meets the object inside the box still counts as hitting the box.
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
     m.userData.owner = owner;
     return m;
   }
