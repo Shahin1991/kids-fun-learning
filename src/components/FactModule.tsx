@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useState } from "react";
 import type { FactCategory, FactItem } from "@/data/facts";
 import { audioManager } from "@/lib/audio/AudioManager";
@@ -7,7 +8,9 @@ import { ActivityHeader } from "./ActivityHeader";
 import { Button } from "./Button";
 import { ChoiceQuiz } from "./ChoiceQuiz";
 import { ClientOnly } from "./ClientOnly";
+import { FactStage } from "./FactStage";
 import { ItemArt } from "./ItemArt";
+import { useAppReducedMotion } from "./ReducedMotionProvider";
 import { PageContainer } from "./PageContainer";
 import { SuccessPop } from "./SuccessPop";
 
@@ -16,6 +19,7 @@ export function FactModule({ moduleId, title, categories }: { moduleId: string; 
   const [catId, setCatId] = useState(categories[0].id);
   const [mode, setMode] = useState<"learn" | "quiz">("learn");
   const [selected, setSelected] = useState<FactItem | null>(null);
+  const reduced = useAppReducedMotion();
   const cat = categories.find((c) => c.id === catId) ?? categories[0];
 
   const open = (item: FactItem, i: number) => {
@@ -49,23 +53,37 @@ export function FactModule({ moduleId, title, categories }: { moduleId: string; 
       </div>
       {mode === "learn" ? (
         <>
-          <div className="min-h-32 rounded-3xl bg-surface p-4 text-center shadow-md" aria-live="polite">
+          <FactStage catId={cat.id} item={selected ?? cat.items[0]} speaking={Boolean(selected)} />
+          <div className="min-h-24 rounded-3xl bg-surface p-4 text-center shadow-md" aria-live="polite">
             {selected ? (
               <SuccessPop key={selected.id} className="flex flex-col items-center gap-1">
-                <ItemArt art={selected.art} emoji={selected.emoji} label={selected.label} size={96} />
                 <span className="text-3xl font-extrabold">{selected.label}</span>
                 <span className="text-xl">{selected.sound ? `${selected.sound} ${selected.fact}` : selected.fact}</span>
               </SuccessPop>
             ) : (
-              <p className="pt-8 text-2xl">Tap one to learn about it!</p>
+              <p className="pt-4 text-2xl">Tap one to watch it come alive!</p>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+          <div key={cat.id} className="grid grid-cols-3 gap-3 sm:grid-cols-4">
             {cat.items.map((item, i) => (
-              <button key={item.id} type="button" aria-label={item.label} onClick={() => open(item, i)} className="flex min-h-touch flex-col items-center rounded-2xl bg-surface p-2 shadow active:scale-95">
-                <ItemArt art={item.art} emoji={item.emoji} label={item.label} size={72} />
+              <motion.button
+                key={item.id}
+                type="button"
+                aria-label={item.label}
+                aria-pressed={selected?.id === item.id}
+                onClick={() => open(item, i)}
+                initial={reduced ? false : { opacity: 0, y: 24, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 16, delay: reduced ? 0 : i * 0.05 }}
+                whileHover={reduced ? undefined : { scale: 1.06, rotate: [0, -2, 2, 0] }}
+                whileTap={{ scale: 0.86 }}
+                className={`flex min-h-touch flex-col items-center rounded-2xl bg-surface p-2 shadow ${selected?.id === item.id ? "ring-4 ring-kid-blue" : ""}`}
+              >
+                <motion.div animate={reduced ? undefined : { y: [0, -4, 0] }} transition={{ duration: 2.4 + (i % 3) * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}>
+                  <ItemArt art={item.art} emoji={item.emoji} label={item.label} size={72} />
+                </motion.div>
                 <span className="text-sm font-bold">{item.label}</span>
-              </button>
+              </motion.button>
             ))}
           </div>
         </>
