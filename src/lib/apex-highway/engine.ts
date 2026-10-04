@@ -151,6 +151,7 @@ export class ApexEngine {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     document.addEventListener("visibilitychange", this.onVisibility);
+    window.addEventListener("pagehide", this.onPageHide);
     this.resize();
     this.applyNight(0);
     this.raf = requestAnimationFrame(this.loop);
@@ -215,6 +216,7 @@ export class ApexEngine {
   }
 
   toGarage() {
+    this.audio.silence();
     this.clearTraffic();
     this.resetRun();
     this.audio.setPaused(false);
@@ -236,6 +238,7 @@ export class ApexEngine {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
     document.removeEventListener("visibilitychange", this.onVisibility);
+    window.removeEventListener("pagehide", this.onPageHide);
     this.audio.dispose();
     this.clearTraffic();
     this.player.dispose();
@@ -340,6 +343,9 @@ export class ApexEngine {
     this.audio.setSiren(this.sirenOn);
     this.audio.setHorn(on && !this.spec.features.siren);
   }
+
+  /** Leaving the page (or it going into the back/forward cache) must never leave an engine running. */
+  private onPageHide = () => this.audio.dispose();
 
   private onVisibility = () => {
     if (document.hidden) this.pause(true);
@@ -456,6 +462,7 @@ export class ApexEngine {
     this.setPhase("crashed");
     this.shake = 1;
     this.crashT = 0;
+    this.audio.silence();
     this.audio.crash();
     this.setSiren(false);
     this.emitSparks(new THREE.Vector3((this.x + t.x) / 2, 0.8, -t.d * 0.5), 60, 8);

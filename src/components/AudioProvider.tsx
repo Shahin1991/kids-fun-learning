@@ -25,9 +25,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         audioManager.configure(s.soundEnabled, false);
       })
       .catch(() => {});
+    // Touch screens only count a finished tap (pointerup/touchend/click) as permission to play audio and speech.
+    const events = ["pointerdown", "pointerup", "touchend", "click", "keydown"] as const;
     const unlock = () => audioManager.unlock();
-    window.addEventListener("pointerdown", unlock, { once: true });
-    return () => window.removeEventListener("pointerdown", unlock);
+    events.forEach((e) => window.addEventListener(e, unlock));
+    return () => events.forEach((e) => window.removeEventListener(e, unlock));
   }, []);
 
   // Music only starts after a gesture, so it is applied when the toggle is pressed.

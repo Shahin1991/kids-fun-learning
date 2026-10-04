@@ -19,7 +19,7 @@ export default function AlphabetPage() {
   const reduced = useAppReducedMotion();
   const [mode, setMode] = useState<LetterMode>("learn");
   const [set, setSet] = useState<LetterSet>("letters");
-  const [paging, setPaging] = useState<Paging>({ show: false, label: "", canPrev: false, canNext: false });
+  const [paging, setPaging] = useState<Paging>({ show: false, wide: false, label: "", canPrev: false, canNext: false });
   return (
     <ToyGame
       title="ABC & 123"
@@ -48,7 +48,7 @@ export default function AlphabetPage() {
         const e = engine as LetterEngine | null;
         return (
           <>
-            <div className="absolute inset-x-0 top-20 flex justify-center gap-2 px-2">
+            <div className={`absolute inset-x-0 flex justify-center gap-2 px-2 ${paging.wide ? "bottom-3" : "top-20"}`}>
               {(["learn", "trace"] as const).map((m) => (
                 <button
                   key={m}

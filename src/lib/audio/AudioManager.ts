@@ -24,10 +24,35 @@ class AudioManager {
     this.setMusic(musicEnabled);
   }
 
-  /** Browsers block audio until a gesture; resume the context on the first one. */
+  private voice: SpeechSynthesisVoice | null = null;
+  private speechUnlocked = false;
+  private speakTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Chrome can garbage-collect an utterance before it finishes, which silences it; keep a reference. */
+  private current: SpeechSynthesisUtterance | null = null;
+
+  /**
+   * Browsers block audio and speech until a completed tap, click or key press.
+   * Called from every such event: resumes the audio context and primes speech with a silent utterance.
+   */
   unlock() {
     const ctx = Howler.ctx;
     if (ctx && ctx.state === "suspended") void ctx.resume();
+    const synth = typeof window === "undefined" ? undefined : window.speechSynthesis;
+    if (synth && !this.speechUnlocked) {
+      this.speechUnlocked = true;
+      const u = new SpeechSynthesisUtterance(" ");
+      u.volume = 0;
+      synth.speak(u);
+      synth.addEventListener?.("voiceschanged", () => (this.voice = null));
+    }
+  }
+
+  private pickVoice(synth: SpeechSynthesis): SpeechSynthesisVoice | null {
+    if (this.voice) return this.voice;
+    const voices = synth.getVoices();
+    const english = voices.filter((v) => v.lang.toLowerCase().startsWith("en"));
+    this.voice = english.find((v) => /en[-_]US/i.test(v.lang) && /google|samantha|natural|enhanced/i.test(v.name)) ?? english.find((v) => /en[-_]US/i.test(v.lang)) ?? english[0] ?? null;
+    return this.voice;
   }
 
   play(name: SoundName) {
@@ -63,11 +88,28 @@ class AudioManager {
 
   speak(text: string) {
     if (!this.soundEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
     const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
     u.rate = 0.85;
     u.pitch = 1.3;
-    window.speechSynthesis.speak(u);
+    u.volume = 1;
+    const voice = this.pickVoice(synth);
+    if (voice) u.voice = voice;
+    this.current = u;
+    u.onend = u.onerror = () => {
+      if (this.current === u) this.current = null;
+    };
+    if (this.speakTimer) clearTimeout(this.speakTimer);
+    const busy = synth.speaking || synth.pending;
+    synth.resume();
+    if (busy) {
+      // A new line interrupts the old one; Chrome drops an utterance spoken in the same tick as cancel().
+      synth.cancel();
+      this.speakTimer = setTimeout(() => synth.speak(u), 70);
+    } else {
+      synth.speak(u);
+    }
   }
 
   playAnimal(onomatopoeia: string) {

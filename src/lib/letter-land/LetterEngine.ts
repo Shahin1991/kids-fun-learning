@@ -14,6 +14,8 @@ export type LetterSet = "letters" | "numbers";
 export interface Paging {
   /** whether the ◀ ▶ bar should be shown */
   show: boolean;
+  /** landscape screens have room for everything, so the page puts its buttons at the bottom */
+  wide: boolean;
   label: string;
   canPrev: boolean;
   canNext: boolean;
@@ -269,9 +271,9 @@ export class LetterEngine extends ToyScene {
     if (learn) {
       const first = this.page * this.pageSize;
       const last = Math.min(this.entries.length, first + this.pageSize) - 1;
-      this.opts.onPaging?.({ show: this.pages > 1, label: `${this.entries[first].key} – ${this.entries[last].key}`, canPrev: this.page > 0, canNext: this.page < this.pages - 1 });
+      this.opts.onPaging?.({ show: this.pages > 1, wide: this.wide, label: `${this.entries[first].key} – ${this.entries[last].key}`, canPrev: this.page > 0, canNext: this.page < this.pages - 1 });
     } else {
-      this.opts.onPaging?.({ show: true, label: this.entries[this.current]?.key ?? "", canPrev: true, canNext: true });
+      this.opts.onPaging?.({ show: true, wide: this.wide, label: this.entries[this.current]?.key ?? "", canPrev: true, canNext: true });
     }
   }
 

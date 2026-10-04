@@ -139,6 +139,14 @@ export class ApexAudio {
     this.scrape.gain.setTargetAtTime(scraping ? 0.25 : 0, now, 0.03);
   }
 
+  /** Fades out every continuous sound (engine, wind, tyres, scrape, horn, siren); one-shot effects still work. */
+  silence() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    for (const g of [this.engineGain, this.wind, this.tyre, this.scrape, this.hornGain, this.sirenGain]) g.gain.setTargetAtTime(0, now, 0.06);
+  }
+
   setHorn(on: boolean) {
     if (this.ctx) this.hornGain.gain.setTargetAtTime(on ? 0.12 : 0, this.ctx.currentTime, 0.02);
   }
