@@ -45,6 +45,10 @@ export const MODULES: LearningModule[] = [
   { id: "road-runner", title: "Road Runner", ageGroup: "advanced", route: "/advanced/road-runner", icon: "🛣️", colorToken: "kid-yellow", description: "Dodge across three lanes" },
 
   { id: "alternate-uses", title: "Alternate Uses", ageGroup: "others", route: "/others/alternate-uses", icon: "💡", colorToken: "kid-yellow", description: "How many uses can you think of?" },
+  { id: "snake", title: "Snake", ageGroup: "others", route: "/others/snake", icon: "🐍", colorToken: "kid-green", description: "The classic: eat, grow, don't crash" },
+  { id: "bounce", title: "Bounce", ageGroup: "others", route: "/others/bounce", icon: "🔴", colorToken: "kid-red", description: "Roll and bounce through the rings" },
+  { id: "space-impact", title: "Space Impact", ageGroup: "others", route: "/others/space-impact", icon: "🚀", colorToken: "kid-blue", description: "Shoot your way through space" },
+  { id: "city-bloxx", title: "City Bloxx", ageGroup: "others", route: "/others/city-bloxx", icon: "🏙️", colorToken: "kid-orange", description: "Stack buildings to build a city" },
   { id: "apex-highway", title: "Apex Highway", ageGroup: "others", route: "/others/apex-highway", icon: "🚗", colorToken: "kid-red", description: "Endless 3D highway driving" },
 ];
 
