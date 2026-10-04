@@ -45,3 +45,5 @@
 - Coasting: thrust only comes from the pedal; lifting off gives engine braking + speed-squared drag. Inputs are released on blur, tab hide and lost pointer capture.
 - Van, bus, ambulance and fire engine upper bodies are rounded, raked extrusions with tumblehome and crowned roofs (`rakeFront`/`rakeRear` on `BoxSpec`).
 - City Bloxx (`/others/city-bloxx`): pure logic in `lib/arcade/bloxx.ts`.
+- Cake Bakery (`/early-learning/cake-bakery`): SVG step game (flavor, stir, bake, frost, decorate).
+- Magna Tiles (`/early-learning/magna-tiles`): `lib/magna-tiles/geometry.ts` (hinge maths, tested) + `MagnaEngine` (ToyScene subclass with orbit camera). Tiles snap on edges with a chosen inside angle (Flat/Open/Wall/Tent/Pyramid) and a Flip side toggle; the selected leaf tile can be re-folded live.
