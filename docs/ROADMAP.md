@@ -11,7 +11,9 @@ All modules from requirement.md are implemented. Remaining ideas:
 
 ## Learning-game roadmap (from `docs/GAME_RESEARCH.md`)
 
-Built so far from this research: Number Path, Pattern Parade, First Sound, Clock Time, Robot Path.
+Built so far from this research: Number Path, Pattern Parade, First Sound, Clock Time, Robot Path, Tic Tac Toe and Connect 4 (3D, three bot levels, reasoning/planning).
+
+Memory and reasoning ideas still to build: Simon Says (repeat the sequence), What's Missing?, Odd One Out, Sliding Puzzle, Sudoku for kids (4x4 pictures), Nim (take 1-3 sticks), Checkers-lite.
 
 Next, roughly by expected learning value:
 1. **Make Ten** (ages 5-7): ten-frame with counters, "how many more to make 10?"; extends Number Path into number bonds.

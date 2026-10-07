@@ -29,6 +29,12 @@ export class ParticlePool {
     scene.add(this.mesh);
   }
 
+  /** Additive glow suits dark backgrounds; light ones need normal blending or the dots vanish. */
+  setBlending(b: THREE.Blending) {
+    this.mat.blending = b;
+    this.mat.needsUpdate = true;
+  }
+
   emit(pos: THREE.Vector3, vel: THREE.Vector3, color: THREE.ColorRepresentation, life: number, size: number, gravity = -6, drag = 0.6, trail = false) {
     if (this.items.length >= this.capacity) return;
     this.items.push({ pos: pos.clone(), vel: vel.clone(), color: new THREE.Color(color), life, max: life, size, gravity, drag, trail });

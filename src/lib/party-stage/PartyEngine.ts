@@ -1,27 +1,21 @@
 import * as THREE from "three";
-import { Spring } from "@/lib/toy3d/spring";
 import { ToyScene, type ToyOptions } from "@/lib/toy3d/ToyScene";
 import { DropletPool, ParticlePool } from "./particles";
 
 export type PartyStyle = "firework" | "confetti" | "bubble" | "splash";
 
+export type PartyTheme = "light" | "dark";
+
 export interface PartyOptions extends ToyOptions {
+  theme?: PartyTheme;
   onBurst?: (p: { style: PartyStyle; x: number }) => void;
 }
 
 const PALETTE = [0xff4d6d, 0xffd93d, 0x4dd0ff, 0x6bff9a, 0xc77dff, 0xff9f43];
 const FIREWORK_COLORS = [0xff5e7e, 0xffd166, 0x6ee7ff, 0x8cff9e, 0xd49bff, 0xffa24d, 0xffffff];
-const COLS = 11;
-const ROWS = 7;
+const BG: Record<PartyTheme, number> = { light: 0xfffaf0, dark: 0x17122a };
 const MAX_RIPPLES = 28;
 
-interface Tile {
-  mesh: THREE.Mesh;
-  mat: THREE.MeshStandardMaterial;
-  x: number;
-  z: number;
-  glow: Spring;
-}
 interface Ripple {
   mesh: THREE.Mesh;
   t: number;
@@ -70,23 +64,19 @@ export class PartyEngine extends ToyScene {
   private style: PartyStyle = "firework";
   private glow: ParticlePool;
   private drops: DropletPool;
-  private tiles: Tile[] = [];
   private ripples: Ripple[] = [];
   private bubbles: Bubble[] = [];
   private rockets: Rocket[] = [];
-  private ball: THREE.Mesh;
-  private hue = 0.75;
-  private bg = new THREE.Color(0x2a1a4a);
-  private bgTarget = new THREE.Color(0x2a1a4a);
+  private theme: PartyTheme;
   private pressed = false;
   private lastTrail = 0;
   private bubbleGeo = new THREE.SphereGeometry(1, 32, 24);
   private bubbleMat = new THREE.ShaderMaterial({ vertexShader: BUBBLE_VERT, fragmentShader: BUBBLE_FRAG, transparent: true, depthWrite: false, uniforms: { uTime: { value: 0 } } });
   private ringGeo = new THREE.RingGeometry(0.8, 1, 48);
-  private bokeh: { mesh: THREE.Mesh; speed: number; phase: number }[] = [];
 
   constructor(container: HTMLElement, private opts: PartyOptions = {}) {
-    super(container, 0x2a1a4a, opts);
+    super(container, BG[opts.theme ?? "light"], opts);
+    this.theme = opts.theme ?? "light";
     const scene = this.stage.scene;
     scene.add(new THREE.AmbientLight(0xffffff, 0.55 * Math.PI));
     const key = new THREE.DirectionalLight(0xfff0ff, 0.8 * Math.PI);
@@ -99,47 +89,24 @@ export class PartyEngine extends ToyScene {
       this.drops.dispose();
     });
 
-    // Dance floor
-    for (let c = 0; c < COLS; c++) {
-      for (let r = 0; r < ROWS; r++) {
-        const base = new THREE.Color().setHSL(((c + r) % 6) / 6, 0.7, 0.45);
-        const mat = new THREE.MeshStandardMaterial({ color: base, emissive: base, emissiveIntensity: 0.15, roughness: 0.4 });
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 1.8), mat);
-        const x = (c - (COLS - 1) / 2) * 1.9;
-        const z = -5 + r * 1.9;
-        mesh.position.set(x, -0.15, z);
-        scene.add(mesh);
-        this.tiles.push({ mesh, mat, x, z, glow: new Spring(0, 0, 120, 8) });
-      }
-    }
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(60, 30), new THREE.MeshStandardMaterial({ color: 0x3a2466, roughness: 1 }));
-    wall.position.set(0, 12, -8);
-    scene.add(wall);
-
-    this.ball = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 2), new THREE.MeshStandardMaterial({ color: 0xdfe6ff, metalness: 1, roughness: 0.15, flatShading: true, emissive: 0x8899ff, emissiveIntensity: 0.7 }));
-    this.ball.position.set(0, 11.5, -3);
-    scene.add(this.ball);
-    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xcccccc }));
-    cord.position.set(0, 15, -3);
-    scene.add(cord);
-
-    // Light beams stay still: they only add colour to the room.
-    for (let i = 0; i < 4; i++) {
-      const beam = new THREE.Mesh(
-        new THREE.ConeGeometry(2.2, 14, 24, 1, true).translate(0, -7, 0),
-        new THREE.MeshBasicMaterial({ color: PALETTE[i], transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
-      );
-      beam.position.set((i - 1.5) * 5, 15, -5);
-      beam.rotation.z = (i - 1.5) * 0.14;
-      scene.add(beam);
-    }
-    for (let i = 0; i < 18; i++) {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(0.25 + Math.random() * 0.35, 12, 8), new THREE.MeshBasicMaterial({ color: PALETTE[i % PALETTE.length], transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
-      m.position.set((Math.random() - 0.5) * 24, 2 + Math.random() * 12, -6 + Math.random() * 3);
-      scene.add(m);
-      this.bokeh.push({ mesh: m, speed: 0.2 + Math.random() * 0.4, phase: Math.random() * 6 });
-    }
+    this.applyTheme();
     this.start();
+  }
+
+  /** Solid background that follows the app theme; glow particles only make sense on the dark one. */
+  setTheme(theme: PartyTheme) {
+    this.theme = theme;
+    this.applyTheme();
+  }
+
+  private applyTheme() {
+    (this.stage.scene.background as THREE.Color).set(BG[this.theme]);
+    this.glow.setBlending(this.theme === "dark" ? THREE.AdditiveBlending : THREE.NormalBlending);
+  }
+
+  /** White sparkles would disappear on a light background. */
+  private ink(c: number): number {
+    return this.theme === "light" && c === 0xffffff ? 0xffb000 : c;
   }
 
   setStyle(style: PartyStyle) {
@@ -190,24 +157,17 @@ export class PartyEngine extends ToyScene {
   /** A droplet landing on the floor makes a small, thin ripple. */
   private splashRing(at: THREE.Vector3, size: number) {
     if (size < 0.07 || Math.random() > 0.5) return;
-    this.ripple(new THREE.Vector3(at.x, 0.03, at.z), 0xcfeeff, 0.45 + size * 5, 0.7, true, 0.45);
+    this.ripple(new THREE.Vector3(at.x, 0.03, at.z), this.theme === "dark" ? 0xcfeeff : 0x4da6ff, 0.45 + size * 5, 0.7, true, 0.45);
   }
 
   private burst(at: THREE.Vector3) {
     this.opts.onBurst?.({ style: this.style, x: Math.max(0, Math.min(1, (at.x + 12) / 24)) });
-    // The room colour and nearby floor tiles react to every tap.
-    this.hue = (this.hue + 0.11) % 1;
-    this.bgTarget.setHSL(this.hue, 0.55, 0.2);
-    for (const t of this.tiles) {
-      const d = Math.hypot(t.x - at.x, t.z + 2);
-      if (d < 7) t.glow.kick(8 / (1 + d * 0.6));
-    }
     const n = this.reduced ? 0.25 : 1;
 
     switch (this.style) {
       case "firework": {
-        const c1 = FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)];
-        const c2 = FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)];
+        const c1 = this.ink(FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)]);
+        const c2 = this.ink(FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)]);
         const start = new THREE.Vector3(at.x, 0.4, at.z);
         const dist = Math.max(1, at.y - 0.4);
         this.rockets.push({ pos: start, vel: new THREE.Vector3((Math.random() - 0.5) * 0.6, dist / 0.42, 0), target: at.clone(), colors: [c1, c2] });
@@ -228,7 +188,7 @@ export class PartyEngine extends ToyScene {
 
   private explode(at: THREE.Vector3, colors: [number, number]) {
     const n = this.reduced ? 0.25 : 1;
-    this.glow.emit(at, new THREE.Vector3(), 0xffffff, 0.14, 1.1, 0, 0);
+    this.glow.emit(at, new THREE.Vector3(), this.ink(0xffffff), 0.14, 1.1, 0, 0);
     // A thin, evenly spread shell of sparks that slows, then drifts and falls.
     for (let i = 0; i < 150 * n; i++) {
       const dir = new THREE.Vector3().randomDirection();
@@ -267,7 +227,7 @@ export class PartyEngine extends ToyScene {
     for (let i = 0; i < 9; i++) {
       this.drops.emit(at, new THREE.Vector3().randomDirection().multiplyScalar(1.2 + Math.random() * 1.6), 0.025 + Math.random() * 0.02);
     }
-    this.glow.emit(at, new THREE.Vector3(), 0xffffff, 0.1, b.size * 1.2, 0, 0);
+    this.glow.emit(at, new THREE.Vector3(), this.ink(0xffffff), 0.1, b.size * 1.2, 0, 0);
     this.stage.scene.remove(b.mesh);
     this.bubbles = this.bubbles.filter((x) => x !== b);
   }
@@ -300,18 +260,6 @@ export class PartyEngine extends ToyScene {
     this.bubbleMat.uniforms.uTime.value = t;
     this.glow.update(dt);
     this.drops.update(dt);
-    this.ball.rotation.y += dt * 0.5 * idle;
-    this.bokeh.forEach((b) => {
-      b.mesh.position.y += Math.sin(t * b.speed + b.phase) * dt * 0.6 * idle;
-      b.mesh.position.x += Math.cos(t * b.speed * 0.7 + b.phase) * dt * 0.4 * idle;
-    });
-    for (const tile of this.tiles) {
-      const g = Math.max(0, tile.glow.step(dt));
-      const wave = idle ? (Math.sin(t * 1.4 + tile.x * 0.5 + tile.z * 0.4) + 1) * 0.12 : 0.1;
-      tile.mat.emissiveIntensity = 0.15 + wave + g * 0.5;
-      tile.mesh.position.y = -0.15 + g * 0.08;
-    }
-
     for (const r of [...this.rockets]) {
       r.pos.addScaledVector(r.vel, dt);
       this.glow.emit(r.pos, new THREE.Vector3((Math.random() - 0.5) * 0.6, -0.8, 0), 0xffd9a0, 0.35, 0.05, -1, 1);
@@ -348,8 +296,6 @@ export class PartyEngine extends ToyScene {
       if (b.life <= 0 || b.mesh.position.y > 15) this.popBubble(b);
     }
 
-    this.bg.lerp(this.bgTarget, Math.min(1, dt * 2));
-    (this.stage.scene.background as THREE.Color).copy(this.bg);
   }
 
   protected onDestroy() {
