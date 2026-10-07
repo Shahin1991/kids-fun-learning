@@ -373,7 +373,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   const frontZ = -L / 2;
   const noseTop = Math.max(...spec.body.filter((p) => p[0] > halfL - 0.01).map((p) => p[1]), 0);
   const tailTop = Math.max(...spec.body.filter((p) => p[0] < -halfL + 0.01).map((p) => p[1]), 0);
-  const headY = shaped ? noseTop - 0.1 : Math.min(beltY - 0.12, 0.85);
+  const headY = shaped ? noseTop - 0.07 : Math.min(beltY - 0.12, 0.85);
   const tailY = shaped ? tailTop - 0.12 : headY;
   const planAt = (z: number) => (shaped ? 1 - 0.16 * Math.pow(Math.min(1, Math.abs(z) / halfL), 3) : 1);
   const headZ = -endU(1, headY) - 0.02;
@@ -382,7 +382,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   const tailX = (W / 2 - 0.42) * planAt(tailZ);
   const glassLens = mat(new THREE.MeshPhysicalMaterial({ color: 0xe4eef5, metalness: 0, roughness: 0.04, transparent: true, opacity: 0.4 }));
   const reverseMat = mat(new THREE.MeshStandardMaterial({ color: 0xf4f4f4, emissive: 0xffffff, emissiveIntensity: 0.15, roughness: 0.3 }));
-  const amberMat = mat(new THREE.MeshStandardMaterial({ color: 0xc77a00, emissive: 0xff9a00, emissiveIntensity: 0.4, roughness: 0.3 }));
+  const amberMat = mat(new THREE.MeshStandardMaterial({ color: 0xc77a00, emissive: 0xff9a00, emissiveIntensity: 0.9, roughness: 0.3 }));
 
   // Swept almond outline (x is outward along the flank, y up), sampled so it can be scaled and used as a hole
   const lampOutline = (w: number, h: number, sweep: number): Pt[] =>
@@ -404,7 +404,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
       g.translate(0, 0, front - depth - bevel);
       return g;
     });
-  const headOutline = lampOutline(0.52, 0.2, 0.6);
+  const headOutline = lampOutline(0.62, 0.13, 0.5);
   const tailOutline = lampOutline(0.56, 0.17, 0.6);
   const bulbGeo = cache.get("bulb", () => new THREE.CylinderGeometry(1, 1, 1, 16).rotateX(Math.PI / 2));
   const part = (g: THREE.Object3D, geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0) => {
@@ -413,18 +413,19 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     g.add(mesh);
     return mesh;
   };
+  // Slim, flat clear-lens headlamp: thin trim, silver reflector, twin projectors, LED day strip and amber indicator
   const makeHeadlamp = () => {
     const g = new THREE.Group();
-    part(g, lampGeo("hl-bezel", lampShape(headOutline, 1, 0.88), 0.1, 0.025), dark);
-    part(g, lampGeo("hl-refl", lampShape(headOutline, 0.88), 0.02, 0.0, 0), rim);
-    // Main projector: dark ring, chrome bowl, bright lens
-    part(g, bulbGeo, dark, -0.06, 0.0, 0.0).scale.set(0.072, 0.072, 0.03);
-    part(g, bulbGeo, chrome, -0.06, 0.0, 0.006).scale.set(0.06, 0.06, 0.03);
-    part(g, bulbGeo, headMat, -0.06, 0.0, 0.016).scale.set(0.042, 0.042, 0.02);
-    // Amber indicator at the outer end and an LED daytime strip along the lower edge
-    part(g, box("hl-ind", 0.1, 0.03, 0.012), amberMat, 0.17, 0.02, 0.008);
-    part(g, box("hl-drl", 0.38, 0.016, 0.014), headMat, 0.0, -0.058, 0.01);
-    part(g, lampGeo("hl-glass", lampShape(headOutline, 0.88), 0.006, 0.02, 0), glassLens);
+    part(g, lampGeo("hl-bezel", lampShape(headOutline, 1, 0.95), 0.05, 0.012, 0.006), dark);
+    part(g, lampGeo("hl-refl", lampShape(headOutline, 0.95), 0.01, 0.0, 0), rim);
+    for (const [x, r] of [[-0.17, 0.042], [-0.07, 0.034]] as const) {
+      part(g, bulbGeo, dark, x, -0.004, 0.002).scale.set(r * 1.3, r * 1.3, 0.01);
+      part(g, bulbGeo, headMat, x, -0.004, 0.007).scale.set(r, r, 0.008);
+    }
+    const drl = part(g, box("hl-drl", 0.26, 0.012, 0.008), headMat, 0.0, 0.042, 0.008);
+    drl.rotation.z = 0.12;
+    part(g, box("hl-ind", 0.2, 0.036, 0.008), amberMat, 0.2, -0.02, 0.008);
+    part(g, lampGeo("hl-glass", lampShape(headOutline, 0.95), 0.004, 0.012, 0), glassLens);
     return g;
   };
   const makeTaillamp = () => {
@@ -459,6 +460,13 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
       sp.position.set(s * x, y, z);
       group.add(sp);
       (z < 0 ? headGlows : tailGlows).push(sp);
+    }
+    // Amber side repeater on the front fender
+    if (shaped) {
+      const ry = beltY - 0.14;
+      const rz = -(spec.wheelbase / 2 + archR + 0.12);
+      const rep = add(box("repeater", 0.014, 0.03, 0.1), amberMat, s * (skinX(ry, rz) + 0.003), ry, rz);
+      rep.rotation.z = -s * skinLean(ry, rz);
     }
     // Light cast on the road ahead
     const pool = add(poolGeo, poolMat, s * (W / 2 - 0.5), 0.07, headZ - 9.5);

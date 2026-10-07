@@ -30,6 +30,7 @@ function Game({ mode, onBack }: { mode: BubbleMode; onBack: () => void }) {
   const tap = (b: BubbleItem) => {
     if (b.id !== round.target.id) {
       audioManager.play("failure");
+      audioManager.speak(`That is the ${b.name}. Can you find the ${round.target.name}?`);
       setWobble((w) => ({ id: b.id, n: w.n + 1 }));
       return;
     }

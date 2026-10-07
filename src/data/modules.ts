@@ -38,12 +38,17 @@ export const MODULES: LearningModule[] = [
   { id: "block-tower", title: "Block Tower", ageGroup: "early-learning", route: "/early-learning/block-tower", icon: "🧱", colorToken: "kid-red", description: "Stack wobbly blocks, then knock them down" },
   { id: "cake-bakery", title: "Cake Bakery", ageGroup: "early-learning", route: "/early-learning/cake-bakery", icon: "🎂", colorToken: "kid-red", description: "Mix, bake, frost and decorate your own cake" },
   { id: "magna-tiles", title: "Magna Tiles", ageGroup: "early-learning", route: "/early-learning/magna-tiles", icon: "🔷", colorToken: "kid-blue", description: "Snap magnetic tiles into houses, towers and more" },
+  { id: "patterns", title: "Pattern Parade", ageGroup: "early-learning", route: "/early-learning/patterns", icon: "🔴", colorToken: "kid-purple", description: "What comes next in the pattern?" },
+  { id: "first-sound", title: "First Sound", ageGroup: "early-learning", route: "/early-learning/first-sound", icon: "🔊", colorToken: "kid-orange", description: "Which letter does the word start with?" },
+  { id: "number-path", title: "Number Path", ageGroup: "early-learning", route: "/early-learning/number-path", icon: "🎲", colorToken: "kid-green", description: "Roll the dice and hop along the numbers" },
   { id: "balance-scale", title: "Balance Scale", ageGroup: "early-learning", route: "/early-learning/balance-scale", icon: "⚖️", colorToken: "kid-orange", description: "Make both sides equal" },
 
   { id: "math-racer", title: "Math Racer", ageGroup: "advanced", route: "/advanced/math-racer", icon: "🏎️", colorToken: "kid-red", description: "Answer to race down the road" },
   { id: "vehicles", title: "Vehicle World", ageGroup: "advanced", route: "/advanced/vehicles", icon: "🚒", colorToken: "kid-orange", description: "Vehicles with sounds and facts" },
   { id: "geography", title: "Geography", ageGroup: "advanced", route: "/advanced/geography", icon: "🌍", colorToken: "kid-green", description: "Flags, countries and continents" },
   { id: "science", title: "Science", ageGroup: "advanced", route: "/advanced/science", icon: "🔭", colorToken: "kid-purple", description: "Space, plants and weather" },
+  { id: "clock", title: "Clock Time", ageGroup: "advanced", route: "/advanced/clock", icon: "🕒", colorToken: "kid-blue", description: "Learn to tell the time" },
+  { id: "robot-path", title: "Robot Path", ageGroup: "advanced", route: "/advanced/robot-path", icon: "🤖", colorToken: "kid-green", description: "Line up arrows to guide the robot to the star" },
   { id: "road-runner", title: "Road Runner", ageGroup: "advanced", route: "/advanced/road-runner", icon: "🛣️", colorToken: "kid-yellow", description: "Dodge across three lanes" },
 
   { id: "alternate-uses", title: "Alternate Uses", ageGroup: "others", route: "/others/alternate-uses", icon: "💡", colorToken: "kid-yellow", description: "How many uses can you think of?" },

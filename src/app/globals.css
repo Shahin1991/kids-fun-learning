@@ -10,6 +10,17 @@
   --early-dark: #1e88c9;
   --advanced-dark: #2f9e44;
   --others-dark: #7a3fd1;
+  /* Declared here too: Tailwind only emits theme variables it sees used in a class, but cards read these via inline style. */
+  --color-kid-red: #ff6b6b;
+  --color-kid-blue: #4d96ff;
+  --color-kid-green: #6bcb77;
+  --color-kid-yellow: #ffd93d;
+  --color-kid-orange: #ff9f43;
+  --color-kid-purple: #9b51e0;
+  --color-toddler: #ff8fb1;
+  --color-early: #5cc8ff;
+  --color-advanced: #7ddc8a;
+  --color-others: #b583ff;
 }
 
 /* Dark theme: set on <html> by ThemeProvider (and by a tiny script before first paint). */

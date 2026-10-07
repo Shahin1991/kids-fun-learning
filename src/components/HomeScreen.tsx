@@ -8,6 +8,7 @@ import { LogoLongPress } from "./LogoLongPress";
 import { MusicToggle } from "./MusicToggle";
 import { PageContainer } from "./PageContainer";
 import { SoundToggle } from "./SoundToggle";
+import { WelcomeBanner } from "./WelcomeBanner";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function HomeScreen() {
@@ -29,6 +30,7 @@ export function HomeScreen() {
           <SoundToggle />
         </div>
       </header>
+      <WelcomeBanner hidden={disabled} />
       {AGE_GROUP_ORDER.map((g) => (
         <AgeGroupSection key={g} ageGroup={g} modules={getModulesByAgeGroup(g).filter((m) => !disabled.includes(m.id))} />
       ))}
