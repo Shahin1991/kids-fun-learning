@@ -652,7 +652,7 @@ export class ApexEngine {
     this.timeSec = t / 1000;
     const bendTarget = this.phase === "garage" ? 0 : curvatureAt(this.distance);
     bendUniform.value += (bendTarget - bendUniform.value) * Math.min(1, dt * 2);
-    this.player.tick(this.timeSec, this.lightsLatched || this.sirenOn);
+    this.player.tick(this.timeSec, this.lightsLatched || this.sirenOn || this.spec.features.livery === "police" || this.spec.features.livery === "police-uae");
     this.applyPlayerPose(dt);
     this.updateSparks(dt);
     this.world.update(this.distance, dt, this.camera.position);

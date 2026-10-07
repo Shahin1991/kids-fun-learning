@@ -1,5 +1,5 @@
 // Pure data: dimensions in metres, profile points are [x along length (front +), y up].
-export type VehicleKind = "sedan" | "coupe" | "suv" | "pickup" | "van" | "bus" | "police" | "ambulance" | "fire";
+export type VehicleKind = "sedan" | "coupe" | "suv" | "pickup" | "van" | "bus" | "police" | "police-uae" | "ambulance" | "fire";
 type Pt = [number, number];
 
 export interface BoxSpec {
@@ -35,7 +35,7 @@ export interface VehicleSpec {
     ladder?: boolean;
     /** Flashing red/blue light bar at (u along length, y) */
     lightbar?: { u: number; y: number };
-    livery?: "police" | "ambulance" | "fire";
+    livery?: "police" | "police-uae" | "ambulance" | "fire";
     /** H plays a siren instead of the horn */
     siren?: boolean;
   };
@@ -112,10 +112,19 @@ export const VEHICLES: VehicleSpec[] = [
     engine: { base: 32, filter: 520, wave: "sawtooth", rpmRange: 1.8 }, defaultColor: "#ff7043",
   },
   {
-    id: "police", name: "Police Car", length: 4.8, width: 1.9, wheelbase: 2.85, wheelRadius: 0.34,
+    id: "police", name: "Police (US)", length: 4.8, width: 1.9, wheelbase: 2.85, wheelRadius: 0.34,
     body: [[-2.4, 0.38], [-2.4, 0.9], [-2.05, 1.0], [1.25, 1.0], [2.05, 0.87], [2.4, 0.72], [2.4, 0.38]],
     cabin: [[-1.3, 1.0], [-0.9, 1.52], [0.6, 1.52], [1.3, 1.0]],
     features: { lightbar: { u: -0.15, y: 1.6 }, livery: "police", siren: true }, driver: { x: -0.4, y: 1.15, z: 0.1 },
+    topSpeedKmh: 230, accel: 7.5, brake: 10, lock: 0.52,
+    rating: { speed: 0.82, accel: 0.78, brake: 0.8, steer: 0.75 },
+    engine: { base: 62, filter: 1300, wave: "sawtooth", rpmRange: 2.9 }, defaultColor: "#16181c",
+  },
+  {
+    id: "police-uae", name: "Police (UAE)", length: 4.8, width: 1.9, wheelbase: 2.85, wheelRadius: 0.34,
+    body: [[-2.4, 0.38], [-2.4, 0.9], [-2.05, 1.0], [1.25, 1.0], [2.05, 0.87], [2.4, 0.72], [2.4, 0.38]],
+    cabin: [[-1.3, 1.0], [-0.9, 1.52], [0.6, 1.52], [1.3, 1.0]],
+    features: { lightbar: { u: -0.15, y: 1.6 }, livery: "police-uae", siren: true }, driver: { x: -0.4, y: 1.15, z: 0.1 },
     topSpeedKmh: 230, accel: 7.5, brake: 10, lock: 0.52,
     rating: { speed: 0.82, accel: 0.78, brake: 0.8, steer: 0.75 },
     engine: { base: 62, filter: 1300, wave: "sawtooth", rpmRange: 2.9 }, defaultColor: "#f4f6f8",
@@ -154,4 +163,4 @@ export function getVehicleSpec(id: string): VehicleSpec {
 }
 
 export const TRAFFIC_KINDS: VehicleKind[] = ["sedan", "suv", "van", "pickup", "bus"];
-export const EMERGENCY_KINDS: VehicleKind[] = ["police", "ambulance", "fire"];
+export const EMERGENCY_KINDS: VehicleKind[] = ["police", "police-uae", "ambulance", "fire"];
