@@ -11,7 +11,7 @@ All modules from requirement.md are implemented. Remaining ideas:
 
 ## Learning-game roadmap (from `docs/GAME_RESEARCH.md`)
 
-Built so far from this research: Number Path, Pattern Parade, First Sound, Clock Time, Robot Path, Tic Tac Toe and Connect 4 (3D, three bot levels, reasoning/planning).
+Built so far from this research: Number Path, Pattern Parade, First Sound, Clock Time, Robot Path, Tic Tac Toe and Connect 4 (3D, three bot levels, reasoning/planning), Snakes & Ladders and Ludo (3D, bots, 2-4 players; Ludo has three bot levels), Uno (animated cards, 1-3 bots, three levels).
 
 Memory and reasoning ideas still to build: Simon Says (repeat the sequence), What's Missing?, Odd One Out, Sliding Puzzle, Sudoku for kids (4x4 pictures), Nim (take 1-3 sticks), Checkers-lite.
 
@@ -33,3 +33,10 @@ Cross-cutting UX to-dos:
 - Per-child profiles and a parent "what did they practise" report (the parent dashboard already stores per-module progress).
 - Adaptive difficulty persisted per game (start where the child left off, not at level 1).
 - Playtest with real 3, 5 and 7 year olds; the numbers in the research (target sizes, session length) are starting points.
+
+## Board and card games: follow-ups
+- Pass-and-play (two children on one device) for Tic Tac Toe, Connect 4, Ludo, Uno.
+- Uno: "UNO!" call button for older kids (currently shouted automatically), stacking +2/+4, and a house-rules switch.
+- Ludo: optional rules (safe-square blocks, three sixes forfeit) behind a "classic rules" toggle.
+- Snakes & Ladders: choose board themes; read the square number aloud as the pawn hops.
+- Test with real children: the bots' timing (about 1s per move) was picked by feel.

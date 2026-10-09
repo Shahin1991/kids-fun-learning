@@ -59,6 +59,18 @@
   --font-sans: var(--font-baloo), system-ui, sans-serif;
 }
 
+html, body {
+  /* No rubber-banding into blank space, and never a sideways scroll. */
+  overscroll-behavior: none;
+  overflow-x: hidden;
+}
+
+/* Full-screen game pages (a single h-dvh wrapper) must not scroll at all, in any direction. */
+html:has(.h-dvh), body:has(.h-dvh) {
+  overflow: hidden;
+  height: 100dvh;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
