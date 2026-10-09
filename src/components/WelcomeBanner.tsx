@@ -8,6 +8,8 @@ import { getAllProgress } from "@/lib/progress/progress";
 import { getAllStars } from "@/lib/rewards/RewardManager";
 import { TapBounce } from "./TapBounce";
 
+const SHORT: Record<AgeGroup, string> = { toddler: "Ages 2-3", "early-learning": "Ages 4-6", advanced: "Ages 7-8", others: "More" };
+
 export const GROUP_ICONS: Record<AgeGroup, string> = { toddler: "🧸", "early-learning": "🎨", advanced: "🚀", others: "🎮" };
 
 /** Friendly top of the home screen: greeting you can hear, star total, quick jumps, and "keep playing". */
@@ -47,9 +49,9 @@ export function WelcomeBanner({ hidden }: { hidden: string[] }) {
       </div>
       <nav aria-label="Jump to a group" className="grid grid-cols-4 gap-2">
         {AGE_GROUP_ORDER.map((g) => (
-          <a key={g} href={`#group-${g}`} aria-label={AGE_GROUP_LABELS[g]} className="flex min-h-touch flex-col items-center justify-center rounded-2xl bg-surface text-4xl shadow active:scale-95">
+          <a key={g} href={`#group-${g}`} aria-label={AGE_GROUP_LABELS[g]} className="flex min-h-20 flex-col items-center justify-center gap-0.5 rounded-2xl bg-surface px-1 text-center text-4xl shadow active:scale-95">
             <span aria-hidden>{GROUP_ICONS[g]}</span>
-            <span className="text-sm font-bold">{AGE_GROUP_LABELS[g]}</span>
+            <span className="text-xs font-bold leading-tight sm:text-sm">{SHORT[g]}</span>
           </a>
         ))}
       </nav>

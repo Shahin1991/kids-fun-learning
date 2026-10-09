@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
+import { ChipRow, GameSettings } from "./GameSettings";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { finishActivity } from "@/lib/activity";
 import type { DiceEngine, DiceOptions, DiceSound, DiceState } from "@/lib/board-games/dice-types";
@@ -143,18 +144,33 @@ export function DiceGameShell({ title, moduleId, make, showLevel = false }: { ti
           )}
         </div>
         <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
-          {[2, 3, 4].map((n) => (
-            <button key={n} type="button" aria-pressed={count === n} aria-label={`${n} players`} onClick={() => apply(n, level)} className={`min-h-12 rounded-2xl px-3 text-lg font-bold shadow-md active:scale-95 ${count === n ? "bg-kid-blue text-white ring-4 ring-white" : "bg-surface text-foreground"}`}>
-              👥 {n}
-            </button>
-          ))}
-          {showLevel &&
-            LEVELS.map((l) => (
-              <button key={l.id} type="button" aria-pressed={level === l.id} onClick={() => apply(count, l.id)} className={`min-h-12 rounded-2xl px-3 text-lg font-bold shadow-md active:scale-95 ${level === l.id ? "bg-kid-blue text-white ring-4 ring-white" : "bg-surface text-foreground"}`}>
-                <span aria-hidden>{l.icon}</span> {l.label}
-              </button>
-            ))}
-          <button type="button" onClick={() => apply(count, level)} className={`min-h-12 rounded-2xl px-4 text-lg font-bold text-ink shadow-md active:scale-95 ${done ? "animate-bounce bg-kid-green" : "bg-kid-yellow"}`}>
+          <GameSettings title="Game settings">
+            {(close) => (
+              <>
+                <ChipRow
+                  label="How many players?"
+                  value={count}
+                  options={[2, 3, 4].map((n) => ({ id: n, text: `👥 ${n}`, aria: `${n} players` }))}
+                  onPick={(n) => {
+                    apply(n, level);
+                    close();
+                  }}
+                />
+                {showLevel && (
+                  <ChipRow
+                    label="How clever are the robots?"
+                    value={level}
+                    options={LEVELS.map((l) => ({ id: l.id, text: `${l.icon} ${l.label}` }))}
+                    onPick={(l) => {
+                      apply(count, l);
+                      close();
+                    }}
+                  />
+                )}
+              </>
+            )}
+          </GameSettings>
+          <button type="button" onClick={() => apply(count, level)} className={`min-h-14 rounded-2xl px-5 text-xl font-bold text-ink shadow-md active:scale-95 ${done ? "animate-bounce bg-kid-green" : "bg-kid-yellow"}`}>
             🔄 {done ? "Play again" : "New game"}
           </button>
         </div>

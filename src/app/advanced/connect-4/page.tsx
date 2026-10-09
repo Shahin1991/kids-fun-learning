@@ -10,6 +10,7 @@ export default function Connect4Page() {
       title="Connect 4"
       moduleId="connect-4"
       cells={COLUMNS}
+      playerHint="Slide to aim, let go to drop ⬇️"
       make={async (container, opts) => {
         const { Connect4Engine } = await import("@/lib/board-games/Connect4Engine");
         return new Connect4Engine(container, opts);

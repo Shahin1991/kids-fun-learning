@@ -6,6 +6,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { finishActivity } from "@/lib/activity";
+import { ChipRow, GameSettings } from "./GameSettings";
 import type { BoardEngine, GameLevel, GameStatus } from "@/lib/board-games/types";
 import type { ToyEngine } from "@/lib/toy3d/ToyScene";
 
@@ -30,7 +31,7 @@ const KEY = "board-game-level";
 type Make = (container: HTMLElement, opts: import("@/lib/board-games/types").BoardOptions) => Promise<BoardEngine>;
 
 /** Shared page for the bot board games: 3D canvas, status pill, difficulty chips and a new-game button. */
-export function BoardGameShell({ title, moduleId, make, cells }: { title: string; moduleId: string; make: Make; cells: { id: string; label: string }[] }) {
+export function BoardGameShell({ title, moduleId, make, cells, playerHint }: { title: string; moduleId: string; make: Make; cells: { id: string; label: string }[]; playerHint?: string }) {
   const reduced = useAppReducedMotion();
   const [status, setStatus] = useState<GameStatus>("player");
   const [level, setLevel] = useState<GameLevel>("easy");
@@ -97,20 +98,22 @@ export function BoardGameShell({ title, moduleId, make, cells }: { title: string
     >
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-3 pb-5">
         <p role="status" className={`rounded-full px-6 py-3 text-2xl font-extrabold text-ink shadow-lg ${status === "win" ? "bg-kid-green" : status === "lose" ? "bg-kid-orange" : "bg-white"}`}>
-          {STATUS[status].text}
+          {status === "player" && playerHint ? playerHint : STATUS[status].text}
         </p>
         <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
-          {LEVELS.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              aria-pressed={level === l.id}
-              onClick={() => pickLevel(l.id)}
-              className={`min-h-14 rounded-2xl px-4 text-xl font-bold shadow-md active:scale-95 ${level === l.id ? "bg-kid-blue text-white ring-4 ring-white" : "bg-surface text-foreground"}`}
-            >
-              <span aria-hidden>{l.icon}</span> {l.label}
-            </button>
-          ))}
+          <GameSettings title="Game settings">
+            {(close) => (
+              <ChipRow
+                label="How clever is the robot?"
+                value={level}
+                options={LEVELS.map((l) => ({ id: l.id, text: `${l.icon} ${l.label}` }))}
+                onPick={(l) => {
+                  pickLevel(l);
+                  close();
+                }}
+              />
+            )}
+          </GameSettings>
           <button
             type="button"
             onClick={() => engineRef.current?.newGame()}
@@ -118,7 +121,10 @@ export function BoardGameShell({ title, moduleId, make, cells }: { title: string
           >
             🔄 {done ? "Play again" : "New game"}
           </button>
-          {wins > 0 && <span className="rounded-2xl bg-surface px-3 py-3 text-xl font-bold shadow" aria-label={`${wins} wins`}>🏆 {wins}</span>}
+          <span className="rounded-2xl bg-surface px-3 py-3 text-lg font-bold text-foreground shadow" aria-label={`${LEVELS.find((l) => l.id === level)?.label} level`}>
+            {LEVELS.find((l) => l.id === level)?.icon}
+          </span>
+          {wins > 0 && <span className="rounded-2xl bg-surface px-3 py-3 text-xl font-bold text-foreground shadow" aria-label={`${wins} wins`}>🏆 {wins}</span>}
         </div>
       </div>
     </ToyGame>

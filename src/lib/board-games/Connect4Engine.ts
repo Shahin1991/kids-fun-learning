@@ -45,6 +45,16 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
   private hoverX = 0;
   private hoverTargetX = 0;
   private hoverDisc: THREE.Group;
+  /** Aiming: the finger is down (or the mouse is over a column). Releasing drops the disc; sliding off the board cancels. */
+  private pressed = false;
+  private aimCol = -1;
+  private guide: THREE.Mesh;
+  private guideMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthWrite: false });
+  private ghost: THREE.Group;
+  private ghostMats: THREE.MeshStandardMaterial[] = [];
+  private arrow: THREE.Mesh;
+  private arrowMat = new THREE.MeshStandardMaterial({ color: 0xffd93d, emissive: 0xffa500, emissiveIntensity: 0.5 });
+  private wiggle = 0;
   private hoverAs: Disc = 1;
   private pending: { col: number; row: number; by: "player" | "bot" } | null = null;
   private rings: THREE.Mesh[] = [];
@@ -67,6 +77,19 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     this.frame = this.buildFrame();
     this.hoverDisc = this.makeDisc(1);
     this.stage.scene.add(this.hoverDisc);
+    // Column guide + ghost disc show exactly where the disc will land; the arrow says "slide me, then let go".
+    this.guide = new THREE.Mesh(new THREE.BoxGeometry(CELL * 0.98, FRAME_H, 0.8), this.guideMat);
+    this.guide.position.set(0, LEG + FRAME_H / 2, 0.1);
+    this.guide.visible = false;
+    this.stage.scene.add(this.guide);
+    this.ghost = new THREE.Group();
+    this.ghostMats = [new THREE.MeshStandardMaterial({ color: PLAYER_COLOR, transparent: true, opacity: 0.5 }), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })];
+    this.ghost.add(new THREE.Mesh(this.discGeo, this.ghostMats[0]), new THREE.Mesh(this.coreGeo, this.ghostMats[1]));
+    this.ghost.visible = false;
+    this.stage.scene.add(this.ghost);
+    this.arrow = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.55, 16).rotateX(Math.PI), this.arrowMat);
+    this.arrow.visible = false;
+    this.stage.scene.add(this.arrow);
     this.start();
     this.beginTurn();
   }
@@ -250,25 +273,46 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
   }
 
   // ---- input ----
+  // Press (or hover) to aim, slide to another column, let go to drop. Letting go off the board cancels.
   protected onDown(info: PickInfo | null) {
-    if (typeof info?.owner === "number") {
-      this.hoverCol = info.owner;
-      this.tryDrop(info.owner);
-    }
+    if (this.turn !== "player") return;
+    this.pressed = true;
+    this.aimCol = typeof info?.owner === "number" ? info.owner : -1;
+    if (this.aimCol >= 0) this.hoverCol = this.aimCol;
   }
 
   protected onMove(e: PointerEvent) {
     if (this.turn !== "player") return;
+    if (e.pointerType === "touch" && !this.pressed) return;
     const info = this.pick(e);
-    if (typeof info?.owner === "number") this.hoverCol = info.owner;
+    this.aimCol = typeof info?.owner === "number" ? info.owner : -1;
+    if (this.aimCol >= 0) this.hoverCol = this.aimCol;
+  }
+
+  protected onUp(e: PointerEvent) {
+    if (!this.pressed) return;
+    this.pressed = false;
+    const col = this.aimCol;
+    if (e.type === "pointercancel" || col < 0) {
+      this.wiggle = 1;
+      if (e.pointerType === "touch") this.aimCol = -1;
+      return;
+    }
+    if (landingRow(this.board, col) < 0) {
+      this.wiggle = 1;
+      return;
+    }
+    if (e.pointerType === "touch") this.aimCol = -1;
+    this.tryDrop(col);
   }
 
   protected onResize(aspect: number) {
     const cam = this.stage.camera;
     const tan = Math.tan((cam.fov * Math.PI) / 360);
-    const needH = (TOP_Y + 3.2) / 2;
-    const dist = Math.max((FRAME_W / 2 + 0.8) / (tan * aspect), needH / tan) * 1.18;
-    const cy = TOP_Y / 2 - 0.5;
+    // Room above the frame for the hovering disc and the arrow, and below for the buttons.
+    const needH = (TOP_Y + 4.2) / 2;
+    const dist = Math.max((FRAME_W / 2 + 0.8) / (tan * aspect), needH / tan) * 1.12;
+    const cy = (TOP_Y + 2.4) / 2 - 0.2;
     cam.position.set(0, cy + 2.6, dist);
     cam.lookAt(0, cy, 0);
   }
@@ -299,9 +343,31 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     this.hoverDisc.visible = show;
     if (show) {
       const bob = this.reduced ? 0 : Math.sin(this.time * 5) * 0.08;
-      this.hoverDisc.position.set(this.hoverX, TOP_Y + 0.8 + bob, 0);
+      this.hoverDisc.position.set(this.hoverX, TOP_Y + 0.85 + bob, 0);
       this.hoverDisc.scale.setScalar(this.turn === "bot" ? 1 : 0.95 + Math.sin(this.time * 6) * 0.03);
       this.hoverDisc.rotation.z = this.turn === "bot" && !this.reduced ? Math.sin(this.time * 9) * 0.15 : 0;
+    }
+
+    // Aiming feedback
+    const aiming = this.turn === "player";
+    this.wiggle = Math.max(0, this.wiggle - dt * 3);
+    this.arrow.visible = aiming;
+    const full = this.aimCol >= 0 && landingRow(this.board, this.aimCol) < 0;
+    const showGuide = aiming && this.aimCol >= 0;
+    this.guide.visible = showGuide;
+    this.guide.position.x = colX(Math.max(0, this.aimCol));
+    this.guideMat.color.set(full ? 0xff5555 : 0xffffff);
+    this.guideMat.opacity = full ? 0.3 : 0.2 + Math.sin(this.time * 6) * 0.05 + (this.pressed ? 0.08 : 0);
+    const row = this.aimCol >= 0 ? landingRow(this.board, this.aimCol) : -1;
+    this.ghost.visible = showGuide && row >= 0;
+    if (this.ghost.visible) {
+      this.ghost.position.set(colX(this.aimCol), rowY(row), 0);
+      this.ghost.scale.setScalar(0.92 + Math.sin(this.time * 7) * 0.05);
+    }
+    if (aiming) {
+      const wob = this.wiggle > 0 && !this.reduced ? Math.sin(this.time * 40) * 0.15 * this.wiggle : 0;
+      this.arrow.position.set(this.hoverX + wob, TOP_Y + 1.75 + (this.reduced ? 0 : Math.abs(Math.sin(this.time * 5)) * 0.25), 0);
+      if (this.pressed) this.hoverDisc.scale.setScalar(1.1);
     }
 
     this.rings.forEach((r, i) => {
@@ -367,6 +433,9 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     this.timers.forEach(clearTimeout);
     this.discGeo.dispose();
     this.coreGeo.dispose();
+    this.ghostMats.forEach((m) => m.dispose());
+    this.guideMat.dispose();
+    this.arrowMat.dispose();
     Object.values(this.mats).forEach((m) => {
       m.face.dispose();
       m.core.dispose();

@@ -20,11 +20,11 @@ export function HomeScreen() {
 
   return (
     <PageContainer>
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex items-center justify-between gap-2">
         <LogoLongPress>
-          <span className="text-4xl font-extrabold text-toddler-dark">🌈 Kids Learning Hub</span>
+          <span className="text-2xl font-extrabold leading-tight text-toddler-dark sm:text-4xl">🌈 Kids Learning Hub</span>
         </LogoLongPress>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-1.5 sm:gap-2">
           <ThemeToggle />
           <MusicToggle />
           <SoundToggle />

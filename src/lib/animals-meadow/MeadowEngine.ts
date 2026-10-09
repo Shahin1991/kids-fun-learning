@@ -63,7 +63,7 @@ export class MeadowEngine extends ToyScene {
       s.z = -r * Math.min(5.5, spacing * 1.25) + 1.5;
       // Back rows stand on a grassy terrace so they are never hidden behind the front row.
       s.lift = r * 1.6;
-      const scale = Math.min(1.9, spacing / 2.0);
+      const scale = Math.min(aspect < 0.8 ? 2.7 : 1.9, spacing / 2.0);
       s.outer.scale.setScalar(scale);
     });
     this.mounds.forEach((m) => {
@@ -79,10 +79,12 @@ export class MeadowEngine extends ToyScene {
       this.mounds.push(mound);
     }
     this.camZ = dist;
-    this.camY = 8 + rows * 1.4;
+    // Portrait phones: look down from higher up so the rows fan out over the tall screen instead of bunching in the middle.
+    const portrait = aspect < 0.8;
+    this.camY = portrait ? dist * 0.62 : 8 + rows * 1.4;
     const cam = this.stage.camera;
     cam.position.set(0, this.camY, this.camZ);
-    cam.lookAt(0, 0.3, -rows * 1.25);
+    cam.lookAt(0, portrait ? 5.5 : 0.3, portrait ? -rows * 2.2 : -rows * 1.25);
   }
 
   /** Keyboard / screen reader equivalent of tapping an animal. */

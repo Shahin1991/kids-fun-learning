@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChipRow, GameSettings } from "@/components/board-games/GameSettings";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { finishActivity } from "@/lib/activity";
@@ -28,7 +29,7 @@ function cardLabel(c: Card) {
 }
 
 function UnoCard({ card, faceDown, small, glow, dim, onClick, label }: { card?: Card; faceDown?: boolean; small?: boolean; glow?: boolean; dim?: boolean; onClick?: () => void; label?: string }) {
-  const size = small ? "h-14 w-10 rounded-lg border-2 text-sm" : "h-28 w-20 rounded-2xl border-4 text-4xl";
+  const size = small ? "h-12 w-9 rounded-lg border-2 text-sm sm:h-14 sm:w-10" : "h-24 w-16 rounded-xl border-[3px] text-3xl sm:h-28 sm:w-20 sm:rounded-2xl sm:border-4 sm:text-4xl";
   const common = `relative flex shrink-0 select-none items-center justify-center border-white font-extrabold shadow-lg ${size}`;
   const inner = faceDown || !card ? (
     <span className={`flex h-full w-full items-center justify-center rounded-[inherit] bg-gradient-to-br from-zinc-900 to-zinc-700 ${small ? "text-xs" : "text-xl"} text-rose-400`}>
@@ -36,7 +37,7 @@ function UnoCard({ card, faceDown, small, glow, dim, onClick, label }: { card?: 
     </span>
   ) : (
     <span className="flex h-full w-full items-center justify-center rounded-[inherit]" style={{ background: card.colour ? HEX[card.colour] : "conic-gradient(#ef4444 0 25%, #facc15 0 50%, #22c55e 0 75%, #3b82f6 0 100%)" }}>
-      <span className={`flex items-center justify-center rounded-[50%] bg-white text-ink ${small ? "h-8 w-6 text-sm" : "h-20 w-14 text-3xl"}`} style={{ transform: "rotate(-18deg)" }}>
+      <span className={`flex items-center justify-center rounded-[50%] bg-white text-ink ${small ? "h-7 w-5 text-sm sm:h-8 sm:w-6" : "h-16 w-11 text-2xl sm:h-20 sm:w-14 sm:text-3xl"}`} style={{ transform: "rotate(-18deg)" }}>
         <span style={{ transform: "rotate(18deg)", color: card.colour ? HEX[card.colour] : "#222" }}>{SYMBOL[card.kind] ?? card.kind}</span>
       </span>
       {!small && <span className="absolute left-1 top-0 text-sm text-white drop-shadow">{SYMBOL[card.kind] ?? card.kind}</span>}
@@ -197,25 +198,24 @@ export function UnoGame() {
   const topCard = top(state);
   const done = state.winner !== null;
   return (
-    <div className="flex flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       {state.winner === 0 && <Confetti />}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {[1, 2, 3].map((n) => (
-          <button key={n} type="button" aria-pressed={opponents === n} aria-label={`${n} opponent${n > 1 ? "s" : ""}`} onClick={() => start(n, level)} className={`min-h-12 rounded-2xl px-3 text-lg font-bold shadow-md active:scale-95 ${opponents === n ? "bg-kid-blue text-white ring-4 ring-white" : "bg-surface"}`}>
-            👥 {n + 1}
-          </button>
-        ))}
-        {LEVELS.map((l) => (
-          <button key={l.id} type="button" aria-pressed={level === l.id} onClick={() => start(opponents, l.id)} className={`min-h-12 rounded-2xl px-3 text-lg font-bold shadow-md active:scale-95 ${level === l.id ? "bg-kid-blue text-white ring-4 ring-white" : "bg-surface"}`}>
-            <span aria-hidden>{l.icon}</span> {l.label}
-          </button>
-        ))}
-        <button type="button" onClick={() => start(opponents, level)} className={`min-h-12 rounded-2xl px-4 text-lg font-bold text-ink shadow-md active:scale-95 ${done ? "animate-bounce bg-kid-green" : "bg-kid-yellow"}`}>
+      <div className="flex items-center justify-center gap-2">
+        <GameSettings title="Game settings">
+          {(close) => (
+            <>
+              <ChipRow label="Who are you playing?" value={opponents} options={[1, 2, 3].map((n) => ({ id: n, text: `👥 ${n + 1}`, aria: `${n} opponent${n > 1 ? "s" : ""}` }))} onPick={(n) => { start(n, level); close(); }} />
+              <ChipRow label="How clever are they?" value={level} options={LEVELS.map((l) => ({ id: l.id, text: `${l.icon} ${l.label}` }))} onPick={(l) => { start(opponents, l); close(); }} />
+            </>
+          )}
+        </GameSettings>
+        <button type="button" onClick={() => start(opponents, level)} className={`min-h-14 rounded-2xl px-5 text-xl font-bold text-ink shadow-md active:scale-95 ${done ? "animate-bounce bg-kid-green" : "bg-kid-yellow"}`}>
           🔄 {done ? "Play again" : "New game"}
         </button>
+        <span className="rounded-2xl bg-surface px-3 py-3 text-lg font-bold shadow" aria-label={`${LEVELS.find((l) => l.id === level)?.label} level`}>{LEVELS.find((l) => l.id === level)?.icon}</span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 rounded-[2rem] bg-gradient-to-b from-emerald-600 to-emerald-800 p-3 shadow-inner" key={game}>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-[1.5rem] bg-gradient-to-b from-emerald-600 to-emerald-800 p-2 shadow-inner sm:gap-3 sm:rounded-[2rem] sm:p-3" key={game}>
         {/* Opponents */}
         <div className="flex justify-around gap-2">
           {Array.from({ length: opponents }, (_, i) => i + 1).map((p) => (
@@ -242,14 +242,14 @@ export function UnoGame() {
         </div>
 
         {/* Table */}
-        <div className="flex flex-1 items-center justify-center gap-6">
+        <div className="flex min-h-0 flex-1 items-center justify-center gap-4 sm:gap-6">
           <button type="button" onClick={draw} aria-label="Draw a card" className={`relative rounded-2xl ${mustDraw && !reduced ? "animate-pulse ring-8 ring-yellow-300" : ""}`}>
             <span className="absolute left-1 top-1"><UnoCard faceDown /></span>
             <span className="absolute left-0.5 top-0.5"><UnoCard faceDown /></span>
             <UnoCard faceDown />
             <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-2 text-sm font-bold text-ink shadow">{mustDraw ? "Tap me! 👆" : `${state.deck.length}`}</span>
           </button>
-          <div className="relative flex h-32 w-28 items-center justify-center">
+          <div className="relative flex h-28 w-24 items-center justify-center sm:h-32 sm:w-28">
             <span className="absolute inset-0 rounded-full opacity-30 blur-md" style={{ background: HEX[state.colour] }} aria-hidden />
             <AnimatePresence mode="popLayout">
               <motion.div
@@ -270,12 +270,12 @@ export function UnoGame() {
           </motion.div>
         </div>
 
-        <p role="status" className="mx-auto max-w-md rounded-2xl bg-white px-4 py-2 text-center text-lg font-extrabold text-ink shadow-lg">
+        <p role="status" className="mx-auto max-w-md shrink-0 rounded-2xl bg-white px-3 py-1.5 text-center text-base font-extrabold leading-tight text-ink shadow-lg sm:px-4 sm:py-2 sm:text-lg">
           {message}
         </p>
 
         {/* Your hand */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex shrink-0 flex-col items-center gap-1 sm:gap-2">
           <div className={`flex w-full items-center justify-center gap-2 ${myTurn ? "" : "opacity-90"}`}>
             <span className={`rounded-full px-3 py-1 text-lg font-extrabold ${myTurn ? "bg-yellow-300 text-ink" : "bg-black/20 text-white"}`}>🐯 You · {state.hands[0].length}</span>
             {drewCard && canPlay(drewCard, state) && myTurn && (
@@ -284,7 +284,7 @@ export function UnoGame() {
               </button>
             )}
           </div>
-          <motion.div key={shake} animate={shake ? { x: [0, -8, 8, -5, 5, 0] } : {}} transition={{ duration: 0.4 }} className="flex w-full max-w-full justify-center overflow-x-auto px-2 pb-2 pt-4">
+          <motion.div key={shake} animate={shake ? { x: [0, -8, 8, -5, 5, 0] } : {}} transition={{ duration: 0.4 }} className="flex w-full max-w-full justify-center overflow-x-auto px-2 pb-1 pt-4">
             <div className="flex -space-x-8 sm:-space-x-5">
               <AnimatePresence initial={false}>
                 {mine.map((c) => {

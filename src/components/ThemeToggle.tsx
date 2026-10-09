@@ -11,7 +11,7 @@ export function ThemeToggle() {
       onClick={() => setPref(dark ? "light" : "dark")}
       aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
       aria-pressed={dark}
-      className="min-h-touch min-w-touch rounded-full bg-surface text-4xl shadow-md active:scale-95"
+      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-3xl shadow-md active:scale-95 sm:h-20 sm:w-20 sm:text-4xl bg-surface"
     >
       {dark ? "🌙" : "☀️"}
     </button>
