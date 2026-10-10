@@ -43,6 +43,7 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
   private lineMat = new THREE.MeshStandardMaterial({ color: 0xffd93d, emissive: 0xffb400, emissiveIntensity: 0.9, roughness: 0.3 });
   private thinking: THREE.Group;
   private pending: { cell: number; by: "player" | "bot" } | null = null;
+  private history: { cell: number; by: "player" | "bot" }[] = [];
   private resultParty = 0;
   private resultKind: "win" | "lose" | "draw" | null = null;
 
@@ -79,6 +80,7 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
     this.pieces = Array(9).fill(null);
     this.board = Array(9).fill(null);
     this.pending = null;
+    this.history = [];
     this.resultKind = null;
     if (this.line) {
       this.stage.scene.remove(this.line);
@@ -88,6 +90,26 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
     this.games += 1;
     this.turn = "busy";
     this.beginTurn();
+  }
+
+  /** Oops: take back your last move (and Robo's answer to it). Only while it is your turn. */
+  undo() {
+    if (this.turn !== "player" || !this.history.some((h) => h.by === "player")) return;
+    while (this.history.length) {
+      const e = this.history.pop()!;
+      const p = this.pieces[e.cell];
+      if (p) this.leaving.push(p);
+      this.pieces[e.cell] = null;
+      this.board[e.cell] = null;
+      if (e.by === "player") break;
+    }
+    this.ghostCell = -1;
+    this.opts.onStatus?.("player");
+    this.emitUndo();
+  }
+
+  private emitUndo() {
+    this.opts.onUndoable?.(this.turn === "player" && this.history.some((h) => h.by === "player"));
   }
 
   activate(id: string) {
@@ -172,7 +194,9 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
   private place(cell: number, by: "player" | "bot") {
     const mark: Mark = by === "player" ? "X" : "O";
     this.board[cell] = mark;
+    this.history.push({ cell, by });
     this.turn = "busy";
+    this.emitUndo();
     this.ghost.visible = false;
     const group = this.makePiece(mark);
     group.position.set(cellX(cell), 7, cellZ(cell));
@@ -195,11 +219,13 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
     } else {
       this.turn = "player";
       this.opts.onStatus?.("player");
+      this.emitUndo();
     }
   }
 
   private finish(kind: "win" | "lose" | "draw", line?: number[]) {
     this.turn = "over";
+    this.emitUndo();
     this.resultKind = kind;
     this.resultParty = 0;
     this.opts.onStatus?.(kind);

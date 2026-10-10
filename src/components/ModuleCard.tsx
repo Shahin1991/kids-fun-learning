@@ -15,7 +15,7 @@ export function ModuleCard({ module: m }: { module: LearningModule }) {
       >
         <span className="text-6xl" aria-hidden>{m.icon}</span>
         <span className="text-2xl font-bold">{m.title}</span>
-        {m.placeholder ? <span className="text-sm opacity-60">Coming soon</span> : <ProgressStars moduleId={m.id} />}
+        {m.placeholder ? <span className="text-sm opacity-60">Coming soon</span> : <ProgressStars moduleId={m.id} hideZero />}
       </Link>
     </TapBounce>
   );

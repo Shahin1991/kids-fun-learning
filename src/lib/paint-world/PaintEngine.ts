@@ -122,7 +122,9 @@ export class PaintEngine extends ToyScene {
     const cols = aspect > 1.2 ? 3 : 2;
     const rows = Math.ceil(this.balls.length / cols);
     const dist = (aspect > 1.2 ? 15 : 12 + rows * 2.5) * Math.max(1, 1.1 / aspect);
-    const spacing = Math.min(4.2, (this.stage.halfWidthAt(dist) * 2 * 0.8) / cols);
+    // Portrait phones get bigger balls: toddler fingers need big targets.
+    const portrait = aspect < 0.8;
+    const spacing = Math.min(portrait ? 5.6 : 4.2, (this.stage.halfWidthAt(dist) * 2 * 0.8) / cols);
     this.balls.forEach((b, i) => {
       const c = i % cols;
       const r = Math.floor(i / cols);
@@ -130,7 +132,7 @@ export class PaintEngine extends ToyScene {
       b.z = 2.5 - r * Math.min(4.6, spacing * 1.15);
       // Back rows stand on a shelf so they are never hidden behind the front row.
       b.lift = r * 2.2;
-      const s = Math.min(1.25, spacing / 3.1);
+      const s = Math.min(portrait ? 1.5 : 1.25, spacing / 3.1);
       b.group.scale.setScalar(s);
       (b.group.userData.shadow as THREE.Mesh).scale.setScalar(s);
     });

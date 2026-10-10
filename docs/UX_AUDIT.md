@@ -14,12 +14,16 @@ Method: pages loaded in a 390x760 phone-sized frame and driven by hand (home, Un
 | Animals (portrait phone): small animals huddled in the middle with empty grass below. | Tiny tap targets for toddlers. | Animals are ~40% larger and the camera tilts so the rows fan out. |
 | Earlier: white scrolling area on game pages; colour borders missing on game cards; first-tap issues on Tic Tac Toe (tall tap boxes). | Confusing, looks broken. | Fixed in previous commits. |
 
+## Second pass (done)
+- **Age picker on first visit** ("How old are you?", spoken, 4 big buttons). Picking an age opens just that group and collapses the others into one big button each with a game count. Changeable from the 🎂 chip on the home screen; the choice is remembered on the device.
+- **"⭐ 0" hidden on game cards** until the child has earned a first star.
+- **Portrait-phone check of the 3D toddler games:** Colors and Feelings now use bigger balls and faces on tall screens (about +20-25%, capped so rows do not hide each other); the Shapes hint text no longer gets clipped.
+- **"↩️ Oops" in Tic Tac Toe and Connect 4:** takes back your last move and the bot's reply (Connect 4 discs slip out of the bottom). Only on your turn, never after the game has ended.
+
 ## Still to do (ranked)
-1. **Home is a very long list (30+ games).** Add a first-run "How old are you?" picker (or per-child profiles) that opens just that age group, with the others collapsed.
-2. **Voice relies on the browser's speech synthesis.** On devices with no voice, non-readers get silence. Record real voice-over for titles, greetings and the main prompts.
-3. **Stars on every toddler card ("⭐ 0")** are noise for 2-3 year olds. Hide counts at zero; show them only after a first star.
-4. **Other 3D toddler games (Colors, Shapes, Sizes, Feelings)** should get the same portrait-phone check as Animals.
-5. **Real-device pass**: tap-target sizes (bottom-edge palm touches on tablets), low-end Android frame rate (the 3D boards are heavy in software rendering), landscape on phones.
-6. **Undo for slips**: Memory Match and Uno are forgiving; Connect 4 and Tic Tac Toe drops are final. Consider a one-time "oops" undo for the youngest level.
-7. **Pass-and-play** so two children can share a device in the board games.
-8. **Reduced motion and sound-off first-run hints** (a short "tap to hear" cue the first time the page speaks).
+1. **Voice relies on the browser's speech synthesis.** On devices with no voice, non-readers get silence. Record real voice-over for titles, greetings and the main prompts.
+2. **Real-device pass**: tap-target sizes (bottom-edge palm touches on tablets), low-end Android frame rate (the 3D boards are heavy in software rendering), landscape on phones, and the new age picker with real children.
+3. **Pass-and-play** so two children can share a device in the board games.
+4. **Colors/Feelings still leave a lot of empty space on tall phones**; a dedicated portrait layout (bigger items filling the screen) would be better than scaling the landscape one.
+5. **First-run sound cue**: browsers block speech until the first tap, so the very first spoken line is lost. Show a "tap to hear 🔊" nudge once.
+6. **Undo/"are you sure" for Uno wild-colour and Ludo pawn picks** if testing shows slips.

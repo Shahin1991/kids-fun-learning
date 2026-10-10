@@ -70,13 +70,14 @@ export class FeelingsEngine extends ToyScene {
     const cols = aspect > 1.2 ? 4 : 2;
     const rows = Math.ceil(this.faces.length / cols);
     const dist = (aspect > 1.2 ? 15 : 10 + rows * 3) * Math.max(1, 1.1 / aspect);
-    const spacing = Math.min(3.9, (this.stage.halfWidthAt(dist) * 2 * 0.86) / cols);
+    const portrait = aspect < 0.8;
+    const spacing = Math.min(portrait ? 5.4 : 3.9, (this.stage.halfWidthAt(dist) * 2 * 0.86) / cols);
     this.faces.forEach((f, i) => {
       const c = i % cols;
       const r = Math.floor(i / cols);
       f.x = (c - (cols - 1) / 2) * spacing;
       f.z = 1.5 - r * Math.min(4.6, spacing * 1.2);
-      f.group.scale.setScalar(Math.min(1.25, spacing / 2.9));
+      f.group.scale.setScalar(Math.min(portrait ? 1.5 : 1.25, spacing / 2.9));
       // Back rows stand on a shelf so every face is fully visible and easy to reach.
       f.lift = r * 2.4;
     });

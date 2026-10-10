@@ -36,6 +36,7 @@ export function BoardGameShell({ title, moduleId, make, cells, playerHint }: { t
   const [status, setStatus] = useState<GameStatus>("player");
   const [level, setLevel] = useState<GameLevel>("easy");
   const [wins, setWins] = useState(0);
+  const [undoable, setUndoable] = useState(false);
   const engineRef = useRef<BoardEngine | null>(null);
   const levelRef = useRef<GameLevel>("easy");
 
@@ -74,6 +75,7 @@ export function BoardGameShell({ title, moduleId, make, cells, playerHint }: { t
         const engine = await make(container, {
           reducedMotion: reduced,
           level: levelRef.current,
+          onUndoable: setUndoable,
           onStatus: (s) => {
             setStatus(s);
             const line = STATUS[s].say;
@@ -114,6 +116,18 @@ export function BoardGameShell({ title, moduleId, make, cells, playerHint }: { t
               />
             )}
           </GameSettings>
+          <button
+            type="button"
+            disabled={!undoable}
+            aria-label="Oops, take back my last move"
+            onClick={() => {
+              audioManager.speak("No problem! Try again.");
+              engineRef.current?.undo();
+            }}
+            className="min-h-14 rounded-2xl bg-surface px-4 text-xl font-bold text-foreground shadow-md active:scale-95 disabled:opacity-35"
+          >
+            ↩️ Oops
+          </button>
           <button
             type="button"
             onClick={() => engineRef.current?.newGame()}

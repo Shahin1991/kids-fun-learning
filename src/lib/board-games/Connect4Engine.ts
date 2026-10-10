@@ -57,6 +57,7 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
   private wiggle = 0;
   private hoverAs: Disc = 1;
   private pending: { col: number; row: number; by: "player" | "bot" } | null = null;
+  private history: { col: number; row: number; by: "player" | "bot" }[] = [];
   private rings: THREE.Mesh[] = [];
   private result: "win" | "lose" | "draw" | null = null;
   private resultT = 0;
@@ -114,6 +115,7 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     this.discs = Array(COLS * ROWS).fill(null);
     this.board = emptyBoard();
     this.pending = null;
+    this.history = [];
     this.result = null;
     this.rings.forEach((r) => {
       this.stage.scene.remove(r);
@@ -123,6 +125,32 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     this.games += 1;
     this.turn = "busy";
     this.timers.push(setTimeout(() => this.beginTurn(), this.reduced ? 0 : 600));
+  }
+
+  /** Oops: take back your last disc (and Robo's answer to it). The discs slip out of the bottom. Only on your turn. */
+  undo() {
+    if (this.turn !== "player" || !this.history.some((h) => h.by === "player")) return;
+    while (this.history.length) {
+      const e = this.history.pop()!;
+      const i = idx(e.row, e.col);
+      const d = this.discs[i];
+      if (d) {
+        d.vy = 0;
+        d.vx = (Math.random() - 0.5) * 2;
+        d.spin = (Math.random() - 0.5) * 6;
+        this.falling.push(d);
+      }
+      this.discs[i] = null;
+      this.board[i] = 0;
+      if (e.by === "player") break;
+    }
+    this.aimCol = -1;
+    this.opts.onStatus?.("player");
+    this.emitUndo();
+  }
+
+  private emitUndo() {
+    this.opts.onUndoable?.(this.turn === "player" && this.history.some((h) => h.by === "player"));
   }
 
   activate(id: string) {
@@ -227,7 +255,9 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     const row = landingRow(this.board, col);
     if (row < 0) return;
     this.board = drop(this.board, col, d)!;
+    this.history.push({ col, row, by });
     this.turn = "busy";
+    this.emitUndo();
     const group = this.makeDisc(d);
     const y0 = TOP_Y + 1;
     group.position.set(colX(col), y0, 0);
@@ -249,11 +279,13 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
       this.turn = "player";
       this.setHoverAs(1);
       this.opts.onStatus?.("player");
+      this.emitUndo();
     }
   }
 
   private finish(kind: "win" | "lose" | "draw", cells?: number[]) {
     this.turn = "over";
+    this.emitUndo();
     this.result = kind;
     this.resultT = 0;
     this.opts.onStatus?.(kind);

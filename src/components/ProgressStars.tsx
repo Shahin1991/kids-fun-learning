@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getStarCount } from "@/lib/rewards/RewardManager";
 import { subscribeRewards } from "@/lib/rewards/reward-events";
 
-export function ProgressStars({ moduleId }: { moduleId: string }) {
+export function ProgressStars({ moduleId, hideZero = false }: { moduleId: string; hideZero?: boolean }) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -19,6 +19,7 @@ export function ProgressStars({ moduleId }: { moduleId: string }) {
     };
   }, [moduleId]);
 
+  if (hideZero && count === 0) return null;
   return (
     <span aria-label={`${count} stars`} className="flex items-center gap-1 rounded-full bg-surface px-3 py-1 text-xl font-bold shadow">
       ⭐ {count}

@@ -13,7 +13,7 @@ const SHORT: Record<AgeGroup, string> = { toddler: "Ages 2-3", "early-learning":
 export const GROUP_ICONS: Record<AgeGroup, string> = { toddler: "🧸", "early-learning": "🎨", advanced: "🚀", others: "🎮" };
 
 /** Friendly top of the home screen: greeting you can hear, star total, quick jumps, and "keep playing". */
-export function WelcomeBanner({ hidden }: { hidden: string[] }) {
+export function WelcomeBanner({ hidden, ageLabel, onJump, onChangeAge }: { hidden: string[]; ageLabel: string; onJump: (g: AgeGroup) => void; onChangeAge: () => void }) {
   const [stars, setStars] = useState(0);
   const [recent, setRecent] = useState<LearningModule[]>([]);
 
@@ -40,7 +40,9 @@ export function WelcomeBanner({ hidden }: { hidden: string[] }) {
         <button type="button" onClick={greet} aria-label="Hear the welcome" className="animate-float text-7xl active:scale-90">🦉</button>
         <div className="flex-1">
           <p className="text-3xl font-extrabold">Hi! What shall we play? 👋</p>
-          <p className="text-xl opacity-70">Tap a picture to start</p>
+          <button type="button" onClick={onChangeAge} className="mt-1 inline-flex min-h-10 items-center gap-1 rounded-full bg-background px-3 text-base font-bold shadow active:scale-95" aria-label="Change age">
+            🎂 {ageLabel} <span aria-hidden>✏️</span>
+          </button>
         </div>
         <div className="flex flex-col items-center rounded-2xl bg-kid-yellow/40 px-4 py-2 text-ink" aria-label={`${stars} stars collected`}>
           <span className="text-4xl">⭐</span>
@@ -49,7 +51,10 @@ export function WelcomeBanner({ hidden }: { hidden: string[] }) {
       </div>
       <nav aria-label="Jump to a group" className="grid grid-cols-4 gap-2">
         {AGE_GROUP_ORDER.map((g) => (
-          <a key={g} href={`#group-${g}`} aria-label={AGE_GROUP_LABELS[g]} className="flex min-h-20 flex-col items-center justify-center gap-0.5 rounded-2xl bg-surface px-1 text-center text-4xl shadow active:scale-95">
+          <a key={g} href={`#group-${g}`} onClick={(e) => {
+              e.preventDefault();
+              onJump(g);
+            }} aria-label={AGE_GROUP_LABELS[g]} className="flex min-h-20 flex-col items-center justify-center gap-0.5 rounded-2xl bg-surface px-1 text-center text-4xl shadow active:scale-95">
             <span aria-hidden>{GROUP_ICONS[g]}</span>
             <span className="text-xs font-bold leading-tight sm:text-sm">{SHORT[g]}</span>
           </a>

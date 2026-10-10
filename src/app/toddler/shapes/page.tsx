@@ -31,7 +31,7 @@ export default function ShapesPage() {
         });
       }}
     >
-      {() => <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-xl font-bold text-slate-700 drop-shadow">Drag each shape to its hole, or just tap it!</p>}
+      {() => <p className="pointer-events-none absolute inset-x-0 bottom-4 px-6 text-center text-lg font-bold leading-snug text-slate-700 drop-shadow sm:text-xl">Drag each shape to its hole, or just tap it!</p>}
     </ToyGame>
   );
 }
