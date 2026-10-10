@@ -13,6 +13,8 @@ export interface BakeryState {
   station: number;
   flavor: string;
   tiers: number;
+  /** camera distance multiplier, ZOOM_MIN..ZOOM_MAX */
+  zoom: number;
   jars: number;
   mix: number;
   pour: number;
@@ -40,6 +42,10 @@ const POSES: Pose[] = [
   { pos: [0, 3.3, 3.8], look: [0, 1.35, -1.3] },
   { pos: [1.2, 3.0, 5.0], look: [1.3, 1.3, -1.5] },
 ];
+
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 1.5;
+const ZOOM_STEP = 0.175;
 
 const COUNTER_Y = 1;
 const STAND_Y = 1.45;
@@ -85,6 +91,9 @@ export class BakeryEngine extends ToyScene {
   private flavorId = FLAVORS[0].id;
   private tiersWanted = 1;
   private frostId = FROSTINGS[1].id;
+  /** Layer that frosting goes on (0 = bottom), or -1 for every layer. */
+  private frostLayer = -1;
+  private zoom = 1;
   private order: Order | null = null;
   private grade: Grade | null = null;
   private served = false;
@@ -193,6 +202,7 @@ export class BakeryEngine extends ToyScene {
       station: this.station,
       flavor: this.flavorId,
       tiers: this.tiersWanted,
+      zoom: this.zoom,
       jars: this.jarsAdded,
       mix: Math.min(1, this.mixTurns / 3),
       pour: pans.length ? pans.reduce((s, p) => s + Math.min(1, p.level), 0) / pans.length : 0,
@@ -251,6 +261,22 @@ export class BakeryEngine extends ToyScene {
     this.frostId = id;
   }
 
+  setFrostLayer(i: number) {
+    this.frostLayer = i;
+  }
+
+  /** The chosen layer, or -1 (all) if the cake no longer has that many. */
+  private activeLayer() {
+    return this.frostLayer < this.tiers.length ? this.frostLayer : -1;
+  }
+
+  /** Zoom is kept within a small range so little fingers cannot lose the cake. */
+  nudgeZoom(dir: 1 | -1) {
+    this.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((this.zoom + dir * ZOOM_STEP) * 100) / 100));
+    this.options("pop", 1);
+    this.emit(true);
+  }
+
   setDecor(p: { mode?: "pipe" | "topping"; topping?: string; pipe?: PipeShape; pipeColor?: string }) {
     if (p.mode) this.decorMode = p.mode;
     if (p.topping) this.topping = p.topping;
@@ -284,7 +310,7 @@ export class BakeryEngine extends ToyScene {
   coverAll() {
     const idx = FROSTINGS.findIndex((f) => f.id === this.frostId);
     const color = FROSTINGS[idx]?.color ?? "#fff";
-    this.tiers.forEach((t) => t.coverAll(color, idx));
+    this.tiers.forEach((t, i) => (this.activeLayer() < 0 || this.activeLayer() === i) && t.coverAll(color, idx));
     this.options("pop", 2);
     this.burstAt(this.cakeTop(), [color, "#ffffff"]);
     this.emit(true);
@@ -831,6 +857,7 @@ export class BakeryEngine extends ToyScene {
     const tier = this.tiers.find((t) => t.mesh === hit.object);
     const matIndex = hit.face?.materialIndex;
     if (!tier || !hit.uv || matIndex === undefined || matIndex > 1) return;
+    if (this.activeLayer() >= 0 && this.tiers[this.activeLayer()] !== tier) return;
     const idx = FROSTINGS.findIndex((f) => f.id === this.frostId);
     tier.paint(matIndex, hit.uv, FROSTINGS[idx].color, idx);
     if (Math.random() < 0.1) this.options("pop", 3);
@@ -847,7 +874,7 @@ export class BakeryEngine extends ToyScene {
     const look = new THREE.Vector3(...p.look);
     const pos = new THREE.Vector3(...p.pos);
     // portrait screens need to sit further back
-    const k = this.aspect < 1 ? 1 + (1 - this.aspect) * 0.9 : 1;
+    const k = (this.aspect < 1 ? 1 + (1 - this.aspect) * 0.9 : 1) * (this.station >= 3 ? this.zoom : 1);
     pos.sub(look).multiplyScalar(k).add(look);
     return { pos, look };
   }

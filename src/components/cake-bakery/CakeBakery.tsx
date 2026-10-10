@@ -22,6 +22,7 @@ const INITIAL: BakeryState = {
   station: 0,
   flavor: FLAVORS[0].id,
   tiers: 1,
+  zoom: 1,
   jars: 0,
   mix: 0,
   pour: 0,
@@ -71,6 +72,7 @@ export default function CakeBakery() {
   const [pipe, setPipe] = useState<"dot" | "star" | "swirl">("dot");
   const [pipeColor, setPipeColor] = useState(FROSTINGS[0].id);
   const [frost, setFrost] = useState(FROSTINGS[1].id);
+  const [layer, setLayer] = useState(-1);
   const [gift, setGift] = useState<string | null>(null);
 
   const give = (p: Progress) => {
@@ -87,6 +89,8 @@ export default function CakeBakery() {
     orderRef.current = o;
     setOrder(o);
     setGift(null);
+    setLayer(-1);
+    engine.current?.setFrostLayer(-1);
     engine.current?.reset(o);
   };
 
@@ -181,6 +185,13 @@ export default function CakeBakery() {
           <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 rounded-t-3xl bg-surface/95 p-3 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
             <p className="text-center text-lg font-extrabold">{step.icon} {step.say}</p>
 
+            {(s.station === 3 || s.station === 4) && (
+              <div className="absolute -top-14 right-3 flex gap-2" role="group" aria-label="Zoom">
+                <button type="button" aria-label="Zoom out" disabled={s.zoom >= 1.5} onClick={() => engine.current?.nudgeZoom(1)} className={`${chip} bg-surface/95 text-foreground disabled:opacity-40`}>➖🔍</button>
+                <button type="button" aria-label="Zoom in" disabled={s.zoom <= 0.8} onClick={() => engine.current?.nudgeZoom(-1)} className={`${chip} bg-surface/95 text-foreground disabled:opacity-40`}>➕🔍</button>
+              </div>
+            )}
+
             {s.station === 0 && (
               <>
                 <p className="text-sm font-bold">Tap the jars ({s.jars}/4) and pick a flavor</p>
@@ -230,6 +241,16 @@ export default function CakeBakery() {
             {s.station === 3 && (
               <>
                 <p className="text-sm font-bold">Drag over the cake to spread frosting, or turn it by dragging the background</p>
+                {s.tiers > 1 && (
+                  <div className="flex items-center gap-2" role="group" aria-label="Which layer">
+                    <span className="text-sm font-bold">Color</span>
+                    {[-1, ...Array.from({ length: s.tiers }, (_, i) => i)].map((i) => (
+                      <button key={i} type="button" aria-pressed={layer === i} onClick={() => { setLayer(i); engine.current?.setFrostLayer(i); audioManager.playNote(1); }} className={`${chip} ${layer === i ? "bg-pink-500 text-white" : "bg-tint text-foreground"}`}>
+                        {i < 0 ? "All" : `Layer ${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="Frosting color">
                   {FROSTINGS.filter((f) => unlocked.frostings.includes(f.id)).map((f) => (
                     <button key={f.id} type="button" aria-label={f.name} aria-pressed={frost === f.id} onClick={() => { setFrost(f.id); engine.current?.setFrosting(f.id); audioManager.playNote(3); }} className={`h-14 w-14 rounded-full border-4 shadow ${frost === f.id ? "border-foreground" : "border-white"}`} style={{ background: f.color }} />
