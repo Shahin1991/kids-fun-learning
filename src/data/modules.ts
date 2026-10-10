@@ -30,6 +30,7 @@ export const MODULES: LearningModule[] = [
   { id: "emotions", title: "Feelings", ageGroup: "toddler", route: "/toddler/emotions", icon: "😊", colorToken: "kid-yellow", description: "Meet the faces and feelings" },
   { id: "balloon-pop", title: "Balloon Pop", ageGroup: "toddler", route: "/toddler/balloon-pop", icon: "🎈", colorToken: "kid-red", description: "Pop the wobbly balloons" },
 
+  { id: "books", title: "Picture Books", ageGroup: "early-learning", route: "/early-learning/books", icon: "📚", colorToken: "kid-purple", description: "Pick a book from the shelf and swipe the pages" },
   { id: "alphabet", title: "Alphabet", ageGroup: "early-learning", route: "/early-learning/alphabet", icon: "🔤", colorToken: "kid-blue", description: "Letters with example words" },
   { id: "numbers", title: "Numbers", ageGroup: "early-learning", route: "/early-learning/numbers", icon: "🔢", colorToken: "kid-green", description: "Count and add" },
   { id: "memory", title: "Memory Match", ageGroup: "early-learning", route: "/early-learning/memory", icon: "🃏", colorToken: "kid-purple", description: "Flip cards and find pairs" },

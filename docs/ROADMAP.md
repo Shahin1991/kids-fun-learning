@@ -40,3 +40,10 @@ Cross-cutting UX to-dos:
 - Ludo: optional rules (safe-square blocks, three sixes forfeit) behind a "classic rules" toggle.
 - Snakes & Ladders: choose board themes; read the square number aloud as the pawn hops.
 - Test with real children: the bots' timing (about 1s per move) was picked by feel.
+
+## Picture Books: next
+- Story books (a short story over 6-10 pages with a character and a repeating phrase), not only concept books.
+- Read-along: highlight each word as it is spoken, tap a word to hear it.
+- "Make your own book": pick a picture per page, add a title, save it on the shelf.
+- Page-turn sound (a real paper rustle), a "bookmark" that remembers the last page per book, and a first-run hint on the shelf.
+- More shelves unlocked by stars (collection feeling), seasonal books.
