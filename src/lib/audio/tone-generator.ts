@@ -50,7 +50,57 @@ export function renderPop(pitch: number): string {
   return encodeWavDataUri(samples, SAMPLE_RATE);
 }
 
+/**
+ * A page turning: filtered noise that sweeps upward like a quick swish, with a paper-fibre crinkle
+ * on top and a soft low "tap" as the page lands. Three variants differ in length and brightness.
+ */
+export function renderPageTurnSamples(variant = 0, rand: () => number = Math.random): Float32Array {
+  const v = Math.abs(Math.floor(variant)) % 3;
+  const dur = [0.46, 0.38, 0.54][v];
+  const lo = [1500, 1900, 1200][v];
+  const hi = [4300, 5200, 3600][v];
+  const n = Math.floor(SAMPLE_RATE * dur);
+  const out = new Float32Array(n);
+  let low = 0;
+  let band = 0;
+  let crinkle = 1;
+  let thudLp = 0;
+  const q = 0.55;
+  const landAt = dur * 0.78;
+  for (let i = 0; i < n; i++) {
+    const t = i / SAMPLE_RATE;
+    const k = t / dur;
+    // State-variable band-pass whose centre climbs through the swish.
+    const fc = lo + (hi - lo) * Math.pow(k, 0.8);
+    const f = 2 * Math.sin((Math.PI * fc) / SAMPLE_RATE);
+    const x = rand() * 2 - 1;
+    const high = x - low - q * band;
+    band += f * high;
+    low += f * band;
+    // Swish envelope: fast rise, long soft fall.
+    const rise = Math.min(1, t / (dur * 0.18));
+    const env = rise * rise * (3 - 2 * rise) * Math.exp(-Math.max(0, t - dur * 0.18) * (3.2 / dur));
+    // Crinkle: a random gain held for ~3 ms at a time.
+    if (i % 66 === 0) crinkle = 0.35 + 0.65 * Math.pow(rand(), 1.6);
+    let sample = band * env * crinkle * 1.7;
+    // Soft landing tap
+    if (t >= landAt) {
+      const tt = t - landAt;
+      thudLp += 0.12 * ((rand() * 2 - 1) - thudLp);
+      sample += thudLp * Math.exp(-tt * 65) * 2.2;
+    }
+    out[i] = sample;
+  }
+  // Fade the very end and level to a comfortable peak.
+  let peak = 0;
+  for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(out[i]));
+  const gain = peak > 0 ? 0.55 / peak : 1;
+  for (let i = 0; i < n; i++) out[i] *= gain * Math.min(1, (n - i) / (SAMPLE_RATE * 0.03));
+  return out;
+}
+
 export const tones = {
+  page: (variant: number) => encodeWavDataUri(renderPageTurnSamples(variant), SAMPLE_RATE),
   pop: (variant: number) => renderPop(0.85 + variant * 0.2),
   success: () => renderNotes([{ freq: 523.25, duration: 0.12 }, { freq: 659.25, duration: 0.18 }]),
   // Deliberately soft and neutral: a low, gentle "bloop", never a buzzer.

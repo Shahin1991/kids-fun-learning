@@ -135,12 +135,12 @@ export function BookViewer({ book, from, onClose }: { book: BookDef; from: BookF
     (dir: 1 | -1) => {
       const i = idxRef.current;
       if (dir === 1 && i < leaves - 1) {
-        audioManager.playNote(3);
+        audioManager.playPaper(true);
         settle(i, true);
         idxRef.current = i + 1;
         setIdx(i + 1);
       } else if (dir === -1 && i > 0) {
-        audioManager.playNote(2);
+        audioManager.playPaper(false);
         settle(i - 1, false);
         idxRef.current = i - 1;
         setIdx(i - 1);
@@ -214,7 +214,7 @@ export function BookViewer({ book, from, onClose }: { book: BookDef; from: BookF
     const p = progress(dx, d.dir);
     const flick = d.dir === 1 ? v < -0.45 : v > 0.45;
     if (p > 0.3 || flick) {
-      audioManager.playNote(d.dir === 1 ? 3 : 2);
+      audioManager.playPaper(d.dir === 1);
       settle(d.leaf, d.dir === 1);
       idxRef.current += d.dir === 1 ? 1 : -1;
       setIdx(idxRef.current);

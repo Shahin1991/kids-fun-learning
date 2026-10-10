@@ -76,6 +76,15 @@ class AudioManager {
     h.play();
   }
 
+  /** A page turning. Three recordings-in-code plus a little random speed keep repeated turns from sounding identical. */
+  playPaper(forward = true) {
+    if (!this.soundEnabled) return;
+    const v = Math.floor(Math.random() * 3);
+    const h = this.get(`paper-${v}`, () => tones.page(v), { volume: 0.8 });
+    h.rate((forward ? 1 : 0.88) * (0.94 + Math.random() * 0.14));
+    h.play();
+  }
+
   setMusic(enabled: boolean) {
     this.musicEnabled = enabled;
     if (enabled) {

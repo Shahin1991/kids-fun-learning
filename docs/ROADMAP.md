@@ -45,5 +45,5 @@ Cross-cutting UX to-dos:
 - Story books (a short story over 6-10 pages with a character and a repeating phrase), not only concept books.
 - Read-along: highlight each word as it is spoken, tap a word to hear it.
 - "Make your own book": pick a picture per page, add a title, save it on the shelf.
-- Page-turn sound (a real paper rustle), a "bookmark" that remembers the last page per book, and a first-run hint on the shelf.
+- A "bookmark" that remembers the last page per book, and a first-run hint on the shelf.
 - More shelves unlocked by stars (collection feeling), seasonal books.
