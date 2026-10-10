@@ -9,11 +9,12 @@ interface Prefs {
   color: string;
   night: boolean;
   camera: CameraMode;
+  scenery: "countryside" | "city" | "auto";
 }
 
 const PREFS_KEY = "apex-highway-prefs";
 const BEST_KEY = "apex-highway-best";
-const DEFAULT_PREFS: Prefs = { vehicle: "sedan", color: VEHICLES[0].defaultColor, night: false, camera: "follow" };
+const DEFAULT_PREFS: Prefs = { vehicle: "sedan", color: VEHICLES[0].defaultColor, night: false, camera: "follow", scenery: "auto" };
 
 function readPrefs(): Prefs {
   try {
@@ -188,6 +189,7 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
       engine.setVehicle(p.vehicle);
       engine.setPaint(p.color);
       engine.setNight(p.night);
+      engine.setScenery(p.scenery, true);
       engine.setCameraMode(p.camera);
       engineRef.current = engine;
       ro = new ResizeObserver(() => {
@@ -340,6 +342,22 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
                 }}
                 className="h-8 w-10 rounded bg-transparent"
               />
+            </div>
+          </div>
+          <div className="text-sm">
+            <p className="mb-1 opacity-80">Scenery</p>
+            <div className="flex gap-1">
+              {(
+                [
+                  ["countryside", "🌳 Country"],
+                  ["city", "🏙️ City"],
+                  ["auto", "🔄 Auto"],
+                ] as const
+              ).map(([id, label]) => (
+                <button key={id} type="button" aria-pressed={prefs.scenery === id} onClick={() => { update({ scenery: id }); engineRef.current?.setScenery(id); }} className={`flex-1 rounded-lg border px-1 py-2 ${prefs.scenery === id ? "border-cyan-300 bg-white/15" : "border-white/20"}`}>
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm">

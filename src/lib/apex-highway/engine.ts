@@ -83,6 +83,7 @@ export class ApexEngine {
   private camMode: CameraMode = "follow";
   private keys: Record<InputKey, boolean> = { left: false, right: false, brake: false, gas: false };
   private sirenOn = false;
+  private sceneryMode: "countryside" | "city" | "auto" = "countryside";
   private lightsLatched = false;
   private muted = false;
   private nightTarget = 0;
@@ -171,6 +172,12 @@ export class ApexEngine {
   setPaint(hex: string) {
     this.color = hex;
     this.player.setPaint(hex);
+  }
+
+  /** Countryside, city, or auto (switches every 4 km of driving, through a short fog fade). */
+  setScenery(mode: "countryside" | "city" | "auto", instant = false) {
+    this.sceneryMode = mode;
+    if (mode !== "auto") this.world.setEnvironment(mode, instant);
   }
 
   setNight(night: boolean) {
@@ -655,6 +662,10 @@ export class ApexEngine {
     this.player.tick(this.timeSec, this.lightsLatched || this.sirenOn || this.spec.features.livery === "police" || this.spec.features.livery === "police-uae");
     this.applyPlayerPose(dt);
     this.updateSparks(dt);
+    if (this.sceneryMode === "auto" && this.phase === "playing") {
+      const want = Math.floor(this.distance / 4000) % 2 === 0 ? "countryside" : "city";
+      if (want !== this.world.environment) this.world.setEnvironment(want);
+    }
     this.world.update(this.distance, dt, this.camera.position);
     this.updateCamera(dt);
 

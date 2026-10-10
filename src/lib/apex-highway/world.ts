@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { applyBend } from "./curve";
+import { buildCity, buildNature, makeCityGroundTexture, makeGrassTexture, ridgeGeometry, skylineGeometry } from "./scenery";
 import { getGlowTexture } from "./vehicle-builder";
 
 export const LANE_COUNT = 4;
@@ -8,14 +9,28 @@ export const ROAD_HALF = (LANE_COUNT * LANE_W) / 2;
 const SEG = 40;
 const SEGS = 10;
 const LEN = SEG * SEGS;
+/** Scenery repeats over its own, longer period so trees and buildings do not visibly loop every 40 m. */
+const NATURE_P = 120;
+const CITY_P = 160;
+const SCENERY_ORIGIN = 30;
+const RIDGES = [
+  { z: -780, maxH: 240, snow: 150, haze: 0.55, seed: 1, w: 2600 },
+  { z: -640, maxH: 175, snow: 120, haze: 0.34, seed: 2, w: 2300 },
+  { z: -520, maxH: 112, snow: 98, haze: 0.16, seed: 3, w: 2000 },
+];
+const SKYLINES = [
+  { z: -560, minH: 25, maxH: 105, haze: 0.45, seed: 4 },
+  { z: -430, minH: 18, maxH: 72, haze: 0.28, seed: 5 },
+];
+export type Environment = "countryside" | "city";
 
 const DAY = {
   skyTop: new THREE.Color(0x3f8fe0), skyBottom: new THREE.Color(0xc4e4ff), fog: new THREE.Color(0xc4e4ff),
-  hemi: 0.9, sun: 2.4, sunColor: new THREE.Color(0xfff2d8), exposure: 1.0, mountain: new THREE.Color(0x7592b3), grass: new THREE.Color(0x4a8a3f),
+  hemi: 0.9, sun: 2.4, sunColor: new THREE.Color(0xfff2d8), exposure: 1.0, mountain: new THREE.Color(0xb7c6dc), grass: new THREE.Color(0xffffff),
 };
 const NIGHT = {
   skyTop: new THREE.Color(0x01020a), skyBottom: new THREE.Color(0x101a3c), fog: new THREE.Color(0x0a1230),
-  hemi: 0.25, sun: 0.35, sunColor: new THREE.Color(0x6f86d8), exposure: 0.8, mountain: new THREE.Color(0x0b1226), grass: new THREE.Color(0x10261a),
+  hemi: 0.25, sun: 0.35, sunColor: new THREE.Color(0x6f86d8), exposure: 0.8, mountain: new THREE.Color(0x1a2750), grass: new THREE.Color(0x2c3a30),
 };
 
 export class World {
@@ -33,11 +48,26 @@ export class World {
   private lampHeads: THREE.MeshStandardMaterial;
   private pools: THREE.MeshBasicMaterial;
   private halos: THREE.SpriteMaterial[] = [];
-  private mountains: THREE.MeshBasicMaterial;
+  private ridges: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; haze: number }[] = [];
+  private skylines: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; lights: THREE.Points; haze: number }[] = [];
+  private natureGroup = new THREE.Group();
+  private natureMats: THREE.MeshStandardMaterial[] = [];
+  private cityGroup: THREE.Group | null = null;
+  private facade: THREE.MeshStandardMaterial | null = null;
+  private grassTex: THREE.Texture;
+  private cityGroundTex: THREE.Texture | null = null;
+  private env: Environment = "countryside";
+  private pendingEnv: Environment | null = null;
+  private fade = { k: 1, phase: "idle" as "idle" | "out" | "in" };
+  private fogBase = { near: 60, far: 320 };
   private grass: THREE.MeshStandardMaterial;
   private textures: THREE.Texture[] = [];
   night = 0;
   exposure = 1;
+
+  get environment(): Environment {
+    return this.pendingEnv ?? this.env;
+  }
 
   constructor(private scene: THREE.Scene, aniso: number) {
     scene.fog = new THREE.Fog(DAY.fog, 60, 320);
@@ -83,16 +113,12 @@ export class World {
       this.root.add(s);
     }
 
-    this.mountains = new THREE.MeshBasicMaterial({ color: DAY.mountain, fog: false });
-    const mtnGeo = new THREE.ConeGeometry(140, 120, 6);
-    for (let i = 0; i < 9; i++) {
-      const m = new THREE.Mesh(mtnGeo, this.mountains);
-      m.position.set(-560 + i * 140 + (Math.random() - 0.5) * 60, 45 + Math.random() * 20, -480);
-      m.scale.set(1 + Math.random() * 0.8, 0.8 + Math.random() * 0.8, 1);
-      this.root.add(m);
-    }
+    this.buildMountains();
 
-    this.grass = new THREE.MeshStandardMaterial({ color: DAY.grass, roughness: 1 });
+    this.grassTex = makeGrassTexture();
+    this.grassTex.repeat.set(5, (LEN + SEG * 3) / SEG);
+    this.textures.push(this.grassTex);
+    this.grass = new THREE.MeshStandardMaterial({ color: DAY.grass, roughness: 1, map: this.grassTex });
     const grassMesh = new THREE.Mesh(new THREE.PlaneGeometry(500, LEN + SEG * 3, 1, 130), this.grass);
     grassMesh.rotation.x = -Math.PI / 2;
     grassMesh.position.set(0, -0.05, -LEN / 2 + SEG * 1.5);
@@ -112,11 +138,13 @@ export class World {
     const lamps = this.buildLamps();
     this.lampHeads = lamps.heads;
     this.pools = lamps.pools;
-    this.buildScenery();
+    this.buildNature();
     this.buildGantry();
     applyBend(this.road);
     applyBend(this.gantry);
     this.root.add(this.road, this.gantry);
+    applyBend(this.natureGroup);
+    this.root.add(this.natureGroup);
     this.setNight(0);
   }
 
@@ -212,40 +240,77 @@ export class World {
     return { heads, pools };
   }
 
-  private buildScenery() {
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 1 });
-    const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f7d3a, roughness: 0.9 });
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x7b7f86, roughness: 1 });
-    const perSide = 5;
-    const treeCount = SEGS * perSide * 2;
-    const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 3, 6), trunkMat, treeCount);
-    const leaves = new THREE.InstancedMesh(new THREE.ConeGeometry(2, 5, 8), leafMat, treeCount);
-    const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), rockMat, SEGS * 6);
-    // Same layout in every segment so recycling by modulo is seamless.
-    const tpl = Array.from({ length: perSide }, () => ({ x: 12 + Math.random() * 40, z: Math.random() * SEG, s: 0.8 + Math.random() * 0.8 }));
-    const rockTpl = Array.from({ length: 3 }, () => ({ x: 9 + Math.random() * 25, z: Math.random() * SEG, s: 0.4 + Math.random() * 0.9 }));
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
-    let t = 0;
-    let r = 0;
-    for (let i = 0; i < SEGS; i++) {
-      for (const side of [-1, 1]) {
-        tpl.forEach((p) => {
-          const z = SEG - i * SEG - p.z;
-          m.compose(new THREE.Vector3(side * p.x, 1.5 * p.s, z), q, new THREE.Vector3(p.s, p.s, p.s));
-          trunks.setMatrixAt(t, m);
-          m.compose(new THREE.Vector3(side * p.x, 5 * p.s, z), q, new THREE.Vector3(p.s, p.s, p.s));
-          leaves.setMatrixAt(t, m);
-          t++;
-        });
-        rockTpl.forEach((p) => {
-          m.compose(new THREE.Vector3(side * p.x, 0.3 * p.s, SEG - i * SEG - p.z), q, new THREE.Vector3(p.s, p.s * 0.7, p.s));
-          rocks.setMatrixAt(r++, m);
-        });
-      }
+  private buildMountains() {
+    for (const [i, spec] of RIDGES.entries()) {
+      const mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, color: DAY.mountain });
+      const mesh = new THREE.Mesh(ridgeGeometry(spec.w, spec.maxH, spec.seed, spec.snow), mat);
+      mesh.position.set(i === 1 ? 140 : -60, 0, spec.z);
+      mesh.renderOrder = -5 + i;
+      this.root.add(mesh);
+      this.ridges.push({ mesh, mat, haze: spec.haze });
     }
-    trunks.castShadow = leaves.castShadow = false;
-    this.road.add(trunks, leaves, rocks);
+  }
+
+  private buildNature() {
+    const { group, materials } = buildNature({ period: NATURE_P, copies: 4, origin: SCENERY_ORIGIN });
+    this.natureGroup.add(group);
+    this.natureMats = materials;
+  }
+
+  /** The city is built the first time it is wanted, so countryside-only players never pay for it. */
+  private ensureCity() {
+    if (this.cityGroup) return;
+    const city = buildCity({ period: CITY_P, copies: 3, origin: SCENERY_ORIGIN });
+    this.cityGroup = city.group;
+    this.facade = city.facade;
+    this.textures.push(...city.textures);
+    applyBend(city.group);
+    this.root.add(city.group);
+    this.cityGroundTex = makeCityGroundTexture();
+    this.cityGroundTex.repeat.set(26, (LEN + SEG * 3) / 20);
+    this.textures.push(this.cityGroundTex);
+    for (const [i, spec] of SKYLINES.entries()) {
+      const { geo, lights } = skylineGeometry(1900, spec.seed, spec.minH, spec.maxH);
+      const mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, color: DAY.mountain });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(0, 0, spec.z);
+      mesh.renderOrder = -5 + i;
+      const pts = new THREE.Points(lights, new THREE.PointsMaterial({ color: 0xffd98a, size: 2, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+      pts.position.copy(mesh.position);
+      this.root.add(mesh, pts);
+      this.skylines.push({ mesh, mat, lights: pts, haze: spec.haze });
+    }
+    this.applyEnvVisibility();
+    this.setNight(this.night);
+  }
+
+  private applyEnvVisibility() {
+    const city = this.env === "city";
+    this.natureGroup.visible = !city;
+    this.ridges.forEach((r) => (r.mesh.visible = !city));
+    if (this.cityGroup) this.cityGroup.visible = city;
+    this.skylines.forEach((s) => {
+      s.mesh.visible = city;
+      s.lights.visible = city;
+    });
+    this.grass.map = city && this.cityGroundTex ? this.cityGroundTex : this.grassTex;
+    this.grass.needsUpdate = true;
+    this.setNight(this.night);
+  }
+
+  /** Switch scenery. Unless `instant`, the fog closes in, the scenery swaps behind it, and the fog opens again. */
+  setEnvironment(env: Environment, instant = false) {
+    if (env === this.environment) return;
+    if (env === "city") this.ensureCity();
+    if (instant) {
+      this.env = env;
+      this.pendingEnv = null;
+      this.fade = { k: 1, phase: "idle" };
+      this.applyEnvVisibility();
+      return;
+    }
+    this.pendingEnv = env;
+    this.fade.phase = "out";
   }
 
   private buildGantry() {
@@ -286,8 +351,9 @@ export class World {
     const mix = (a: THREE.Color, b: THREE.Color) => a.clone().lerp(b, n);
     const fog = this.scene.fog as THREE.Fog;
     fog.color.copy(mix(DAY.fog, NIGHT.fog));
-    fog.near = 60 - 35 * n;
-    fog.far = 320 - 110 * n;
+    this.fogBase = { near: 60 - 35 * n, far: 320 - 110 * n };
+    fog.near = this.fogBase.near * this.fade.k;
+    fog.far = this.fogBase.far * this.fade.k;
     this.skyMat.uniforms.top.value.copy(mix(DAY.skyTop, NIGHT.skyTop));
     this.skyMat.uniforms.bottom.value.copy(mix(DAY.skyBottom, NIGHT.skyBottom));
     this.hemi.intensity = DAY.hemi + (NIGHT.hemi - DAY.hemi) * n;
@@ -295,8 +361,19 @@ export class World {
     this.sunLight.intensity = DAY.sun + (NIGHT.sun - DAY.sun) * n;
     this.sunLight.color.copy(mix(DAY.sunColor, NIGHT.sunColor));
     this.exposure = DAY.exposure + (NIGHT.exposure - DAY.exposure) * n;
-    this.mountains.color.copy(mix(DAY.mountain, NIGHT.mountain));
-    this.grass.color.copy(mix(DAY.grass, NIGHT.grass));
+    const hazeColour = (haze: number) => {
+      const day = DAY.mountain.clone().lerp(DAY.skyBottom, haze);
+      const night = NIGHT.mountain.clone().lerp(NIGHT.skyBottom, haze * 0.8);
+      return day.lerp(night, n);
+    };
+    this.ridges.forEach((r) => r.mat.color.copy(hazeColour(r.haze)));
+    this.skylines.forEach((sk) => {
+      sk.mat.color.copy(hazeColour(sk.haze));
+      (sk.lights.material as THREE.PointsMaterial).opacity = Math.max(0, n * 1.3 - 0.3);
+    });
+    const city = this.env === "city";
+    this.grass.color.copy(city ? new THREE.Color(0xffffff).lerp(new THREE.Color(0x3a3f4d), n) : mix(DAY.grass, NIGHT.grass));
+    if (this.facade) this.facade.emissiveIntensity = n * 1.35;
     this.lampHeads.emissiveIntensity = n * 3;
     this.pools.opacity = n * 0.55;
     this.halos.forEach((h) => (h.opacity = n * 0.9));
@@ -308,6 +385,9 @@ export class World {
 
   update(distance: number, dt: number, camPos: THREE.Vector3) {
     this.road.position.z = distance % SEG;
+    this.natureGroup.position.z = distance % NATURE_P;
+    if (this.cityGroup) this.cityGroup.position.z = distance % CITY_P;
+    this.stepFade(dt);
     this.gantry.position.z = -300 + (distance % LEN);
     this.sky.position.copy(camPos);
     this.stars.position.copy(camPos);
@@ -315,6 +395,26 @@ export class World {
       c.position.x += dt * 2;
       if (c.position.x > 500) c.position.x = -500;
     }
+  }
+
+  private stepFade(dt: number) {
+    const f = this.fade;
+    if (f.phase === "idle") return;
+    if (f.phase === "out") {
+      f.k = Math.max(0.1, f.k - dt * 2.4);
+      if (f.k <= 0.1 && this.pendingEnv) {
+        this.env = this.pendingEnv;
+        this.pendingEnv = null;
+        this.applyEnvVisibility();
+        f.phase = "in";
+      }
+    } else {
+      f.k = Math.min(1, f.k + dt * 1.5);
+      if (f.k >= 1) f.phase = "idle";
+    }
+    const fog = this.scene.fog as THREE.Fog;
+    fog.near = this.fogBase.near * f.k;
+    fog.far = this.fogBase.far * f.k;
   }
 
   dispose() {
