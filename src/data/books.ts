@@ -1,8 +1,10 @@
+import type { SceneDef } from "@/components/art/Scene";
 import { ALPHABET } from "./alphabet";
 import { ANIMALS } from "./animals";
 import { COLORS } from "./colors";
 import { COUNT_OBJECTS } from "./numbers";
 import { SHAPES } from "./shapes";
+import { STORIES } from "./stories";
 
 /** One page of a picture book. Only the fields a page needs are set. */
 export interface BookPage {
@@ -19,6 +21,11 @@ export interface BookPage {
   art?: string;
   swatch?: string;
   shapePath?: string;
+  /** A drawn illustration (from components/art) shown instead of the emoji */
+  illo?: string;
+  /** Story pages: a few words of text and a picture to go with them */
+  text?: string;
+  scene?: SceneDef;
   caption: string;
   /** Read aloud when the page opens or is tapped */
   say: string;
@@ -28,6 +35,8 @@ export interface BookDef {
   id: string;
   title: string;
   emoji: string;
+  /** Drawn cover picture; the emoji is the fallback */
+  illo?: string;
   /** Cover and spine colour */
   color: string;
   dark: string;
@@ -107,6 +116,7 @@ export const BOOKS: BookDef[] = [
       END_PAGE,
     ],
   },
+  ...STORIES,
 ];
 
 export const getBook = (id: string) => BOOKS.find((b) => b.id === id);

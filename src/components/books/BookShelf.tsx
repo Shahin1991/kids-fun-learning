@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { BOOKS, type BookDef } from "@/data/books";
 import { audioManager } from "@/lib/audio/AudioManager";
+import { ItemArt } from "@/components/ItemArt";
 import { BookViewer, type BookFrom } from "./BookViewer";
 
 const HEIGHTS = [190, 170, 200, 180, 188];
@@ -26,7 +27,7 @@ function Spine({ book, i, hidden, onPick }: { book: BookDef; i: number; hidden: 
     >
       <span className="absolute inset-x-0 top-1.5 h-1 bg-yellow-300/80" aria-hidden />
       <span className="absolute inset-x-0 bottom-1.5 h-1 bg-yellow-300/80" aria-hidden />
-      <span className="mt-2 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-3xl" aria-hidden>{book.emoji}</span>
+      <span className="mt-2 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-3xl" aria-hidden><ItemArt illo={book.illo} emoji={book.emoji} label="" size={36} /></span>
       <span className="flex-1 text-lg font-extrabold leading-none drop-shadow" style={{ writingMode: "vertical-rl" }}>{book.title}</span>
     </motion.button>
   );

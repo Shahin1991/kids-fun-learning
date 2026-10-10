@@ -3,6 +3,7 @@
 import { animate, motion, motionValue, useTransform, type MotionValue } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
+import { Scene } from "@/components/art/Scene";
 import { ItemArt } from "@/components/ItemArt";
 import type { BookDef, BookPage } from "@/data/books";
 import { audioManager } from "@/lib/audio/AudioManager";
@@ -19,13 +20,26 @@ const SPRING = { type: "spring", stiffness: 120, damping: 18, mass: 0.9 } as con
 const ZERO = motionValue(0);
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
+function StoryFace({ page, n, total }: { page: BookPage; n: number; total: number }) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-between gap-2 px-4 pb-3 pt-4 text-ink" style={{ background: `linear-gradient(100deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0) 7%), ${page.bg}` }}>
+      <Scene scene={page.scene!} />
+      <p className="flex flex-1 items-center text-center font-extrabold leading-snug" style={{ color: page.fg, fontSize: "clamp(1.3rem, 6vw, 2rem)" }}>{page.text}</p>
+      <p className="text-sm font-bold opacity-50">{n} / {total}</p>
+    </div>
+  );
+}
+
 function PageFace({ page, n, total }: { page: BookPage; n: number; total: number }) {
   const count = page.count ?? 1;
+  if (page.scene) return <StoryFace page={page} n={n} total={total} />;
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-between px-4 pb-3 pt-5 text-ink" style={{ background: `linear-gradient(100deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0) 7%), ${page.bg}` }}>
       <p className="font-extrabold leading-none" style={{ color: page.fg, fontSize: "clamp(2.8rem, 15vw, 6rem)" }}>{page.big ?? " "}</p>
       <div className="flex min-h-0 flex-1 items-center justify-center">
-        {page.art ? (
+        {page.illo ? (
+          <ItemArt illo={page.illo} emoji={page.emoji ?? ""} label={page.caption} size={150} />
+        ) : page.art ? (
           <ItemArt art={page.art} emoji={page.emoji ?? ""} label={page.caption} size={150} />
         ) : page.shapePath ? (
           <svg viewBox="0 0 100 100" className="w-[min(46vw,13rem)] drop-shadow-lg" aria-hidden>
@@ -54,7 +68,9 @@ function CoverFace({ book, hint }: { book: BookDef; hint: boolean }) {
       <span className="absolute inset-y-0 left-4 w-1 bg-white/25" aria-hidden />
       <span className="absolute inset-x-8 top-5 h-1 rounded bg-yellow-300/80" aria-hidden />
       <div className="mt-8 flex flex-1 flex-col items-center justify-center gap-3 pl-3">
-        <span className="rounded-full bg-white/90 px-8 py-4 text-[5.5rem] leading-none shadow-lg" aria-hidden>{book.emoji}</span>
+        <span className="flex items-center justify-center rounded-full bg-white/90 px-8 py-4 text-[5.5rem] leading-none shadow-lg" aria-hidden>
+          <ItemArt illo={book.illo} emoji={book.emoji} label="" size={110} />
+        </span>
         <h2 className="text-center font-extrabold leading-tight drop-shadow" style={{ fontSize: "clamp(1.8rem, 8.5vw, 2.8rem)" }}>{book.title}</h2>
       </div>
       <span className="absolute inset-x-8 bottom-16 h-1 rounded bg-yellow-300/80" aria-hidden />
