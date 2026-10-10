@@ -5,15 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChipRow, GameSettings } from "@/components/board-games/GameSettings";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 import { audioManager } from "@/lib/audio/AudioManager";
+import { clampHumans, seatLabel } from "@/lib/board-games/seats";
 import { finishActivity } from "@/lib/activity";
 import { botAction, canPlay, COLOURS, drawOne, isWild, newGame, passTurn, playable, playCard, top, type Card, type Colour, type Level, type UnoState } from "@/lib/board-games/uno";
 
 const HEX: Record<Colour, string> = { red: "#ef4444", yellow: "#facc15", green: "#22c55e", blue: "#3b82f6" };
-const OPP = [
-  { name: "Robo", emoji: "🤖" },
-  { name: "Froggy", emoji: "🐸" },
-  { name: "Unicorn", emoji: "🦄" },
-];
 const LEVELS: { id: Level; icon: string; label: string }[] = [
   { id: "easy", icon: "🐣", label: "Easy" },
   { id: "medium", icon: "🐱", label: "Medium" },
@@ -68,10 +64,14 @@ function Confetti() {
   );
 }
 
-/** Uno against 1-3 bots: tap a glowing card to play it, tap the pile when nothing fits. */
+/**
+ * Uno for 2-4 seats. The first `humans` seats are people sharing the device (their cards stay hidden behind a
+ * "pass the device" curtain between turns), the rest are robots.
+ */
 export function UnoGame() {
   const reduced = useAppReducedMotion();
-  const [opponents, setOpponents] = useState(1);
+  const [total, setTotal] = useState(2);
+  const [humans, setHumans] = useState(1);
   const [level, setLevel] = useState<Level>("easy");
   const [game, setGame] = useState(0);
   const [state, setState] = useState<UnoState>(() => newGame(2));
@@ -80,21 +80,29 @@ export function UnoGame() {
   const [flash, setFlash] = useState<{ player: number; n: number } | null>(null);
   const [shake, setShake] = useState(0);
   const [last, setLast] = useState({ player: 0, id: -1 });
+  /** Whose hand is on show at the bottom, and whether that person has tapped "it's me" */
+  const [seat, setSeat] = useState(0);
+  const [revealed, setRevealed] = useState(true);
   const rewarded = useRef(false);
 
-  const name = useCallback((p: number) => (p === 0 ? "You" : OPP[p - 1].name), []);
+  const label = useCallback((p: number) => seatLabel(p, humans), [humans]);
+  const name = useCallback((p: number) => seatLabel(p, humans).name, [humans]);
   const say = useCallback((m: string, speak = false) => {
     setMessage(m);
     if (speak) audioManager.speak(stripEmoji(m));
   }, []);
 
-  const start = useCallback((opp: number, lv: Level) => {
-    setOpponents(opp);
+  const start = useCallback((seats: number, people: number, lv: Level) => {
+    const h = clampHumans(people, seats);
+    setTotal(seats);
+    setHumans(h);
     setLevel(lv);
     setGame((g) => g + 1);
-    setState(newGame(opp + 1));
+    setState(newGame(seats));
     setPicking(null);
-    setMessage("Your turn! Match the colour or the number 👆");
+    setSeat(0);
+    setRevealed(h === 1);
+    setMessage(h === 1 ? "Your turn! Match the colour or the number 👆" : "Player 1 goes first!");
     rewarded.current = false;
     setLast({ player: 0, id: -1 });
   }, []);
@@ -113,13 +121,13 @@ export function UnoGame() {
       if (isWild(card) && colour) bits.push(`Colour is now ${colour}`);
       const left = r.state.hands[p].length;
       if (r.state.winner !== null) {
-        const won = p === 0;
-        setMessage(won ? "You won! 🎉" : `${name(p)} won! Good game! 👏`);
-        audioManager.play(won ? "success" : "reward");
-        audioManager.speak(won ? "You won! Hooray!" : `${name(p)} won! Good game!`);
-        if (won && !rewarded.current) {
+        const w = label(p);
+        setMessage(w.you ? "You won! 🎉" : w.human ? `${w.name} won! 🎉` : `${w.name} won! Good game! 👏`);
+        audioManager.play(w.human ? "success" : "reward");
+        audioManager.speak(w.you ? "You won! Hooray!" : `${w.name} won!`);
+        if (w.human && !rewarded.current) {
           rewarded.current = true;
-          void finishActivity("uno", { score: 1, variant: `${opponents}-${level}` });
+          void finishActivity("uno", { score: 1, variant: `${total}p${humans}h-${level}` });
         }
         return;
       }
@@ -128,15 +136,15 @@ export function UnoGame() {
         audioManager.speak("Uno!");
         setFlash({ player: p, n: Date.now() });
       }
+      if (humans === 1 && r.state.turn === 0) bits.push("Your turn!");
       setMessage(bits.join(" · "));
-      if (r.state.turn === 0) setTimeout(() => setMessage((m) => m + " · Your turn!"), 0);
     },
-    [state, name, opponents, level],
+    [state, name, label, humans, total, level],
   );
 
-  // Bots take their turns after a short, readable pause.
+  // Robots take their turns after a short, readable pause.
   useEffect(() => {
-    if (state.winner !== null || state.turn === 0 || picking !== null) return;
+    if (state.winner !== null || state.turn < humans || picking !== null) return;
     const t = setTimeout(() => {
       const p = state.turn;
       const a = botAction(state, p, level);
@@ -152,18 +160,23 @@ export function UnoGame() {
       }
     }, reduced ? 300 : 1100);
     return () => clearTimeout(t);
-  }, [state, level, picking, apply, name, reduced]);
+  }, [state, level, picking, apply, name, reduced, humans]);
 
-  const mine = useMemo(() => [...state.hands[0]].sort((a, b) => ORDER[a.colour ?? "wild"] - ORDER[b.colour ?? "wild"] || a.kind.localeCompare(b.kind)), [state.hands]);
-  const canNow = useMemo(() => new Set(playable(state, 0).filter((c) => state.drew === null || c.id === state.drew).map((c) => c.id)), [state]);
-  const myTurn = state.turn === 0 && state.winner === null;
+  const humanTurn = state.winner === null && state.turn < humans;
+  // With two people, a hand is only shown to the person whose turn it is, after they confirm it is them.
+  const needCurtain = humans > 1 && humanTurn && !(revealed && seat === state.turn);
+  const shown = humans === 1 || (revealed && seat === state.turn);
+  const hand = state.hands[seat];
+  const mine = useMemo(() => [...hand].sort((a, b) => ORDER[a.colour ?? "wild"] - ORDER[b.colour ?? "wild"] || a.kind.localeCompare(b.kind)), [hand]);
+  const canNow = useMemo(() => new Set(playable(state, seat).filter((c) => state.drew === null || c.id === state.drew).map((c) => c.id)), [state, seat]);
+  const myTurn = humanTurn && state.turn === seat && shown;
   const mustDraw = myTurn && state.drew === null && canNow.size === 0;
-  const drewCard = state.drew !== null ? state.hands[0].find((c) => c.id === state.drew) : undefined;
+  const drewCard = state.drew !== null && myTurn ? hand.find((c) => c.id === state.drew) : undefined;
 
   // After drawing an unplayable card the turn passes by itself.
   useEffect(() => {
     if (!myTurn || state.drew === null) return;
-    const c = state.hands[0].find((x) => x.id === state.drew);
+    const c = state.hands[state.turn].find((x) => x.id === state.drew);
     if (c && canPlay(c, state)) return;
     const t = setTimeout(() => {
       setState((s) => passTurn(s));
@@ -181,7 +194,7 @@ export function UnoGame() {
       return;
     }
     if (isWild(c)) setPicking(c.id);
-    else apply(0, c.id);
+    else apply(seat, c.id);
   };
 
   const draw = () => {
@@ -189,56 +202,80 @@ export function UnoGame() {
       if (myTurn) say(canNow.size ? "You have a card to play! Look for the glowing ones ✨" : "", canNow.size > 0);
       return;
     }
-    const d = drawOne(state, 0);
+    const d = drawOne(state, seat);
     setState(d.state);
     audioManager.playNote(2);
     say(d.canPlayIt ? "You picked up a card you can play! Play it or keep it 👇" : "You picked up a card. No match this time", true);
   };
 
+  const confirmSeat = () => {
+    setSeat(state.turn);
+    setRevealed(true);
+    setMessage(`${name(state.turn)}, it's your turn! Match the colour or the number 👆`);
+    audioManager.speak(`${name(state.turn)}, it's your turn!`);
+  };
+
   const topCard = top(state);
   const done = state.winner !== null;
+  const me = label(seat);
+  const others = Array.from({ length: total }, (_, i) => i).filter((p) => p !== seat);
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {state.winner === 0 && <Confetti />}
+      {state.winner !== null && label(state.winner).human && <Confetti />}
       <div className="flex items-center justify-center gap-2">
         <GameSettings title="Game settings">
           {(close) => (
             <>
-              <ChipRow label="Who are you playing?" value={opponents} options={[1, 2, 3].map((n) => ({ id: n, text: `👥 ${n + 1}`, aria: `${n} opponent${n > 1 ? "s" : ""}` }))} onPick={(n) => { start(n, level); close(); }} />
-              <ChipRow label="How clever are they?" value={level} options={LEVELS.map((l) => ({ id: l.id, text: `${l.icon} ${l.label}` }))} onPick={(l) => { start(opponents, l); close(); }} />
+              <ChipRow
+                label="Who is playing?"
+                value={humans}
+                options={[
+                  { id: 1, text: "🧒 1 person", aria: "One person plays against robots" },
+                  { id: 2, text: "🧒🧒 2 people", aria: "Two people share the device" },
+                ]}
+                onPick={(h) => {
+                  start(total, h, level);
+                  close();
+                }}
+              />
+              <ChipRow label="How many seats?" value={total} options={[2, 3, 4].map((n) => ({ id: n, text: `👥 ${n}`, aria: `${n} players` }))} onPick={(n) => { start(n, humans, level); close(); }} />
+              <ChipRow label="How clever are the robots?" value={level} options={LEVELS.map((l) => ({ id: l.id, text: `${l.icon} ${l.label}` }))} onPick={(l) => { start(total, humans, l); close(); }} />
             </>
           )}
         </GameSettings>
-        <button type="button" onClick={() => start(opponents, level)} className={`min-h-14 rounded-2xl px-5 text-xl font-bold text-ink shadow-md active:scale-95 ${done ? "animate-bounce bg-kid-green" : "bg-kid-yellow"}`}>
+        <button type="button" onClick={() => start(total, humans, level)} className={`min-h-14 rounded-2xl px-5 text-xl font-bold text-ink shadow-md active:scale-95 ${done ? "animate-bounce bg-kid-green" : "bg-kid-yellow"}`}>
           🔄 {done ? "Play again" : "New game"}
         </button>
         <span className="rounded-2xl bg-surface px-3 py-3 text-lg font-bold shadow" aria-label={`${LEVELS.find((l) => l.id === level)?.label} level`}>{LEVELS.find((l) => l.id === level)?.icon}</span>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-[1.5rem] bg-gradient-to-b from-emerald-600 to-emerald-800 p-2 shadow-inner sm:gap-3 sm:rounded-[2rem] sm:p-3" key={game}>
-        {/* Opponents */}
+        {/* Everyone else */}
         <div className="flex justify-around gap-2">
-          {Array.from({ length: opponents }, (_, i) => i + 1).map((p) => (
-            <motion.div key={p} animate={state.turn === p && !done ? { scale: 1.08, y: -2 } : { scale: 1, y: 0 }} className={`flex flex-col items-center gap-1 rounded-2xl p-2 ${state.turn === p && !done ? "bg-white/25 ring-4 ring-yellow-300" : "bg-black/15"}`}>
-              <div className="flex items-center gap-1 text-white">
-                <span className="text-3xl" aria-hidden>{OPP[p - 1].emoji}</span>
-                <span className="font-extrabold">{OPP[p - 1].name}</span>
-                <motion.span key={state.hands[p].length} initial={{ scale: 1.8 }} animate={{ scale: 1 }} className="rounded-full bg-white px-2 text-lg font-extrabold text-ink" aria-label={`${state.hands[p].length} cards`}>{state.hands[p].length}</motion.span>
-              </div>
-              <div className="flex -space-x-5">
-                {state.hands[p].slice(0, 7).map((c, i) => (
-                  <UnoCard key={c.id} faceDown small label={i === 0 ? `${OPP[p - 1].name} has ${state.hands[p].length} cards` : undefined} />
-                ))}
-              </div>
-              <AnimatePresence>
-                {flash?.player === p && state.hands[p].length === 1 && (
-                  <motion.span key={flash.n} initial={{ scale: 0, rotate: -20 }} animate={{ scale: [0, 1.4, 1], rotate: 0 }} exit={{ scale: 0 }} className="rounded-full bg-rose-500 px-3 py-1 text-xl font-black text-yellow-100 shadow-lg">
-                    UNO!
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ))}
+          {others.map((p) => {
+            const l = label(p);
+            return (
+              <motion.div key={p} animate={state.turn === p && !done ? { scale: 1.08, y: -2 } : { scale: 1, y: 0 }} className={`flex flex-col items-center gap-1 rounded-2xl p-2 ${state.turn === p && !done ? "bg-white/25 ring-4 ring-yellow-300" : "bg-black/15"}`}>
+                <div className="flex items-center gap-1 text-white">
+                  <span className="text-3xl" aria-hidden>{l.emoji}</span>
+                  <span className="font-extrabold">{l.name}</span>
+                  <motion.span key={state.hands[p].length} initial={{ scale: 1.8 }} animate={{ scale: 1 }} className="rounded-full bg-white px-2 text-lg font-extrabold text-ink" aria-label={`${state.hands[p].length} cards`}>{state.hands[p].length}</motion.span>
+                </div>
+                <div className="flex -space-x-5">
+                  {state.hands[p].slice(0, 7).map((c, i) => (
+                    <UnoCard key={c.id} faceDown small label={i === 0 ? `${l.name} has ${state.hands[p].length} cards` : undefined} />
+                  ))}
+                </div>
+                <AnimatePresence>
+                  {flash?.player === p && state.hands[p].length === 1 && (
+                    <motion.span key={flash.n} initial={{ scale: 0, rotate: -20 }} animate={{ scale: [0, 1.4, 1], rotate: 0 }} exit={{ scale: 0 }} className="rounded-full bg-rose-500 px-3 py-1 text-xl font-black text-yellow-100 shadow-lg">
+                      UNO!
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Table */}
@@ -254,7 +291,7 @@ export function UnoGame() {
             <AnimatePresence mode="popLayout">
               <motion.div
                 key={topCard.id}
-                initial={reduced ? false : { scale: 1.5, y: last.player === 0 ? 140 : -140, rotate: (last.id % 2 ? 1 : -1) * 40, opacity: 0 }}
+                initial={reduced ? false : { scale: 1.5, y: last.player === seat ? 140 : -140, rotate: (last.id % 2 ? 1 : -1) * 40, opacity: 0 }}
                 animate={{ scale: 1, y: 0, rotate: ((topCard.id * 37) % 21) - 10, opacity: 1 }}
                 exit={{ opacity: 0.6 }}
                 transition={{ type: "spring", stiffness: 220, damping: 16 }}
@@ -274,40 +311,66 @@ export function UnoGame() {
           {message}
         </p>
 
-        {/* Your hand */}
+        {/* The hand on show */}
         <div className="flex shrink-0 flex-col items-center gap-1 sm:gap-2">
           <div className={`flex w-full items-center justify-center gap-2 ${myTurn ? "" : "opacity-90"}`}>
-            <span className={`rounded-full px-3 py-1 text-lg font-extrabold ${myTurn ? "bg-yellow-300 text-ink" : "bg-black/20 text-white"}`}>🐯 You · {state.hands[0].length}</span>
+            <span className={`rounded-full px-3 py-1 text-lg font-extrabold ${myTurn ? "bg-yellow-300 text-ink" : "bg-black/20 text-white"}`}>{me.emoji} {me.name} · {hand.length}</span>
             {drewCard && canPlay(drewCard, state) && myTurn && (
               <button type="button" onClick={() => { setState((s) => passTurn(s)); say("You kept it. Next player!"); }} className="min-h-12 rounded-2xl bg-white px-4 text-lg font-bold text-ink shadow active:scale-95">
                 Keep it ⏭️
               </button>
             )}
           </div>
-          <motion.div key={shake} animate={shake ? { x: [0, -8, 8, -5, 5, 0] } : {}} transition={{ duration: 0.4 }} className="flex w-full max-w-full justify-center overflow-x-auto px-2 pb-1 pt-4">
-            <div className="flex -space-x-8 sm:-space-x-5">
-              <AnimatePresence initial={false}>
-                {mine.map((c) => {
-                  const ok = canNow.has(c.id) && myTurn;
-                  return (
-                    <motion.div
-                      key={c.id}
-                      layout={!reduced}
-                      initial={reduced ? false : { y: -220, opacity: 0, scale: 0.6, rotate: 20 }}
-                      animate={{ y: ok ? -16 : 0, opacity: 1, scale: 1, rotate: 0 }}
-                      exit={{ y: -260, opacity: 0, scale: 0.7 }}
-                      transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                      whileHover={ok && !reduced ? { y: -26 } : undefined}
-                    >
-                      <UnoCard card={c} glow={ok} dim={myTurn && !ok} onClick={() => tapCard(c)} />
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
+          {shown ? (
+            <motion.div key={shake} animate={shake ? { x: [0, -8, 8, -5, 5, 0] } : {}} transition={{ duration: 0.4 }} className="flex w-full max-w-full justify-center overflow-x-auto px-2 pb-1 pt-4">
+              <div className="flex -space-x-8 sm:-space-x-5">
+                <AnimatePresence initial={false}>
+                  {mine.map((c) => {
+                    const ok = canNow.has(c.id) && myTurn;
+                    return (
+                      <motion.div
+                        key={c.id}
+                        layout={!reduced}
+                        initial={reduced ? false : { y: -220, opacity: 0, scale: 0.6, rotate: 20 }}
+                        animate={{ y: ok ? -16 : 0, opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ y: -260, opacity: 0, scale: 0.7 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                        whileHover={ok && !reduced ? { y: -26 } : undefined}
+                      >
+                        <UnoCard card={c} glow={ok} dim={myTurn && !ok} onClick={() => tapCard(c)} />
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          ) : (
+            <div className="flex w-full justify-center gap-0 px-2 pb-1 pt-4" aria-label={`${me.name}'s cards are hidden`}>
+              <div className="flex -space-x-8 sm:-space-x-5">
+                {hand.slice(0, 9).map((c) => (
+                  <UnoCard key={c.id} faceDown />
+                ))}
+              </div>
             </div>
-          </motion.div>
+          )}
         </div>
       </div>
+
+      {/* Pass the device: nobody peeks at the next player's cards */}
+      <AnimatePresence>
+        {needCurtain && (
+          <motion.div key="curtain" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-emerald-900 p-4" role="dialog" aria-label={`Pass the device to ${name(state.turn)}`}>
+            <motion.div initial={{ scale: 0.6, y: 40 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 220, damping: 15 }} className="flex w-full max-w-sm flex-col items-center gap-5 rounded-[2rem] bg-surface p-6 text-center text-foreground shadow-2xl">
+              <motion.span className="text-8xl" animate={reduced ? {} : { rotate: [0, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }} aria-hidden>🤝</motion.span>
+              <p className="text-3xl font-extrabold">Pass the device to {name(state.turn)}!</p>
+              <p className="text-lg opacity-70">No peeking at the other cards 🙈</p>
+              <button type="button" onClick={confirmSeat} className="min-h-16 w-full rounded-3xl bg-kid-green px-6 text-2xl font-extrabold text-ink shadow-lg active:scale-95">
+                {label(state.turn).emoji} I&apos;m {name(state.turn)}!
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Wild colour picker */}
       <AnimatePresence>
@@ -324,7 +387,7 @@ export function UnoGame() {
                     onClick={() => {
                       const id = picking;
                       setPicking(null);
-                      apply(0, id, c);
+                      apply(seat, id, c);
                     }}
                     className="h-24 w-24 rounded-3xl border-4 border-white shadow-lg active:scale-90"
                     style={{ background: HEX[c] }}

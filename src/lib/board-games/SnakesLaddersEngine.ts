@@ -4,16 +4,17 @@ import { ToyScene } from "@/lib/toy3d/ToyScene";
 import { Dice3D } from "./dice3d";
 import type { DiceEngine, DiceOptions, DiceState } from "./dice-types";
 import { makePawn, Mover } from "./pawn";
+import { clampHumans, is, seatLabel } from "./seats";
 import { LADDERS, moveFrom, SNAKES, squareCell } from "./snakes-ladders";
 import type { GameLevel } from "./types";
 
 const TOP = 0.3;
-const HUMAN = 0;
-const WHO = [
-  { name: "You", emoji: "🐯", color: 0xff7a1a, css: "#ff7a1a" },
-  { name: "Robo", emoji: "🤖", color: 0x3b82f6, css: "#3b82f6" },
-  { name: "Froggy", emoji: "🐸", color: 0x22c55e, css: "#22c55e" },
-  { name: "Unicorn", emoji: "🦄", color: 0xc084fc, css: "#c084fc" },
+/** Pawn colour by seat (the name and emoji come from `seatLabel`). */
+const PALETTE = [
+  { color: 0xff7a1a, css: "#ff7a1a" },
+  { color: 0x3b82f6, css: "#3b82f6" },
+  { color: 0x22c55e, css: "#22c55e" },
+  { color: 0xc084fc, css: "#c084fc" },
 ];
 const SNAKE_COLOURS = ["#ff6b6b", "#7c3aed", "#10b981", "#f59e0b", "#06b6d4", "#ec4899", "#84cc16", "#f97316"];
 
@@ -164,6 +165,7 @@ export class SnakesLaddersEngine extends ToyScene implements DiceEngine {
   private winner: number | null = null;
   private timers: ReturnType<typeof setTimeout>[] = [];
   private level: GameLevel = "easy";
+  private humans = 1;
 
   constructor(container: HTMLElement, private opts: DiceOptions = {}) {
     super(container, 0xbfe6ff, opts, 40);
@@ -180,20 +182,21 @@ export class SnakesLaddersEngine extends ToyScene implements DiceEngine {
     this.dice = new Dice3D(this.stage.scene, 1.3, this.reduced);
     this.stage.onDispose(() => this.dice.dispose());
     this.start();
-    this.newGame({ players: this.count, level: "easy" });
+    this.newGame({ players: this.count, humans: opts.humans ?? 1, level: "easy" });
   }
 
   // ---- public API ----
-  newGame(cfg: { players: number; level: GameLevel }) {
+  newGame(cfg: { players: number; humans: number; level: GameLevel }) {
     this.timers.forEach(clearTimeout);
     this.timers = [];
     this.count = Math.max(2, Math.min(4, cfg.players));
+    this.humans = clampHumans(cfg.humans, this.count);
     this.level = cfg.level;
     this.pawns.forEach((p) => this.stage.scene.remove(p.group));
     this.pawns = [];
     this.pos = Array(this.count).fill(0);
     for (let i = 0; i < this.count; i++) {
-      const group = makePawn(WHO[i].color, 0.95);
+      const group = makePawn(PALETTE[i].color, 0.95);
       group.position.copy(this.worldPos(i, 0));
       this.stage.scene.add(group);
       this.pawns.push({ group, mover: new Mover(group, this.reduced) });
@@ -207,12 +210,20 @@ export class SnakesLaddersEngine extends ToyScene implements DiceEngine {
   }
 
   roll() {
-    if (this.phase !== "idle" || this.current !== HUMAN) return;
+    if (this.phase !== "idle" || !this.isHuman(this.current)) return;
     this.doRoll();
   }
 
   activate(id: string) {
     if (id === "roll") this.roll();
+  }
+
+  private label(seat: number) {
+    return seatLabel(seat, this.humans);
+  }
+
+  private isHuman(seat: number) {
+    return seat < this.humans;
   }
 
   // ---- layout ----
@@ -230,9 +241,9 @@ export class SnakesLaddersEngine extends ToyScene implements DiceEngine {
   // ---- flow ----
   private emit() {
     const state: DiceState = {
-      players: Array.from({ length: this.count }, (_, i) => ({ name: WHO[i].name, emoji: WHO[i].emoji, color: WHO[i].css, info: this.pos[i] === 0 ? "Start" : `Square ${this.pos[i]}`, human: i === HUMAN })),
+      players: Array.from({ length: this.count }, (_, i) => ({ name: this.label(i).name, emoji: this.label(i).emoji, color: PALETTE[i].css, info: this.pos[i] === 0 ? "Start" : `Square ${this.pos[i]}`, human: this.isHuman(i) })),
       current: this.current,
-      canRoll: this.phase === "idle" && this.current === HUMAN,
+      canRoll: this.phase === "idle" && this.isHuman(this.current),
       choosing: false,
       message: this.message,
       winner: this.winner,
@@ -247,10 +258,12 @@ export class SnakesLaddersEngine extends ToyScene implements DiceEngine {
 
   private startTurn() {
     this.phase = "idle";
-    this.pawns.forEach((p, i) => (p.mover.glow = i === this.current && this.current === HUMAN ? 1 : 0));
-    this.message = this.current === HUMAN ? "Your turn! Roll the dice 🎲" : `${WHO[this.current].name} ${this.current === HUMAN ? "are" : "is"} rolling…`;
+    this.pawns.forEach((p, i) => (p.mover.glow = i === this.current && this.isHuman(i) ? 1 : 0));
+    const me = this.label(this.current);
+    if (!me.human) this.message = `${me.name} ${is(me)} rolling…`;
+    else this.message = me.you ? "Your turn! Roll the dice 🎲" : `${me.name}'s turn! Pass the device, then roll 🎲`;
     this.emit();
-    if (this.current !== HUMAN) this.later(1000, () => this.doRoll());
+    if (!this.isHuman(this.current)) this.later(1000, () => this.doRoll());
   }
 
   private doRoll() {
@@ -258,11 +271,11 @@ export class SnakesLaddersEngine extends ToyScene implements DiceEngine {
     this.pawns.forEach((p) => (p.mover.glow = 0));
     const value = 1 + Math.floor(Math.random() * 6);
     this.rolled = value;
-    this.message = `${WHO[this.current].name} rolled…`;
+    this.message = `${this.label(this.current).name} rolled…`;
     this.emit();
     this.opts.onSound?.("roll");
     this.dice.roll(value, new THREE.Vector3(-3, 7, 4), new THREE.Vector3(0, 0.95, 0.5), () => {
-      this.message = `${WHO[this.current].name} rolled a ${value}!`;
+      this.message = `${this.label(this.current).name} rolled a ${value}!`;
       this.emit();
       this.opts.onSound?.("hop", value);
       this.later(450, () => this.move(value));
@@ -322,15 +335,16 @@ export class SnakesLaddersEngine extends ToyScene implements DiceEngine {
       this.phase = "over";
       this.winner = who;
       this.pawns[who].mover.glow = 2;
-      this.message = who === HUMAN ? "You won! 🎉" : `${WHO[who].name} won! Good game! 👏`;
+      const w = this.label(who);
+      this.message = w.you ? "You won! 🎉" : w.human ? `${w.name} won! 🎉` : `${w.name} won! Good game! 👏`;
       this.emit();
-      this.opts.onSound?.(who === HUMAN ? "win" : "lose");
-      this.opts.onResult?.({ result: who === HUMAN ? "win" : "lose", players: this.count, level: this.level });
-      if (who === HUMAN) this.confetti.burst(new THREE.Vector3(0, 3, 0), [0xffd93d, 0xff6b6b, 0x4d96ff, 0x6bcb77, 0xffffff], 90, 10);
+      this.opts.onSound?.(w.human ? "win" : "lose");
+      this.opts.onResult?.({ result: w.human ? "win" : "lose", players: this.count, humans: this.humans, level: this.level });
+      if (w.human) this.confetti.burst(new THREE.Vector3(0, 3, 0), [0xffd93d, 0xff6b6b, 0x4d96ff, 0x6bcb77, 0xffffff], 90, 10);
       return;
     }
     if (value === 6) {
-      this.message = `${WHO[who].name} rolled a 6: roll again! ⭐`;
+      this.message = `${this.label(who).name} rolled a 6: roll again! ⭐`;
       this.later(500, () => this.startTurn());
       this.emit();
       return;

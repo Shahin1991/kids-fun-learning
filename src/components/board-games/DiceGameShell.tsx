@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
+import { clampHumans } from "@/lib/board-games/seats";
 import { ChipRow, GameSettings } from "./GameSettings";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { finishActivity } from "@/lib/activity";
@@ -52,43 +53,47 @@ export function DiceGameShell({ title, moduleId, make, showLevel = false }: { ti
   const reduced = useAppReducedMotion();
   const [state, setState] = useState<DiceState>(EMPTY);
   const [count, setCount] = useState(2);
+  const [humans, setHumans] = useState(1);
   const [level, setLevel] = useState<GameLevel>("easy");
   const engineRef = useRef<DiceEngine | null>(null);
-  const cfgRef = useRef({ players: 2, level: "easy" as GameLevel });
+  const cfgRef = useRef({ players: 2, humans: 1, level: "easy" as GameLevel });
   const lastSpoken = useRef("");
   const key = `dice-game-${moduleId}`;
 
   useEffect(() => {
-    let saved = { players: 2, level: "easy" as GameLevel };
+    let saved = { players: 2, humans: 1, level: "easy" as GameLevel };
     try {
       const v = JSON.parse(localStorage.getItem(key) ?? "null");
-      if (v && [2, 3, 4].includes(v.players) && ["easy", "medium", "hard"].includes(v.level)) saved = v;
+      if (v && [2, 3, 4].includes(v.players) && ["easy", "medium", "hard"].includes(v.level)) saved = { players: v.players, humans: v.humans === 2 ? 2 : 1, level: v.level };
     } catch {
       // blocked storage: defaults are fine
     }
     cfgRef.current = saved;
     const t = setTimeout(() => {
       setCount(saved.players);
+      setHumans(saved.humans);
       setLevel(saved.level);
     }, 0);
     return () => clearTimeout(t);
   }, [key]);
 
-  const apply = (players: number, lv: GameLevel) => {
-    cfgRef.current = { players, level: lv };
+  const apply = (players: number, people: number, lv: GameLevel) => {
+    const h = clampHumans(people, players);
+    cfgRef.current = { players, humans: h, level: lv };
     setCount(players);
+    setHumans(h);
     setLevel(lv);
     try {
-      localStorage.setItem(key, JSON.stringify({ players, level: lv }));
+      localStorage.setItem(key, JSON.stringify({ players, humans: h, level: lv }));
     } catch {
       // ignore
     }
     audioManager.play("success");
-    engineRef.current?.newGame({ players, level: lv });
+    engineRef.current?.newGame({ players, humans: h, level: lv });
   };
 
-  const you = state.players.findIndex((p) => p.human);
   const done = state.winner !== null;
+  const humanWon = done && Boolean(state.players[state.winner!]?.human);
   return (
     <ToyGame
       title={title}
@@ -98,17 +103,18 @@ export function DiceGameShell({ title, moduleId, make, showLevel = false }: { ti
         const engine = await make(container, {
           reducedMotion: reduced,
           players: cfgRef.current.players,
+          humans: cfgRef.current.humans,
           level: cfgRef.current.level,
           onState: (s) => {
             setState(s);
             if (s.message !== lastSpoken.current) {
               lastSpoken.current = s.message;
-              if (/Your turn|ladder|snake|won|roll again|bumped|home|No move|sent/i.test(s.message)) setTimeout(() => audioManager.speak(stripEmoji(s.message)), 150);
+              if (/turn|ladder|snake|won|roll again|bumped|home|No move|sent/i.test(s.message)) setTimeout(() => audioManager.speak(stripEmoji(s.message)), 150);
             }
           },
           onSound: sound,
-          onResult: ({ result, players, level: lv }) => {
-            if (result === "win") void finishActivity(moduleId, { score: 1, variant: `${players}p-${lv}` });
+          onResult: ({ result, players, humans: h, level: lv }) => {
+            if (result === "win") void finishActivity(moduleId, { score: 1, variant: `${players}p${h}h-${lv}` });
           },
         });
         engineRef.current = engine;
@@ -133,7 +139,7 @@ export function DiceGameShell({ title, moduleId, make, showLevel = false }: { ti
     </div>
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 p-3 pb-4">
-        <p role="status" className={`rounded-full px-5 py-2 text-xl font-extrabold text-ink shadow-lg ${state.winner === you && done ? "bg-kid-green" : "bg-white"}`}>
+        <p role="status" className={`rounded-full px-5 py-2 text-xl font-extrabold text-ink shadow-lg ${humanWon ? "bg-kid-green" : "bg-white"}`}>
           {state.message || "…"}
         </p>
         <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
@@ -148,11 +154,23 @@ export function DiceGameShell({ title, moduleId, make, showLevel = false }: { ti
             {(close) => (
               <>
                 <ChipRow
-                  label="How many players?"
+                  label="Who is playing?"
+                  value={humans}
+                  options={[
+                    { id: 1, text: "🧒 1 person", aria: "One person plays against robots" },
+                    { id: 2, text: "🧒🧒 2 people", aria: "Two people share the device" },
+                  ]}
+                  onPick={(h) => {
+                    apply(count, h, level);
+                    close();
+                  }}
+                />
+                <ChipRow
+                  label="How many seats?"
                   value={count}
                   options={[2, 3, 4].map((n) => ({ id: n, text: `👥 ${n}`, aria: `${n} players` }))}
                   onPick={(n) => {
-                    apply(n, level);
+                    apply(n, humans, level);
                     close();
                   }}
                 />
@@ -162,7 +180,7 @@ export function DiceGameShell({ title, moduleId, make, showLevel = false }: { ti
                     value={level}
                     options={LEVELS.map((l) => ({ id: l.id, text: `${l.icon} ${l.label}` }))}
                     onPick={(l) => {
-                      apply(count, l);
+                      apply(count, humans, l);
                       close();
                     }}
                   />
@@ -170,7 +188,7 @@ export function DiceGameShell({ title, moduleId, make, showLevel = false }: { ti
               </>
             )}
           </GameSettings>
-          <button type="button" onClick={() => apply(count, level)} className={`min-h-14 rounded-2xl px-5 text-xl font-bold text-ink shadow-md active:scale-95 ${done ? "animate-bounce bg-kid-green" : "bg-kid-yellow"}`}>
+          <button type="button" onClick={() => apply(count, humans, level)} className={`min-h-14 rounded-2xl px-5 text-xl font-bold text-ink shadow-md active:scale-95 ${done ? "animate-bounce bg-kid-green" : "bg-kid-yellow"}`}>
             🔄 {done ? "Play again" : "New game"}
           </button>
         </div>

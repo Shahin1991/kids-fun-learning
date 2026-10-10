@@ -5,15 +5,16 @@ import { Dice3D } from "./dice3d";
 import type { DiceEngine, DiceOptions, DiceState } from "./dice-types";
 import { applyMove, BASE, BASE_SLOTS, botChoose, cellOf, FINISHED, LANES, legalMoves, newGame, passTurn, SAFE, START_ABS, TRACK, type LudoState } from "./ludo";
 import { makePawn, Mover } from "./pawn";
+import { clampHumans, is, seatLabel } from "./seats";
 import type { GameLevel } from "./types";
 
 const TOP = 0.3;
-const HUMAN = 0;
-const WHO = [
-  { name: "You", emoji: "🐯", hex: 0xff4d4d, css: "#ef4444" },
-  { name: "Froggy", emoji: "🐸", hex: 0x22c55e, css: "#16a34a" },
-  { name: "Robo", emoji: "🤖", hex: 0xfacc15, css: "#ca8a04" },
-  { name: "Unicorn", emoji: "🦄", hex: 0x3b82f6, css: "#2563eb" },
+/** Pawn colour per board colour (names and emoji come from the seat, via `seatLabel`). */
+const COLOUR = [
+  { hex: 0xff4d4d, css: "#ef4444" },
+  { hex: 0x22c55e, css: "#16a34a" },
+  { hex: 0xfacc15, css: "#ca8a04" },
+  { hex: 0x3b82f6, css: "#2563eb" },
 ];
 const CSS = ["#ff6b6b", "#6bcb77", "#ffd93d", "#4d96ff"];
 const PLAYER_SETS: Record<number, number[]> = { 2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3] };
@@ -107,6 +108,7 @@ export class LudoEngine extends ToyScene implements DiceEngine {
   private rolled: number | null = null;
   private message = "";
   private level: GameLevel;
+  private humans = 1;
   private timers: ReturnType<typeof setTimeout>[] = [];
   private movable: Set<string> = new Set();
   private count: number;
@@ -126,28 +128,29 @@ export class LudoEngine extends ToyScene implements DiceEngine {
     this.dice = new Dice3D(this.stage.scene, 1.4, this.reduced);
     this.stage.onDispose(() => this.dice.dispose());
     this.start();
-    this.newGame({ players: this.count, level: this.level });
+    this.newGame({ players: this.count, humans: opts.humans ?? 1, level: this.level });
   }
 
   // ---- public API ----
-  newGame(cfg: { players: number; level: GameLevel }) {
+  newGame(cfg: { players: number; humans: number; level: GameLevel }) {
     this.timers.forEach(clearTimeout);
     this.timers = [];
     this.count = Math.max(2, Math.min(4, cfg.players));
     this.level = cfg.level;
+    this.humans = clampHumans(cfg.humans, this.count);
     this.pawns.forEach((p) => this.stage.scene.remove(p.group));
     this.pawns = [];
     this.pickables = [];
     this.state = newGame(PLAYER_SETS[this.count]);
     for (const colour of this.state.players) {
       for (let token = 0; token < 4; token++) {
-        const group = makePawn(WHO[colour].hex, 0.78);
+        const group = makePawn(COLOUR[colour].hex, 0.78);
         group.position.copy(this.posOf(colour, token));
         this.stage.scene.add(group);
         const hit = this.hitBox({ colour, token }, 1.1, 1.6, 1.1);
         hit.position.y = 0.6;
         group.add(hit);
-        if (colour === HUMAN) this.pickables.push(group);
+        if (this.isHumanColour(colour)) this.pickables.push(group);
         this.pawns.push({ colour, token, group, mover: new Mover(group, this.reduced) });
       }
     }
@@ -158,13 +161,25 @@ export class LudoEngine extends ToyScene implements DiceEngine {
   }
 
   roll() {
-    if (this.phase !== "idle" || this.state.players[this.state.turn] !== HUMAN) return;
+    if (this.phase !== "idle" || !this.isHumanColour(this.state.players[this.state.turn])) return;
     this.doRoll();
   }
 
   activate(id: string) {
     if (id === "roll") this.roll();
     else if (id.startsWith("pawn")) this.choose(Number(id.slice(4)));
+  }
+
+  private seatOf(colour: number) {
+    return this.state.players.indexOf(colour);
+  }
+
+  private label(colour: number) {
+    return seatLabel(this.seatOf(colour), this.humans);
+  }
+
+  private isHumanColour(colour: number) {
+    return this.seatOf(colour) >= 0 && this.seatOf(colour) < this.humans;
   }
 
   // ---- layout ----
@@ -206,16 +221,16 @@ export class LudoEngine extends ToyScene implements DiceEngine {
   // ---- flow ----
   private emit() {
     const players = this.state.players.map((c) => ({
-      name: WHO[c].name,
-      emoji: WHO[c].emoji,
-      color: WHO[c].css,
+      name: this.label(c).name,
+      emoji: this.label(c).emoji,
+      color: COLOUR[c].css,
       info: `${this.state.tokens[c].filter((p) => p === FINISHED).length}/4 home`,
-      human: c === HUMAN,
+      human: this.isHumanColour(c),
     }));
     const st: DiceState = {
       players,
       current: this.state.turn,
-      canRoll: this.phase === "idle" && this.state.players[this.state.turn] === HUMAN,
+      canRoll: this.phase === "idle" && this.isHumanColour(this.state.players[this.state.turn]),
       choosing: this.phase === "choose",
       message: this.message,
       winner: this.state.winner === null ? null : this.state.players.indexOf(this.state.winner),
@@ -232,9 +247,11 @@ export class LudoEngine extends ToyScene implements DiceEngine {
     this.phase = "idle";
     this.pawns.forEach((p) => (p.mover.glow = 0));
     const colour = this.state.players[this.state.turn];
-    this.message = colour === HUMAN ? "Your turn! Roll the dice 🎲" : `${WHO[colour].name} ${colour === HUMAN ? "are" : "is"} rolling…`;
+    const me = this.label(colour);
+    if (!me.human) this.message = `${me.name} ${is(me)} rolling…`;
+    else this.message = me.you ? "Your turn! Roll the dice 🎲" : `${me.name}'s turn! Pass the device, then roll 🎲`;
     this.emit();
-    if (colour !== HUMAN) this.later(1000, () => this.doRoll());
+    if (!this.isHumanColour(colour)) this.later(1000, () => this.doRoll());
   }
 
   private doRoll() {
@@ -242,13 +259,13 @@ export class LudoEngine extends ToyScene implements DiceEngine {
     const colour = this.state.players[this.state.turn];
     const value = 1 + Math.floor(Math.random() * 6);
     this.rolled = value;
-    this.message = `${WHO[colour].name} ${colour === HUMAN ? "are" : "is"} rolling…`;
+    this.message = `${this.label(colour).name} ${is(this.label(colour))} rolling…`;
     this.emit();
     this.opts.onSound?.("roll");
     const [qc, qr] = QUADRANT_CENTRE[colour];
     const to = world(qc, qr, 0.95);
     this.dice.roll(value, new THREE.Vector3(to.x * 0.3, 8, to.z * 0.3), to, () => {
-      this.message = `${WHO[colour].name} rolled a ${value}!`;
+      this.message = `${this.label(colour).name} rolled a ${value}!`;
       this.emit();
       this.later(500, () => this.afterRoll(colour, value));
     });
@@ -257,7 +274,7 @@ export class LudoEngine extends ToyScene implements DiceEngine {
   private afterRoll(colour: number, value: number) {
     const moves = legalMoves(this.state, colour, value);
     if (moves.length === 0) {
-      this.message = value === 6 ? "No move this time" : `No move this time. ${colour === HUMAN ? "Next player!" : ""}`.trim();
+      this.message = value === 6 ? "No move this time" : `No move this time. ${this.isHumanColour(colour) ? "Next player!" : ""}`.trim();
       this.opts.onSound?.("pass");
       this.emit();
       this.later(1000, () => {
@@ -267,7 +284,7 @@ export class LudoEngine extends ToyScene implements DiceEngine {
       });
       return;
     }
-    if (colour === HUMAN && moves.length > 1) {
+    if (this.isHumanColour(colour) && moves.length > 1) {
       this.phase = "choose";
       this.movable = new Set(moves.map((t) => `${colour}:${t}`));
       moves.forEach((t) => (this.pawnAt(colour, t).mover.glow = 1));
@@ -275,15 +292,17 @@ export class LudoEngine extends ToyScene implements DiceEngine {
       this.emit();
       return;
     }
-    const token = colour === HUMAN ? moves[0] : botChoose(this.state, colour, value, this.level);
-    this.later(colour === HUMAN ? 300 : 650, () => this.execute(colour, token, value));
+    const human = this.isHumanColour(colour);
+    const token = human ? moves[0] : botChoose(this.state, colour, value, this.level);
+    this.later(human ? 300 : 650, () => this.execute(colour, token, value));
   }
 
   private choose(token: number) {
-    if (this.phase !== "choose" || this.rolled === null || !this.movable.has(`${HUMAN}:${token}`)) return;
+    const colour = this.state.players[this.state.turn];
+    if (this.phase !== "choose" || this.rolled === null || !this.movable.has(`${colour}:${token}`)) return;
     this.pawns.forEach((p) => (p.mover.glow = 0));
     this.movable.clear();
-    this.execute(HUMAN, token, this.rolled);
+    this.execute(colour, token, this.rolled);
   }
 
   private execute(colour: number, token: number, value: number) {
@@ -311,12 +330,12 @@ export class LudoEngine extends ToyScene implements DiceEngine {
         this.opts.onSound?.("capture");
       });
       if (result.captured.length) {
-        this.message = `${WHO[colour].name} sent ${WHO[result.captured[0].colour].name} home! 😲`;
+        this.message = `${this.label(colour).name} sent ${this.label(result.captured[0].colour).name} home! 😲`;
         if (!this.reduced) this.confetti.burst(steps[steps.length - 1].clone().setY(1), [0xffd93d, 0xffffff, 0xff6b6b], 24, 5);
       }
       if (result.reachedHome) {
         this.opts.onSound?.("home");
-        this.message = `${WHO[colour].name}'s pawn is home! 🏠`;
+        this.message = `${this.label(colour).name}${this.label(colour).you ? "r" : "'s"} pawn is home! 🏠`;
         if (!this.reduced) this.confetti.burst(world(7, 7, 1.2), [CSS[colour] ? new THREE.Color(CSS[colour]).getHex() : 0xffffff, 0xffffff, 0xffd93d], 30, 6);
       }
       this.later(result.captured.length ? 900 : 350, () => this.finishMove(colour, result.extraTurn, value));
@@ -334,16 +353,17 @@ export class LudoEngine extends ToyScene implements DiceEngine {
     this.emit();
     if (this.state.winner !== null) {
       this.phase = "over";
-      const won = this.state.winner === HUMAN;
-      this.message = won ? "You won! 🎉" : `${WHO[this.state.winner].name} won! Good game! 👏`;
+      const w = this.label(this.state.winner);
+      const won = w.human;
+      this.message = w.you ? "You won! 🎉" : won ? `${w.name} won! 🎉` : `${w.name} won! Good game! 👏`;
       this.emit();
       this.opts.onSound?.(won ? "win" : "lose");
-      this.opts.onResult?.({ result: won ? "win" : "lose", players: this.count, level: this.level });
+      this.opts.onResult?.({ result: won ? "win" : "lose", players: this.count, humans: this.humans, level: this.level });
       if (won) this.confetti.burst(world(0, 0, 4), [0xffd93d, 0xff6b6b, 0x4d96ff, 0x6bcb77, 0xffffff], 100, 11);
       return;
     }
     if (extra) {
-      this.message = value === 6 ? `${WHO[colour].name} rolled a 6: roll again! ⭐` : `${WHO[colour].name} rolls again! ⭐`;
+      this.message = value === 6 ? `${this.label(colour).name} rolled a 6: roll again! ⭐` : `${this.label(colour).name} rolls again! ⭐`;
       this.emit();
       this.later(600, () => this.startTurn());
     } else {
@@ -354,7 +374,7 @@ export class LudoEngine extends ToyScene implements DiceEngine {
   // ---- input ----
   protected onDown(info: PickInfo | null) {
     const o = info?.owner as { colour: number; token: number } | undefined;
-    if (o && o.colour === HUMAN) this.choose(o.token);
+    if (o && o.colour === this.state.players[this.state.turn] && this.isHumanColour(o.colour)) this.choose(o.token);
   }
 
   // ---- camera & loop ----

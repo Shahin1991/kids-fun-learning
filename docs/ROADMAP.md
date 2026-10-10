@@ -35,7 +35,8 @@ Cross-cutting UX to-dos:
 - Playtest with real 3, 5 and 7 year olds; the numbers in the research (target sizes, session length) are starting points.
 
 ## Board and card games: follow-ups
-- Pass-and-play (two children on one device) for Tic Tac Toe, Connect 4, Ludo, Uno.
+- Pass-and-play for Tic Tac Toe and Connect 4 (done for Snakes & Ladders, Ludo, Uno and Math Racer).
+- Online two-device play (needs a room code and either WebRTC with a signalling step or a small relay server; game moves are tiny, so only the matchmaking needs a service).
 - Uno: "UNO!" call button for older kids (currently shouted automatically), stacking +2/+4, and a house-rules switch.
 - Ludo: optional rules (safe-square blocks, three sixes forfeit) behind a "classic rules" toggle.
 - Snakes & Ladders: choose board themes; read the square number aloud as the pawn hops.

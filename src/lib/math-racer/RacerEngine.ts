@@ -19,10 +19,29 @@ interface Rival {
   rel: number;
 }
 
+/** One player's car and everything that moves it. */
+interface Racer {
+  car: BuiltVehicle;
+  flame: THREE.Sprite;
+  flameMat: THREE.SpriteMaterial;
+  wob: Spring;
+  hop: Spring;
+  pitch: Spring;
+  boostLevel: number;
+  /** Questions answered so far; the leader pulls ahead of the other car in a two-player race */
+  progress: number;
+  /** Current distance ahead of the shared camera position (smoothed) */
+  ahead: number;
+}
+
+const TWO_P_X = 2.9;
+
 /** A 3D race: the car is always moving; right answers boost it past the rivals and over the finish line. */
 export class RacerEngine extends ToyScene {
   private cache = new GeometryCache();
-  private player: BuiltVehicle;
+  private racers: Racer[] = [];
+  private players = 1;
+  private winner = 0;
   private rivals: Rival[] = [];
   private clouds: Drifter;
   private trees = new THREE.Group();
@@ -30,17 +49,11 @@ export class RacerEngine extends ToyScene {
   private gantry = new THREE.Group();
   private lines: THREE.Mesh[] = [];
   private lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 });
-  private flame: THREE.Sprite;
-  private flameMat: THREE.SpriteMaterial;
 
   private dist = 0;
-  private boostLevel = 0;
   private boostHold = false;
   private move = 1;
   private state: "racing" | "finishing" | "done" = "racing";
-  private wob = new Spring(0, 0, 200, 7);
-  private hop = new Spring(0, 0, 160, 8);
-  private pitch = new Spring(0, 0, 90, 8);
   private fov = 55;
   private notified = false;
 
@@ -110,9 +123,7 @@ export class RacerEngine extends ToyScene {
     this.clouds = addClouds(scene, 7, 22, -120);
 
     // Cars
-    this.player = buildVehicle(getVehicleSpec("coupe"), "#e53935", this.cache, true);
-    this.player.group.position.set(0, 0, 0);
-    scene.add(this.player.group);
+    this.racers.push(this.makeRacer("#e53935"));
     const rivalSpecs: [string, string, number][] = [["sedan", "#3a6ee8", -1], ["suv", "#2e9b4a", 1], ["pickup", "#f9a825", -1]];
     rivalSpecs.forEach(([kind, color, lane], i) => {
       const car = buildVehicle(getVehicleSpec(kind), color, this.cache, false);
@@ -133,20 +144,44 @@ export class RacerEngine extends ToyScene {
       scene.add(m);
       this.lines.push(m);
     }
-    this.flameMat = new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xff9a3c, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 });
-    this.flame = new THREE.Sprite(this.flameMat);
-    this.flame.position.set(0, 0.7, 3.2);
-    this.player.group.add(this.flame);
-
     this.stage.onDispose(() => {
       this.cache.dispose();
-      this.player.dispose();
+      this.racers.forEach((r) => {
+        r.car.dispose();
+        r.flameMat.dispose();
+      });
       this.rivals.forEach((r) => r.car.dispose());
       this.lineMat.dispose();
-      this.flameMat.dispose();
       disposeGlowTexture();
     });
     this.start();
+  }
+
+  private makeRacer(colour: string): Racer {
+    const car = buildVehicle(getVehicleSpec("coupe"), colour, this.cache, true);
+    car.group.position.set(0, 0, 0);
+    this.stage.scene.add(car.group);
+    const flameMat = new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xff9a3c, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 });
+    const flame = new THREE.Sprite(flameMat);
+    flame.position.set(0, 0.7, 3.2);
+    car.group.add(flame);
+    return { car, flame, flameMat, wob: new Spring(0, 0, 200, 7), hop: new Spring(0, 0, 160, 8), pitch: new Spring(0, 0, 90, 8), boostLevel: 0, progress: 0, ahead: 0 };
+  }
+
+  /** One car against the computer's rivals, or two cars side by side (one per player) with no rivals. */
+  setPlayers(n: 1 | 2) {
+    if (n === 2 && this.racers.length < 2) this.racers.push(this.makeRacer("#2f6fe0"));
+    this.players = n;
+    this.racers.forEach((r, i) => (r.car.group.visible = i < n));
+    this.rivals.forEach((r) => (r.car.group.visible = n === 1));
+    this.reset();
+    this.onResize(this.stage.aspect);
+  }
+
+  /** Progress of a player (0..FINISH); in a two-player race the leader pulls ahead. */
+  setProgress(i: number, progress: number) {
+    const r = this.racers[i];
+    if (r) r.progress = progress;
   }
 
   private buildGantry() {
@@ -183,21 +218,23 @@ export class RacerEngine extends ToyScene {
 
   // ---- controls ----
   /** A right answer: surge forward, hop and flare the flame. */
-  boost() {
-    if (this.state !== "racing") return;
-    this.boostLevel = 1;
-    this.hop.kick(this.reduced ? 0 : 5);
-    this.pitch.kick(this.reduced ? 0 : -3);
+  boost(i = 0) {
+    const r = this.racers[i];
+    if (this.state !== "racing" || !r) return;
+    r.boostLevel = 1;
+    r.hop.kick(this.reduced ? 0 : 5);
+    r.pitch.kick(this.reduced ? 0 : -3);
   }
 
   /** A wrong answer: a gentle wiggle; the car keeps its speed. */
-  wobble() {
-    this.wob.kick(this.reduced ? 0 : 6);
+  wobble(i = 0) {
+    this.racers[i]?.wob.kick(this.reduced ? 0 : 6);
   }
 
-  finish() {
+  finish(winner = 0) {
     if (this.state !== "racing") return;
     this.state = "finishing";
+    this.winner = winner;
     this.boostHold = true;
     this.gantry.visible = true;
     this.gantry.position.z = -140;
@@ -207,18 +244,26 @@ export class RacerEngine extends ToyScene {
   reset() {
     this.state = "racing";
     this.boostHold = false;
-    this.boostLevel = 0;
     this.move = 1;
     this.gantry.visible = false;
     this.notified = false;
+    this.winner = 0;
+    this.racers.forEach((r) => {
+      r.boostLevel = 0;
+      r.progress = 0;
+      r.ahead = 0;
+    });
     this.rivals.forEach((r, i) => (r.rel = -30 - i * 38));
   }
 
   protected onResize(aspect: number) {
     const cam = this.stage.camera;
     // Looking slightly down keeps the car in the middle of the screen, above the question and answers.
-    cam.position.set(0, 4.6 + (aspect < 1 ? 1.4 : 0), 10.5 + (aspect < 1 ? 5 : 0));
-    cam.lookAt(0, 0.2, -13);
+    const wide = this.players === 2 ? 1.25 : 1;
+    cam.position.set(0, (4.6 + (aspect < 1 ? 1.4 : 0)) * wide, (10.5 + (aspect < 1 ? 5 : 0)) * wide);
+    // Two-player mode has two answer panels across the bottom, so the cars are lifted up the screen.
+    if (this.players === 2) cam.lookAt(0, -2.6, -7);
+    else cam.lookAt(0, 0.2, -13);
   }
 
   // ---- simulation ----
@@ -227,26 +272,38 @@ export class RacerEngine extends ToyScene {
     const t = this.time;
     const reduced = this.reduced;
     const base = reduced ? 9 : 17;
-    if (this.boostHold) this.boostLevel = 1;
-    else this.boostLevel = Math.max(0, this.boostLevel - dt * 0.45);
+    for (const r of this.racers) {
+      if (this.boostHold) r.boostLevel = 1;
+      else r.boostLevel = Math.max(0, r.boostLevel - dt * 0.45);
+    }
     if (this.state === "done") this.move = Math.max(0, this.move - dt * 0.5);
-    const speed = (base + this.boostLevel * (reduced ? 12 : 34)) * this.move;
+    const boost = Math.max(...this.racers.slice(0, this.players).map((r) => r.boostLevel));
+    const speed = (base + boost * (reduced ? 12 : 34)) * this.move;
     this.dist += speed * dt;
 
     // World scrolling toward the camera
     this.dashes.position.z = this.dist % DASH_PERIOD;
     this.trees.position.z = this.dist % TREE_PERIOD;
 
-    // Player
-    const w = this.wob.step(dt);
-    const hop = Math.max(0, this.hop.step(dt));
-    const pitch = this.pitch.step(dt);
-    const p = this.player.group;
-    const bounce = reduced ? 0 : Math.sin(t * 22) * 0.012 * Math.min(1, speed / 20);
-    p.position.set(w * 0.9, hop * 0.25 + bounce, 0);
-    p.rotation.set(pitch * 0.04 + this.boostLevel * 0.025, -w * 0.18, w * 0.03);
-    for (const s of this.player.spinGroups) s.rotation.x -= (speed / this.player.spec.wheelRadius) * dt;
-    this.player.setLights(0, this.state === "done" && this.move > 0.05);
+    // Cars. In a two-player race each answer pushes that car further ahead of the other.
+    const mean = this.racers.slice(0, this.players).reduce((a, r) => a + r.progress, 0) / this.players;
+    this.racers.slice(0, this.players).forEach((r, i) => {
+      const w = r.wob.step(dt);
+      const hop = Math.max(0, r.hop.step(dt));
+      const pitch = r.pitch.step(dt);
+      const p = r.car.group;
+      const bounce = reduced ? 0 : Math.sin(t * 22 + i) * 0.012 * Math.min(1, speed / 20);
+      const target = this.players === 2 ? -(r.progress - mean) * 3.2 : 0;
+      r.ahead += (target - r.ahead) * Math.min(1, dt * 2.5);
+      const x = this.players === 2 ? (i === 0 ? -TWO_P_X : TWO_P_X) : 0;
+      p.position.set(x + w * 0.9, hop * 0.25 + bounce, r.ahead);
+      p.rotation.set(pitch * 0.04 + r.boostLevel * 0.025, -w * 0.18, w * 0.03);
+      for (const s of r.car.spinGroups) s.rotation.x -= (speed / r.car.spec.wheelRadius) * dt;
+      r.car.setLights(0, this.state === "done" && this.move > 0.05);
+      const fxr = reduced ? 0 : r.boostLevel;
+      r.flameMat.opacity = fxr * 0.9;
+      r.flame.scale.setScalar(1.2 + fxr * 3.2 + Math.sin(t * 40) * 0.2 * fxr);
+    });
 
     // Rivals drive at a steady pace; boosting passes them, coasting lets them pass back
     const rivalSpeed = (reduced ? 9 : 24) * (this.state === "done" ? 0 : 1);
@@ -258,14 +315,12 @@ export class RacerEngine extends ToyScene {
     }
 
     // Boost effects
-    const fx = reduced ? 0 : this.boostLevel;
+    const fx = reduced ? 0 : boost;
     this.lineMat.opacity = fx * 0.55;
     for (const m of this.lines) {
       m.position.z += speed * 1.6 * dt;
       if (m.position.z > 12) this.resetLine(m, false);
     }
-    this.flameMat.opacity = fx * 0.9;
-    this.flame.scale.setScalar(1.2 + fx * 3.2 + Math.sin(t * 40) * 0.2 * fx);
     this.fov += (55 + fx * 18 - this.fov) * Math.min(1, dt * 4);
     const cam = this.stage.camera;
     if (Math.abs(cam.fov - this.fov) > 0.01) {
@@ -281,8 +336,8 @@ export class RacerEngine extends ToyScene {
       if (this.state === "finishing" && this.gantry.position.z >= 0) {
         this.state = "done";
         this.boostHold = false;
-        this.boostLevel = 0.6;
-        this.hop.kick(this.reduced ? 0 : 7);
+        this.racers.forEach((r, i) => (r.boostLevel = i === this.winner ? 0.6 : 0.2));
+        this.racers[this.winner]?.hop.kick(this.reduced ? 0 : 7);
         if (!this.reduced) {
           this.confetti.burst(new THREE.Vector3(-6, 6, -2), [0xff6b6b, 0xffd93d, 0x6bcb77, 0x4d96ff], 50, 9);
           this.confetti.burst(new THREE.Vector3(6, 6, -2), [0xff6b6b, 0xffd93d, 0x6bcb77, 0x4d96ff], 50, 9);

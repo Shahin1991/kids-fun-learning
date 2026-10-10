@@ -26,13 +26,15 @@ export type DiceSound = "roll" | "hop" | "up" | "down" | "capture" | "home" | "w
 export interface DiceOptions {
   reducedMotion?: boolean;
   players?: number;
+  /** How many of the seats are people sharing the device (the rest are robots) */
+  humans?: number;
   level?: GameLevel;
   onState?: (s: DiceState) => void;
   onSound?: (k: DiceSound, n?: number) => void;
-  onResult?: (r: { result: "win" | "lose"; players: number; level: GameLevel }) => void;
+  onResult?: (r: { result: "win" | "lose"; players: number; humans: number; level: GameLevel }) => void;
 }
 
 export interface DiceEngine extends ToyEngine {
-  newGame(cfg: { players: number; level: GameLevel }): void;
+  newGame(cfg: { players: number; humans: number; level: GameLevel }): void;
   roll(): void;
 }
