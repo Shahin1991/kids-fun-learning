@@ -263,6 +263,9 @@ export class BakeryEngine extends ToyScene {
 
   setFrostLayer(i: number) {
     this.frostLayer = i;
+    // sparkle on the chosen layer so it is clear where the colour will go
+    const t = this.tiers[this.activeLayer()];
+    if (t && !this.reduced) this.burstAt(t.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, TIER_H + 0.1, 0)), ["#ffffff", "#ffe27a"], 10);
   }
 
   /** The chosen layer, or -1 (all) if the cake no longer has that many. */
@@ -401,8 +404,9 @@ export class BakeryEngine extends ToyScene {
     floor.position.z = 2;
     s.add(floor);
     // counter
-    const body = new THREE.Mesh(new THREE.BoxGeometry(14, COUNTER_Y, 3.4), a.mat("#fff4f8"));
-    body.position.set(0, COUNTER_Y / 2, -2.5);
+    // the body stops just under the worktop: both used to end at COUNTER_Y, and their coplanar tops z-fought (flicker)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(14, COUNTER_Y - 0.03, 3.4), a.mat("#fff4f8"));
+    body.position.set(0, (COUNTER_Y - 0.03) / 2, -2.5);
     s.add(body);
     const top = new THREE.Mesh(new THREE.BoxGeometry(14.2, 0.12, 3.6), a.mat("#ffb6cf", { rough: 0.35 }));
     top.position.set(0, COUNTER_Y + 0.06 - 0.12, -2.45);
@@ -873,8 +877,11 @@ export class BakeryEngine extends ToyScene {
     const p = POSES[this.station];
     const look = new THREE.Vector3(...p.look);
     const pos = new THREE.Vector3(...p.pos);
+    // a taller cake needs the camera further back, or a layer ends up under the header or the panel
+    const extra = this.station >= 3 && this.station <= 4 ? Math.max(0, this.tiersWanted - 1) : 0;
+    look.y -= extra * 0.18; // aim a little lower so the cake sits clear of the bottom panel
     // portrait screens need to sit further back
-    const k = (this.aspect < 1 ? 1 + (1 - this.aspect) * 0.9 : 1) * (this.station >= 3 ? this.zoom : 1);
+    const k = (this.aspect < 1 ? 1 + (1 - this.aspect) * 0.9 : 1) * (this.station >= 3 ? this.zoom : 1) * (1 + extra * 0.45);
     pos.sub(look).multiplyScalar(k).add(look);
     return { pos, look };
   }
