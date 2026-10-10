@@ -3,7 +3,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { ApexAudio } from "./audio";
 import { applyBend, bendUniform, curvatureAt } from "./curve";
 import { buildVehicle, disposeGlowTexture, GeometryCache, type BuiltVehicle } from "./vehicle-builder";
-import { EMERGENCY_KINDS, getVehicleSpec, TRAFFIC_KINDS, type VehicleSpec } from "./vehicle-specs";
+import { EMERGENCY_KINDS, getVehicleSpec, TRAFFIC_KINDS, type VehicleKind, type VehicleSpec } from "./vehicle-specs";
 import { LANE_COUNT, ROAD_HALF, World } from "./world";
 
 export type CameraMode = "follow" | "cockpit";
@@ -250,6 +250,8 @@ export class ApexEngine {
     window.removeEventListener("blur", this.releaseInputs);
     this.audio.dispose();
     this.clearTraffic();
+    this.pool.forEach((list) => list.forEach((v) => v.dispose()));
+    this.pool.clear();
     this.player.dispose();
     this.world.dispose();
     this.cache.dispose();
@@ -314,11 +316,37 @@ export class ApexEngine {
     for (let d = 50; d < 260; d += 30 + Math.random() * 25) this.trySpawn(d);
   }
 
-  private clearTraffic() {
-    for (const t of this.traffic) {
-      this.scene.remove(t.built.group);
+  /**
+   * Traffic cars are recycled: a car that drives out of range is parked here and repainted for the next spawn,
+   * instead of building (and later disposing) ~150 meshes and a dozen materials about once a second.
+   */
+  private pool = new Map<string, BuiltVehicle[]>();
+
+  private takeVehicle(kind: VehicleKind, colour: string): BuiltVehicle {
+    const reuse = this.pool.get(kind)?.pop();
+    if (reuse) {
+      reuse.setPaint(colour);
+      return reuse;
+    }
+    const built = buildVehicle(getVehicleSpec(kind), colour, this.cache, false);
+    applyBend(built.group);
+    return built;
+  }
+
+  private releaseVehicle(t: Traffic) {
+    this.scene.remove(t.built.group);
+    const list = this.pool.get(t.built.spec.id) ?? [];
+    if (list.length < 3) {
+      t.built.tick(0, false);
+      list.push(t.built);
+      this.pool.set(t.built.spec.id, list);
+    } else {
       t.built.dispose();
     }
+  }
+
+  private clearTraffic() {
+    for (const t of this.traffic) this.releaseVehicle(t);
     this.traffic = [];
   }
 
@@ -384,14 +412,13 @@ export class ApexEngine {
       const kind = pool[Math.floor(Math.random() * pool.length)];
       const spec = getVehicleSpec(kind);
       const hue = Math.floor(Math.random() * 360);
-      const built = buildVehicle(spec, `hsl(${hue},55%,${35 + Math.random() * 25}%)`, this.cache, false);
+      const built = this.takeVehicle(kind, `hsl(${hue},55%,${35 + Math.random() * 25}%)`);
       const base = 17 + (LANE_COUNT - 1 - lane) * 5 + Math.random() * 3 - (kind === "bus" || kind === "fire" ? 5 : 0) + (emergency ? 4 : 0);
       const r = (spec.width / 2) * 0.92;
       const n = Math.max(1, Math.round(spec.length / spec.width));
       const spheres = Array.from({ length: n }, (_, i) => (n === 1 ? 0 : ((i / (n - 1)) - 0.5) * (spec.length - spec.width)));
       const t: Traffic = { built, lane, x: this.world.laneX(lane), d, speed: base, baseSpeed: base, changeIn: 4 + Math.random() * 8, lastD: d, scored: false, flashing: emergency && Math.random() < 0.7, spheres, r };
       built.group.position.set(t.x, 0, -d);
-      applyBend(built.group);
       this.scene.add(built.group);
       this.traffic.push(t);
       return;
@@ -427,8 +454,7 @@ export class ApexEngine {
     }
     this.traffic = this.traffic.filter((t) => {
       if (t.d < -90 || t.d > 320) {
-        this.scene.remove(t.built.group);
-        t.built.dispose();
+        this.releaseVehicle(t);
         return false;
       }
       return true;
