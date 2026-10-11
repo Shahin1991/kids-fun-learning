@@ -523,9 +523,18 @@ export class BakeryEngine extends ToyScene {
   }
 
   private layoutPans() {
+    // Pans differ in size, so pack them by radius (a fixed spacing pushed the big one into the oven), centred on the counter
+    // and nudged right if the row would still reach the oven.
     const n = this.tiersWanted;
+    const gap = 0.3;
+    const width = TIER_R.slice(0, n).reduce((w, r) => w + 2 * r + gap, -gap);
+    const ovenEdge = OVEN.x + 1.2 + 0.25;
+    let x = Math.max(-width / 2, ovenEdge);
     this.pans.forEach((p, i) => {
-      p.home.set((i - (n - 1) / 2) * 2.3, COUNTER_Y + 0.01, -2.0);
+      if (i < n) {
+        p.home.set(x + TIER_R[i], COUNTER_Y + 0.01, -2.0);
+        x += 2 * TIER_R[i] + gap;
+      } else p.home.set(0, COUNTER_Y + 0.01, -2.0);
       if (this.baking < 0) p.group.position.copy(p.home);
     });
   }
