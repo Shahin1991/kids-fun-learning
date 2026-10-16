@@ -95,3 +95,13 @@ describe("uno bots", () => {
     }
   });
 });
+
+describe("uno with nothing left to draw", () => {
+  it("passes the turn instead of getting stuck", () => {
+    const s = base({ deck: [], discard: [card(90, "red", "5")], turn: 0, drew: null });
+    const d = drawOne(s, 0);
+    expect(d.card).toBeNull();
+    expect(d.state.turn).not.toBe(0);
+    expect(d.state.drew).toBeNull();
+  });
+});

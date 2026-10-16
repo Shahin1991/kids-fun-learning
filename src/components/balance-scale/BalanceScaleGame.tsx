@@ -1,5 +1,6 @@
 "use client";
 
+import { NoWebGL } from "@/components/NoWebGL";
 import { useEffect, useRef, useState } from "react";
 import type { BalanceGameModule, BalanceState } from "@/lib/balance-scale/BalanceGameModule";
 
@@ -68,6 +69,7 @@ export default function BalanceScaleGame({ sharedAudioCtx, mode = "sandbox", tar
 
   return (
     <div ref={containerRef} className={`relative touch-none overflow-hidden ${className}`} style={{ position: "relative", overflow: "hidden", touchAction: "none" }}>
+      {failed && <NoWebGL />}
       {onExit && (
         <button type="button" aria-label="Exit" onClick={onExit} className={`${ROUND_BTN} left-3`}>
           ✕

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { onAppPause } from "@/lib/app-pause";
+import { audioManager } from "@/lib/audio/AudioManager";
 import type { ApexEngine, CameraMode, GameSummary, HudData, Phase } from "@/lib/apex-highway/engine";
 import { PAINT_SWATCHES, VEHICLES } from "@/lib/apex-highway/vehicle-specs";
 
@@ -131,6 +133,7 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
   const [muted, setMuted] = useState(false);
   const [touch, setTouch] = useState(false);
   const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
   const bestRef = useRef(0);
   const loadedRef = useRef(false);
 
@@ -163,53 +166,65 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
     }, 0);
     mq.addEventListener("change", onMq);
 
-    import("@/lib/apex-highway/engine").then(({ ApexEngine }) => {
-      if (cancelled) return;
-      const engine = new ApexEngine(el, {
-        onHud: setHud,
-        onPhase: setPhase,
-        onCamera: (camera) => setPrefs((p) => ({ ...p, camera })),
-        onNight: (night) => setPrefs((p) => ({ ...p, night })),
-        onMuted: setMuted,
-        onGameOver: (s) => {
-          const newBest = s.score > bestRef.current;
-          if (newBest) {
-            bestRef.current = s.score;
-            setBest(s.score);
-            try {
-              localStorage.setItem(BEST_KEY, String(s.score));
-            } catch {
-              // storage unavailable
+    let offPause: (() => void) | null = null;
+    import("@/lib/apex-highway/engine")
+      .then(({ ApexEngine }) => {
+        if (cancelled) return;
+        const engine = new ApexEngine(el, {
+          onHud: setHud,
+          onPhase: setPhase,
+          onCamera: (camera) => setPrefs((p) => ({ ...p, camera })),
+          onNight: (night) => setPrefs((p) => ({ ...p, night })),
+          onMuted: setMuted,
+          onGameOver: (s) => {
+            const newBest = s.score > bestRef.current;
+            if (newBest) {
+              bestRef.current = s.score;
+              setBest(s.score);
+              try {
+                localStorage.setItem(BEST_KEY, String(s.score));
+              } catch {
+                // storage unavailable
+              }
             }
+            setOver({ ...s, newBest });
+          },
+        });
+        // The import can win the race against the deferred prefs read on a cached revisit, so read them here if needed.
+        const p = loadedRef.current ? prefsRef.current : readPrefs();
+        engine.setVehicle(p.vehicle);
+        engine.setPaint(p.color);
+        engine.setNight(p.night);
+        engine.setScenery(p.scenery, true);
+        engine.setCameraMode(p.camera);
+        engineRef.current = engine;
+        ro = new ResizeObserver(() => {
+          engine.resize();
+          const panel = panelRef.current;
+          if (panel) {
+            const wide = el.clientWidth >= 768;
+            engine.setViewShift(wide ? panel.offsetWidth / 2 : 0, wide ? 0 : panel.offsetHeight / 2);
           }
-          setOver({ ...s, newBest });
-        },
+        });
+        ro.observe(el);
+        if (panelRef.current) ro.observe(panelRef.current);
+        // The play timer's "Time is up" screen pauses the drive underneath it.
+        offPause = onAppPause((paused) => paused && engine.pause(true));
+        setReady(true);
+      })
+      .catch(() => {
+        // No WebGL, too many contexts, or the chunk failed to load: show a friendly message instead of an endless spinner.
+        if (cancelled) return;
+        setFailed(true);
+        audioManager.speak("Oh no, the race track could not start on this device.");
       });
-      const p = prefsRef.current;
-      engine.setVehicle(p.vehicle);
-      engine.setPaint(p.color);
-      engine.setNight(p.night);
-      engine.setScenery(p.scenery, true);
-      engine.setCameraMode(p.camera);
-      engineRef.current = engine;
-      ro = new ResizeObserver(() => {
-        engine.resize();
-        const panel = panelRef.current;
-        if (panel) {
-          const wide = el.clientWidth >= 768;
-          engine.setViewShift(wide ? panel.offsetWidth / 2 : 0, wide ? 0 : panel.offsetHeight / 2);
-        }
-      });
-      ro.observe(el);
-      if (panelRef.current) ro.observe(panelRef.current);
-      setReady(true);
-    });
 
     return () => {
       cancelled = true;
       clearTimeout(init);
       mq.removeEventListener("change", onMq);
       ro?.disconnect();
+      offPause?.();
       engineRef.current?.destroy();
       engineRef.current = null;
     };
@@ -228,7 +243,14 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-900 text-white" style={{ position: "relative", overflow: "hidden", touchAction: "none" }}>
       <div ref={mountRef} className="absolute inset-0" />
-      {!ready && <p className="absolute inset-0 flex items-center justify-center text-xl">Loading garage…</p>}
+      {!ready && !failed && <p className="absolute inset-0 flex items-center justify-center text-xl">Loading garage…</p>}
+      {failed && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 p-6 text-center">
+          <span className="text-7xl" aria-hidden>🚧</span>
+          <p className="text-2xl font-bold">The race track could not start on this device.</p>
+          <button type="button" onClick={onExit} className="min-h-touch rounded-3xl bg-cyan-500 px-8 text-2xl font-bold text-white active:scale-95">Go home</button>
+        </div>
+      )}
 
       <button type="button" aria-label="Exit" onClick={onExit} className={`${ICON_BTN} absolute left-3 top-3`}>✕</button>
 

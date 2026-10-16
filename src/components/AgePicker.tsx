@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useEffect, useRef } from "react";
 import { audioManager } from "@/lib/audio/AudioManager";
 import type { AgeChoice } from "@/lib/age-pref";
 
@@ -13,10 +14,18 @@ const OPTIONS: { id: AgeChoice; icon: string; label: string; sub: string; color:
 
 /** First-visit question: picking an age opens just that group, so a small child sees a short, familiar list. */
 export function AgePicker({ onPick, onClose }: { onPick: (c: AgeChoice) => void; onClose?: () => void }) {
+  const first = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    first.current?.focus();
+    if (!onClose) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-label="How old are you?">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-label="How old are you?">
       <motion.div initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 240, damping: 16 }} className="flex w-full max-w-md flex-col items-center gap-4 rounded-[2rem] bg-surface p-5 text-foreground shadow-2xl">
-        <button type="button" onClick={() => audioManager.speak("How old are you? Tap your age!")} aria-label="Hear the question" className="flex items-center gap-3 text-center active:scale-95">
+        <button ref={first} type="button" onClick={() => audioManager.speak("How old are you? Tap your age!")} aria-label="Hear the question" className="flex items-center gap-3 text-center active:scale-95">
           <span className="animate-float text-6xl" aria-hidden>🦉</span>
           <span className="text-3xl font-extrabold">
             How old are you? <span aria-hidden>🔊</span>

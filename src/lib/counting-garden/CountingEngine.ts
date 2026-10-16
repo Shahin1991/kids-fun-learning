@@ -49,6 +49,8 @@ export class CountingEngine extends ToyScene {
   private correct = 0;
   private counted = 0;
   private locked = false;
+  /** Pending cheer timers, cleared on teardown so they never touch disposed critters. */
+  private cheerTimers = new Set<ReturnType<typeof setTimeout>>();
   private nextIn = 0;
   private scale = 1;
 
@@ -229,7 +231,13 @@ export class CountingEngine extends ToyScene {
     if (ch.value === this.q.answer) {
       this.locked = true;
       this.correct++;
-      this.critters.forEach((c, i) => setTimeout(() => c.rig.cheer(), i * 70));
+      this.critters.forEach((c, i) => {
+        const t = setTimeout(() => {
+          this.cheerTimers.delete(t);
+          c.rig.cheer();
+        }, i * 70);
+        this.cheerTimers.add(t);
+      });
       if (!this.reduced) {
         this.confetti.burst(new THREE.Vector3(0, 5, 1), [0xff6b6b, 0xffd93d, 0x6bcb77, 0x4d96ff, 0x9b51e0], 50, 9);
         this.confetti.burst(ch.group.position.clone().setY(2), [0xffd93d, 0xffffff], 20, 6);
@@ -276,6 +284,8 @@ export class CountingEngine extends ToyScene {
   }
 
   protected onDestroy() {
+    this.cheerTimers.forEach(clearTimeout);
+    this.cheerTimers.clear();
     this.clear();
     this.geos.forEach((g) => g.dispose());
   }

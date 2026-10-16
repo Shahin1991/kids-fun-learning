@@ -153,7 +153,7 @@ export function UnoGame() {
         const d = drawOne(state, p);
         setState(d.state);
         audioManager.playNote(0);
-        setMessage(`${name(p)} picks up a card`);
+        setMessage(d.card ? `${name(p)} picks up a card` : `No cards left to pick up, so ${name(p)} passes`);
       } else {
         setState(passTurn(state));
         setMessage(`${name(p)} passes`);
@@ -205,7 +205,8 @@ export function UnoGame() {
     const d = drawOne(state, seat);
     setState(d.state);
     audioManager.playNote(2);
-    say(d.canPlayIt ? "You picked up a card you can play! Play it or keep it 👇" : "You picked up a card. No match this time", true);
+    if (!d.card) say("No cards left to pick up, so we pass. Next player!", true);
+    else say(d.canPlayIt ? "You picked up a card you can play! Play it or keep it 👇" : "You picked up a card. No match this time", true);
   };
 
   const confirmSeat = () => {

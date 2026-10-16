@@ -3,6 +3,7 @@ import { Baloo_2 } from "next/font/google";
 import { AudioProvider } from "@/components/AudioProvider";
 import { BadgeToast } from "@/components/BadgeToast";
 import { GameContextMenuGuard } from "@/components/GameContextMenuGuard";
+import { ModuleGate } from "@/components/ModuleGate";
 import { PlayTimerGuard } from "@/components/PlayTimerGuard";
 import { ReducedMotionProvider } from "@/components/ReducedMotionProvider";
 import { RewardCelebration } from "@/components/RewardCelebration";
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </ReducedMotionProvider>
         </ThemeProvider>
         <GameContextMenuGuard />
+        <ModuleGate />
         <PlayTimerGuard />
         <ServiceWorkerRegistration />
       </body>

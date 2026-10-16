@@ -142,7 +142,8 @@ export default function RoadRunnerPage() {
         <span>Score {hud.score}</span>
         <span aria-label={`${hud.lives} lives`}>{"❤️".repeat(hud.lives) || "—"}</span>
       </div>
-      <div className="relative w-full max-w-sm">
+      {/* Capped by the window height too, so the steering buttons always stay on screen (small phones, landscape). */}
+      <div className="relative w-full max-w-sm" style={{ maxWidth: `min(24rem, max(10rem, calc((100dvh - 18rem) * ${W / H})))` }}>
         <canvas
           ref={canvasRef}
           width={W * 2}

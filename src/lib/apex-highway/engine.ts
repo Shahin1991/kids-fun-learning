@@ -153,6 +153,7 @@ export class ApexEngine {
     window.addEventListener("keyup", this.onKeyUp);
     document.addEventListener("visibilitychange", this.onVisibility);
     window.addEventListener("pagehide", this.onPageHide);
+    window.addEventListener("pageshow", this.onPageShow);
     window.addEventListener("blur", this.releaseInputs);
     this.resize();
     this.applyNight(0);
@@ -247,6 +248,7 @@ export class ApexEngine {
     window.removeEventListener("keyup", this.onKeyUp);
     document.removeEventListener("visibilitychange", this.onVisibility);
     window.removeEventListener("pagehide", this.onPageHide);
+    window.removeEventListener("pageshow", this.onPageShow);
     window.removeEventListener("blur", this.releaseInputs);
     this.audio.dispose();
     this.clearTraffic();
@@ -383,6 +385,19 @@ export class ApexEngine {
 
   /** Leaving the page (or it going into the back/forward cache) must never leave an engine running. */
   private onPageHide = () => this.audio.dispose();
+
+  /** Coming back from the back/forward cache: the old audio graph was closed, so build a fresh one and pause the run. */
+  private onPageShow = (e: PageTransitionEvent) => {
+    if (!e.persisted || this.destroyed) return;
+    this.audio = new ApexAudio();
+    this.pause(true);
+    if (this.phase !== "garage") {
+      this.audio.start();
+      this.audio.setVehicle(this.spec);
+      this.audio.setMuted(this.muted);
+      this.audio.setPaused(true);
+    }
+  };
 
   private onVisibility = () => {
     if (document.hidden) this.pause(true);

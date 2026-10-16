@@ -21,7 +21,7 @@ export function ProgressStars({ moduleId, hideZero = false }: { moduleId: string
 
   if (hideZero && count === 0) return null;
   return (
-    <span aria-label={`${count} stars`} className="flex items-center gap-1 rounded-full bg-surface px-3 py-1 text-xl font-bold shadow">
+    <span role="img" aria-label={`${count} stars`} className="flex items-center gap-1 rounded-full bg-surface px-3 py-1 text-xl font-bold shadow">
       ⭐ {count}
     </span>
   );

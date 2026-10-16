@@ -1,5 +1,6 @@
 "use client";
 
+import { NoWebGL } from "@/components/NoWebGL";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { HomeButton } from "@/components/HomeButton";
 import { ProgressStars } from "@/components/ProgressStars";
@@ -55,6 +56,7 @@ export default function ToyGame({ create, title, moduleId, items, className = ""
   return (
     <div className={`relative h-dvh w-full touch-none overflow-hidden ${className}`} style={{ position: "relative", overflow: "hidden", touchAction: "none" }}>
       <div ref={hostRef} role="application" aria-label={title} className="absolute inset-0" />
+      {failed && <NoWebGL />}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
         <div className="pointer-events-auto">
           <HomeButton />

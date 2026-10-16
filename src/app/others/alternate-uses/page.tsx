@@ -38,19 +38,28 @@ export default function AlternateUsesPage() {
       const t = setTimeout(() => {
         setSeconds(AU_TYPING_SECONDS);
         setPhase("typing");
-        inputRef.current?.focus();
       }, 0);
       return () => clearTimeout(t);
     }
     if (phase === "typing") {
       const t = setTimeout(() => {
+        // An idea still in the box when time runs out counts too.
+        const pending = text.trim();
+        const final = pending && !uses.some((u) => u.toLowerCase() === pending.toLowerCase()) ? [...uses, pending] : uses;
+        setUses(final);
+        setText("");
         setPhase("done");
-        void finishActivity("alternate-uses", { score: uses.length });
-        if (uses.length >= AU_ACHIEVEMENT_TARGET) void unlockAchievement("idea-machine");
+        void finishActivity("alternate-uses", { score: final.length });
+        if (final.length >= AU_ACHIEVEMENT_TARGET) void unlockAchievement("idea-machine");
       }, 0);
       return () => clearTimeout(t);
     }
-  }, [seconds, phase, uses.length]);
+  }, [seconds, phase, uses, text]);
+
+  // Focus the box once it exists (it only renders in the typing phase).
+  useEffect(() => {
+    if (phase === "typing") inputRef.current?.focus();
+  }, [phase]);
 
   const add = () => {
     const v = text.trim();

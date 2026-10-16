@@ -1,5 +1,12 @@
 import * as THREE from "three";
 
+
+/** Puzzle targets climb by 1-3 and start again from a small number after 20, so the puzzles never stop changing. */
+export function nextTarget(t: number, rand: () => number = Math.random): number {
+  const n = t + 1 + Math.floor(rand() * 3);
+  return n > 20 ? 4 + Math.floor(rand() * 3) : n;
+}
+
 export type BalanceMode = "sandbox" | "challenge";
 
 export interface BalanceState {
@@ -505,8 +512,10 @@ export class BalanceGameModule {
     this.maxValue = Math.min(10, this.maxValue + 2);
     this.emitState(true);
     this.opts.onBalanced?.({ leftWeight: left, rightWeight: right, moves: this.moves });
+    // The next puzzle is set up only after the celebration, so the confetti and bounce are never cut short.
     const t = setTimeout(() => {
       this.timers.delete(t);
+      if (this.mode === "challenge") this.target = nextTarget(this.target);
       this.reset();
     }, 2800);
     this.timers.add(t);

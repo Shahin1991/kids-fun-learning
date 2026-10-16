@@ -40,7 +40,7 @@ export function WelcomeBanner({ hidden, ageLabel, onJump, onChangeAge }: { hidde
         <button type="button" onClick={greet} aria-label="Hear the welcome" className="animate-float text-7xl active:scale-90">🦉</button>
         <div className="flex-1">
           <p className="text-3xl font-extrabold">Hi! What shall we play? 👋</p>
-          <button type="button" onClick={onChangeAge} className="mt-1 inline-flex min-h-10 items-center gap-1 rounded-full bg-background px-3 text-base font-bold shadow active:scale-95" aria-label="Change age">
+          <button type="button" onClick={onChangeAge} className="mt-1 inline-flex min-h-12 items-center gap-1 rounded-full bg-background px-3 text-base font-bold shadow active:scale-95" aria-label="Change age">
             🎂 {ageLabel} <span aria-hidden>✏️</span>
           </button>
         </div>

@@ -265,7 +265,7 @@ export default function MemoryPage() {
               transition={{ delay: i * 0.12, type: "spring", stiffness: 200, damping: 16 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.93 }}
-              className="flex min-h-24 w-80 items-center gap-4 rounded-3xl bg-surface px-6 py-4 text-left shadow-lg"
+              className="flex min-h-24 w-full max-w-xs items-center gap-4 rounded-3xl bg-surface px-6 py-4 text-left shadow-lg"
             >
               <span className="text-6xl">{LEVELS[l].icon}</span>
               <span className="flex flex-col">

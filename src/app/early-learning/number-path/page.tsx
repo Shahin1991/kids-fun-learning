@@ -6,6 +6,7 @@ import { ActivityHeader } from "@/components/ActivityHeader";
 import { Button } from "@/components/Button";
 import { ClientOnly } from "@/components/ClientOnly";
 import { PageContainer } from "@/components/PageContainer";
+import { useAliveSleep } from "@/components/games/useAliveSleep";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { finishActivity } from "@/lib/activity";
 
@@ -40,7 +41,7 @@ function Game() {
   const [won, setWon] = useState(false);
   const rolls = useRef(0);
 
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const sleep = useAliveSleep();
 
   const roll = async () => {
     if (busy) return;
@@ -52,14 +53,14 @@ function Game() {
     setDie(v);
     audioManager.play("success");
     audioManager.speak(`${v}! Let's hop ${v}.`);
-    await sleep(1400);
+    if (!(await sleep(1400))) return;
     let p = pos;
     for (let s = 0; s < v && p < END; s++) {
       p += 1;
       setPos(p);
       audioManager.playNote(p % 10);
       audioManager.speak(String(p));
-      await sleep(850);
+      if (!(await sleep(850))) return;
     }
     if (p >= END) {
       setWon(true);

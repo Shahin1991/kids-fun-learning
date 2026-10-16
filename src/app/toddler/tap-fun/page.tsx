@@ -42,6 +42,7 @@ export default function TapFunPage() {
           onBurst: ({ x }) => audioManager.playNote(Math.round(x * 9)),
         });
         engineRef.current = engine;
+        audioManager.speak("Tap anywhere!");
         return engine;
       }}
     >

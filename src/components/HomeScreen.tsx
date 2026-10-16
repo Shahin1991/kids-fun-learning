@@ -18,13 +18,14 @@ const AGE_LABEL: Record<AgeChoice, string> = { toddler: "Ages 2-3", "early-learn
 const expandFor = (c: AgeChoice) => new Set<AgeGroup>(c === "all" ? AGE_GROUP_ORDER : [c]);
 
 export function HomeScreen() {
-  const [disabled, setDisabled] = useState<string[]>([]);
+  /** null until settings load, so switched-off modules never flash up (or get tapped) first. */
+  const [disabled, setDisabled] = useState<string[] | null>(null);
   const [pref, setPref] = useState<AgeChoice | null>(null);
   const [open, setOpen] = useState<Set<AgeGroup>>(() => new Set(AGE_GROUP_ORDER));
   const [picking, setPicking] = useState(false);
 
   useEffect(() => {
-    getSettings().then((s) => setDisabled(s.disabledModules)).catch(() => {});
+    getSettings().then((s) => setDisabled(s.disabledModules)).catch(() => setDisabled([]));
     // Read the saved age after mount so the server and first client render agree.
     const t = setTimeout(() => {
       const saved = readAgePref();
@@ -66,10 +67,14 @@ export function HomeScreen() {
           <SoundToggle />
         </div>
       </header>
-      <WelcomeBanner hidden={disabled} ageLabel={pref ? AGE_LABEL[pref] : "Pick your age"} onJump={jump} onChangeAge={() => setPicking(true)} />
-      {AGE_GROUP_ORDER.map((g) => (
-        <AgeGroupSection key={g} ageGroup={g} open={open.has(g)} onToggle={() => toggle(g)} modules={getModulesByAgeGroup(g).filter((m) => !disabled.includes(m.id))} />
-      ))}
+      {disabled && (
+        <>
+          <WelcomeBanner hidden={disabled} ageLabel={pref ? AGE_LABEL[pref] : "Pick your age"} onJump={jump} onChangeAge={() => setPicking(true)} />
+          {AGE_GROUP_ORDER.map((g) => (
+            <AgeGroupSection key={g} ageGroup={g} open={open.has(g)} onToggle={() => toggle(g)} modules={getModulesByAgeGroup(g).filter((m) => !disabled.includes(m.id))} />
+          ))}
+        </>
+      )}
       <AnimatePresence>{picking && <AgePicker onPick={choose} onClose={pref ? () => setPicking(false) : undefined} />}</AnimatePresence>
     </PageContainer>
   );

@@ -6,7 +6,6 @@ import { useTheme, type ThemePref } from "@/components/ThemeProvider";
 import { useSetMotionOverride } from "@/components/ReducedMotionProvider";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { PLAY_TIMER_CHANGED } from "@/components/PlayTimerGuard";
 import { HomeButton } from "@/components/HomeButton";
 import { PageContainer } from "@/components/PageContainer";
 import { MODULES } from "@/data/modules";
@@ -15,6 +14,9 @@ import { getAllStars } from "@/lib/rewards/RewardManager";
 import type { AppSettings, ProgressRecord } from "@/lib/storage/db";
 import { hashPin, newSalt } from "@/lib/storage/pin";
 import { getSettings, updateSettings } from "@/lib/storage/settings";
+
+/** Pending re-lock; a remount straight after (React dev double-mount) cancels it instead of locking. */
+let pendingLock: ReturnType<typeof setTimeout> | undefined;
 
 export default function ParentDashboard() {
   const router = useRouter();
@@ -25,26 +27,42 @@ export default function ParentDashboard() {
   const [stars, setStars] = useState<Record<string, number>>({});
   const [newPin, setNewPin] = useState("");
   const [pinMsg, setPinMsg] = useState("");
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    clearTimeout(pendingLock);
     // Not real security: this flag is trivially editable in devtools.
     if (sessionStorage.getItem("parent-unlocked") !== "1") {
       router.replace("/parent/unlock");
       return;
     }
-    Promise.all([getSettings(), getAllProgress(), getAllStars()]).then(([s, p, st]) => {
-      setSettings(s);
-      setProgress(p);
-      setStars(st);
-    });
+    Promise.all([getSettings(), getAllProgress(), getAllStars()])
+      .then(([s, p, st]) => {
+        setSettings(s);
+        setProgress(p);
+        setStars(st);
+      })
+      .catch(() => setLoadError(true));
+    // Leaving the dashboard any way at all (Home button, back, closing) locks it again.
+    return () => {
+      pendingLock = setTimeout(() => sessionStorage.removeItem("parent-unlocked"), 0);
+    };
   }, [router]);
 
+  if (loadError) {
+    return (
+      <PageContainer>
+        <HomeButton />
+        <Card>Settings could not be loaded. This can happen in private browsing. Please try again in a normal window.</Card>
+      </PageContainer>
+    );
+  }
   if (!settings) return <PageContainer><p>Loading…</p></PageContainer>;
 
+  // Toggle against the stored value (not this render's copy), so quick taps never undo each other.
   const toggleModule = async (id: string) => {
-    const disabledModules = settings.disabledModules.includes(id)
-      ? settings.disabledModules.filter((m) => m !== id)
-      : [...settings.disabledModules, id];
+    const current = (await getSettings()).disabledModules;
+    const disabledModules = current.includes(id) ? current.filter((m) => m !== id) : [...current, id];
     setSettings(await updateSettings({ disabledModules }));
   };
 
@@ -55,7 +73,6 @@ export default function ParentDashboard() {
 
   const setTimer = async (timerMinutes: number | null) => {
     setSettings(await updateSettings({ timerMinutes }));
-    window.dispatchEvent(new Event(PLAY_TIMER_CHANGED));
   };
 
   const changePin = async () => {

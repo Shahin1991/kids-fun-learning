@@ -6,6 +6,7 @@ import { ActivityHeader } from "@/components/ActivityHeader";
 import { Button } from "@/components/Button";
 import { ClientOnly } from "@/components/ClientOnly";
 import { PageContainer } from "@/components/PageContainer";
+import { useAliveSleep } from "@/components/games/useAliveSleep";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { finishActivity } from "@/lib/activity";
 import { findCell, ROBOT_LEVELS, step, type Dir } from "@/lib/robot-path";
@@ -18,7 +19,6 @@ const ARROWS: { dir: Dir; icon: string; label: string }[] = [
 ];
 const ICON: Record<Dir, string> = { up: "⬆️", down: "⬇️", left: "⬅️", right: "➡️" };
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Unplugged-coding style puzzle: line up arrow cards, press Go, and the robot follows the program. */
 function Game() {
@@ -26,6 +26,7 @@ function Game() {
   const [program, setProgram] = useState<Dir[]>([]);
   const [robot, setRobot] = useState<[number, number]>(() => findCell(ROBOT_LEVELS[0].grid, "R"));
   const [running, setRunning] = useState(false);
+  const sleep = useAliveSleep();
   const [active, setActive] = useState(-1);
   const [msg, setMsg] = useState("Pick arrows to take the robot to the star!");
   const [won, setWon] = useState(false);
@@ -50,7 +51,7 @@ function Game() {
     if (running || won || program.length === 0) return;
     setRunning(true);
     reset();
-    await sleep(300);
+    if (!(await sleep(300))) return;
     let at = findCell(grid, "R");
     for (let i = 0; i < program.length; i++) {
       setActive(i);
@@ -59,7 +60,7 @@ function Game() {
         audioManager.play("failure");
         setMsg("Oops, the robot bumped! Change the arrows and try again.");
         audioManager.speak("Oops! The robot bumped. Let's try again.");
-        await sleep(600);
+        if (!(await sleep(600))) return;
         reset();
         setRunning(false);
         return;
@@ -67,7 +68,7 @@ function Game() {
       at = r.at;
       setRobot(at);
       audioManager.playNote(i % 10);
-      await sleep(650);
+      if (!(await sleep(650))) return;
     }
     setActive(-1);
     if (at[0] === sx && at[1] === sy) {
@@ -79,7 +80,7 @@ function Game() {
     } else {
       setMsg("Not at the star yet. Add more arrows or change them.");
       audioManager.speak("Almost! Keep going. The star is still waiting.");
-      await sleep(500);
+      if (!(await sleep(500))) return;
       reset();
     }
     setRunning(false);

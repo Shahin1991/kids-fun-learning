@@ -28,6 +28,8 @@ function readPref(): ThemePref {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [pref, setPrefState] = useState<ThemePref>("system");
   const [systemDark, setSystemDark] = useState(false);
+  /** Until the stored choice is read, leave data-theme as the inline script set it (avoids a light flash on dark devices). */
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -35,6 +37,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const t = setTimeout(() => {
       onChange();
       setPrefState(readPref());
+      setReady(true);
     }, 0);
     mq.addEventListener("change", onChange);
     return () => {
@@ -46,8 +49,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const resolved = pref === "system" ? (systemDark ? "dark" : "light") : pref;
 
   useEffect(() => {
-    document.documentElement.dataset.theme = resolved;
-  }, [resolved]);
+    if (ready) document.documentElement.dataset.theme = resolved;
+  }, [resolved, ready]);
 
   const setPref = useCallback((p: ThemePref) => {
     setPrefState(p);

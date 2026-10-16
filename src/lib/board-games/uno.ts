@@ -134,11 +134,15 @@ export function playCard(s: UnoState, p: number, cardId: number, colour?: Colour
   return { state: { ...state, turn: nextIndex(state, p, steps) }, effect };
 }
 
-/** Player p draws one card (no playable card in hand). It stays in `drew` so it can be played straight away. */
+/**
+ * Player p draws one card (no playable card in hand). It stays in `drew` so it can be played straight away.
+ * If there is nothing left to draw (deck and discard both used up), the turn simply passes so the game never gets stuck.
+ */
 export function drawOne(s: UnoState, p: number, rand: () => number = Math.random): { state: UnoState; card: Card | null; canPlayIt: boolean } {
   const r = drawCards(s, p, 1, rand);
   const card = r.drawn[0] ?? null;
-  const state = { ...r.state, drew: card ? card.id : null };
+  if (!card) return { state: passTurn({ ...r.state, turn: p }), card: null, canPlayIt: false };
+  const state = { ...r.state, drew: card.id };
   return { state, card, canPlayIt: card ? canPlay(card, state) : false };
 }
 

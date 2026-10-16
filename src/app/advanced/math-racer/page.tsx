@@ -161,7 +161,7 @@ export default function MathRacerPage() {
           {/* Mode */}
           <div className="pointer-events-auto absolute left-3 top-[4.6rem] flex gap-1 rounded-full bg-surface/90 p-1 shadow-lg" role="group" aria-label="Number of players">
             {([1, 2] as const).map((m) => (
-              <button key={m} type="button" aria-pressed={mode === m} onClick={() => pickMode(m)} className={`min-h-11 rounded-full px-3 text-lg font-bold active:scale-95 ${mode === m ? "bg-kid-blue text-white" : ""}`}>
+              <button key={m} type="button" aria-pressed={mode === m} onClick={() => pickMode(m)} className={`min-h-12 rounded-full px-4 text-lg font-bold active:scale-95 ${mode === m ? "bg-kid-blue text-white" : ""}`}>
                 {m === 1 ? "🧒 1" : "🧒🧒 2"}
               </button>
             ))}

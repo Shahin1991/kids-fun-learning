@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityHeader } from "@/components/ActivityHeader";
 import { Button } from "@/components/Button";
 import { ClientOnly } from "@/components/ClientOnly";
@@ -26,6 +26,13 @@ function Game({ mode, onBack }: { mode: BubbleMode; onBack: () => void }) {
   const [wobble, setWobble] = useState<{ id: string; n: number }>({ id: "", n: 0 });
 
   const ask = (r: typeof round) => audioManager.speak(`Pop the ${r.target.name}`);
+
+  // Pre-readers need the very first question spoken too, not just the ones after a correct pop.
+  useEffect(() => {
+    ask(round);
+    // Only on mount: later rounds are asked when they are created.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const tap = (b: BubbleItem) => {
     if (b.id !== round.target.id) {

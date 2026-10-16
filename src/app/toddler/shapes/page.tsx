@@ -20,6 +20,8 @@ export default function ShapesPage() {
       items={ITEMS}
       create={async (container) => {
         const { SorterEngine } = await import("@/lib/shape-sorter/SorterEngine");
+        // Toddlers can't read the hint at the bottom, so say it once.
+        audioManager.speak("Drag each shape to its hole, or just tap it!");
         return new SorterEngine(container, {
           reducedMotion: reduced,
           onPlaced: ({ label, index }) => {

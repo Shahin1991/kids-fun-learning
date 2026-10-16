@@ -18,3 +18,23 @@ describe("play timer", () => {
     expect(e.level).toBe(1);
   });
 });
+
+describe("play timer merge", () => {
+  it("keeps the most time used across tabs", async () => {
+    const { mergeStates } = await import("./state");
+    const a = { ...freshState(30), usedMs: 20 * 60_000, resetAt: 1 };
+    const b = { ...freshState(30), usedMs: 25 * 60_000, allowanceMs: 35 * 60_000, level: 1, resetAt: 1 };
+    const m = mergeStates(a, b);
+    expect(m.usedMs).toBe(25 * 60_000);
+    expect(m.allowanceMs).toBe(35 * 60_000);
+    expect(m.level).toBe(1);
+  });
+
+  it("a parent reset in one tab beats older usage in another", async () => {
+    const { mergeStates } = await import("./state");
+    const old = { ...freshState(30), usedMs: 30 * 60_000, resetAt: 1 };
+    const reset = { ...freshState(30), resetAt: 2 };
+    expect(mergeStates(old, reset).usedMs).toBe(0);
+    expect(mergeStates(reset, old).usedMs).toBe(0);
+  });
+});

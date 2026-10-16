@@ -1,5 +1,6 @@
 "use client";
 
+import { NoWebGL } from "@/components/NoWebGL";
 import { useEffect, useRef, useState } from "react";
 import type { BalloonEngine, BalloonOptions } from "@/lib/balloons/BalloonEngine";
 
@@ -55,6 +56,7 @@ export default function BalloonGame({ onPop, onMilestone, onExit, reducedMotion,
 
   return (
     <div ref={containerRef} className={`relative touch-none overflow-hidden ${className}`} style={{ position: "relative", overflow: "hidden", touchAction: "none" }}>
+      {failed && <NoWebGL />}
       {onExit && (
         <button type="button" aria-label="Exit" onClick={onExit} className="absolute left-3 top-3 flex min-h-touch min-w-touch items-center justify-center rounded-full bg-surface/90 text-3xl shadow active:scale-95">
           ✕

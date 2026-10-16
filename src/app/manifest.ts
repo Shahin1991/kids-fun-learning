@@ -6,7 +6,10 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Kids Learning Hub",
     short_name: "Kids Hub",
+    id: "/",
     start_url: "/",
+    scope: "/",
+    orientation: "any",
     display: "standalone",
     theme_color: "#ff6fa5",
     background_color: "#fffaf0",

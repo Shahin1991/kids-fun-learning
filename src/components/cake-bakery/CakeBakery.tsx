@@ -175,14 +175,14 @@ export default function CakeBakery() {
             ) : (
               <p className="text-sm font-extrabold">🎨 Free bake: make anything!</p>
             )}
-            <button type="button" className="mt-1 rounded-xl bg-black/10 px-2 py-1 text-xs font-bold" onClick={() => swapOrder(Boolean(order))}>
+            <button type="button" className="mt-1 min-h-12 rounded-xl bg-black/10 px-4 text-base font-bold active:scale-95" onClick={() => swapOrder(Boolean(order))}>
               {order ? "Free bake" : "Take an order"}
             </button>
           </div>
           <div className="absolute right-3 top-[7.6rem] rounded-full bg-surface/95 px-3 py-1 text-lg font-extrabold shadow">🪙 {progress.coins}</div>
 
           {/* bottom panel */}
-          <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 rounded-t-3xl bg-surface/95 p-3 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
+          <div className="absolute inset-x-0 bottom-0 flex max-h-[45dvh] flex-col items-center gap-2 overflow-y-auto rounded-t-3xl bg-surface/95 p-3 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]">
             <p className="text-center text-lg font-extrabold">{step.icon} {step.say}</p>
 
             {(s.station === 3 || s.station === 4) && (

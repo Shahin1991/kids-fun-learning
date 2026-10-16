@@ -14,18 +14,17 @@ const BalanceScaleGame = dynamic(() => import("@/components/balance-scale/Balanc
 export default function BalanceScalePage() {
   const router = useRouter();
   const [challenge, setChallenge] = useState(false);
-  const [target, setTarget] = useState(5);
 
   return (
     <div className="relative h-dvh w-full">
       <BalanceScaleGame
         className="h-full w-full"
         mode={challenge ? "challenge" : "sandbox"}
-        targetWeight={target}
+        targetWeight={5}
         onExit={() => router.push("/")}
         onBalanced={({ moves }) => {
+          // In puzzle mode the engine moves on to the next target itself, after its celebration.
           void finishActivity("balance-scale", { moves });
-          if (challenge) setTimeout(() => setTarget((t) => Math.min(20, t + 1 + Math.floor(Math.random() * 3))), 0);
         }}
       />
       <button
