@@ -117,3 +117,15 @@ html[data-reduced-motion="true"] *::after {
   background-position: 0 center;
   animation: road-scroll 0.5s linear infinite;
 }
+
+/* Games: no long-press callout, text selection or image drag (set by GameContextMenuGuard). */
+:root[data-in-game] {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+:root[data-in-game] img,
+:root[data-in-game] svg {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}

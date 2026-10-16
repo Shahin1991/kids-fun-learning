@@ -14,6 +14,8 @@ export interface AppSettings {
   pinIsDefault: boolean;
   /** Module ids that are switched off; empty means everything is on. */
   disabledModules: string[];
+  /** Daily play limit in minutes; null/undefined means no timer. */
+  timerMinutes?: number | null;
 }
 
 export interface ProgressRecord {

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Baloo_2 } from "next/font/google";
 import { AudioProvider } from "@/components/AudioProvider";
 import { BadgeToast } from "@/components/BadgeToast";
+import { GameContextMenuGuard } from "@/components/GameContextMenuGuard";
+import { PlayTimerGuard } from "@/components/PlayTimerGuard";
 import { ReducedMotionProvider } from "@/components/ReducedMotionProvider";
 import { RewardCelebration } from "@/components/RewardCelebration";
 import { THEME_INIT_SCRIPT, ThemeProvider } from "@/components/ThemeProvider";
@@ -41,6 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </AudioProvider>
           </ReducedMotionProvider>
         </ThemeProvider>
+        <GameContextMenuGuard />
+        <PlayTimerGuard />
         <ServiceWorkerRegistration />
       </body>
     </html>

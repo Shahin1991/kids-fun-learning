@@ -6,6 +6,7 @@ import { useTheme, type ThemePref } from "@/components/ThemeProvider";
 import { useSetMotionOverride } from "@/components/ReducedMotionProvider";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { PLAY_TIMER_CHANGED } from "@/components/PlayTimerGuard";
 import { HomeButton } from "@/components/HomeButton";
 import { PageContainer } from "@/components/PageContainer";
 import { MODULES } from "@/data/modules";
@@ -50,6 +51,11 @@ export default function ParentDashboard() {
   const setMotion = async (value: boolean | null) => {
     setSettings(await updateSettings({ reducedMotion: value }));
     setMotionOverride(value);
+  };
+
+  const setTimer = async (timerMinutes: number | null) => {
+    setSettings(await updateSettings({ timerMinutes }));
+    window.dispatchEvent(new Event(PLAY_TIMER_CHANGED));
   };
 
   const changePin = async () => {
@@ -110,6 +116,16 @@ export default function ParentDashboard() {
         <div className="flex flex-wrap gap-2">
           {([["system", "Follow device"], ["light", "☀️ Light"], ["dark", "🌙 Dark"]] as [ThemePref, string][]).map(([v, label]) => (
             <Button key={v} variant={themePref === v ? "primary" : "ghost"} onClick={() => setThemePref(v)}>{label}</Button>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-2 text-2xl font-bold">Play timer</h2>
+        <p className="mb-2 text-sm">Daily play limit. When time runs out your child solves an addition sum for 5 more minutes (harder each time), or you can enter the PIN to restart the timer.</p>
+        <div className="flex flex-wrap gap-2">
+          {([[null, "Off"], [15, "15 min"], [30, "30 min"], [45, "45 min"], [60, "1 hour"]] as const).map(([v, label]) => (
+            <Button key={label} variant={(settings.timerMinutes ?? null) === v ? "primary" : "ghost"} onClick={() => setTimer(v)}>{label}</Button>
           ))}
         </div>
       </Card>
