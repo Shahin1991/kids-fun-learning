@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { applyBend } from "./curve";
-import { buildCity, buildNature, makeCityGroundTexture, makeGrassTexture, ridgeGeometry, skylineGeometry } from "./scenery";
+import { buildCity, buildNature, makeCityGroundTexture, makeCloudTexture, makeGrassTexture, ridgeGeometry, skylineGeometry } from "./scenery";
 import { getGlowTexture } from "./vehicle-builder";
 
 export const LANE_COUNT = 4;
@@ -105,9 +105,12 @@ export class World {
     this.moon.position.set(-300, 300, -700);
     this.root.add(this.sun, this.moon);
 
-    for (let i = 0; i < 9; i++) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xffffff, fog: false, depthWrite: false, transparent: true, opacity: 0.55 }));
-      s.scale.set(120 + Math.random() * 100, 28 + Math.random() * 14, 1);
+    const cloudTex = [1, 2, 3].map((seed) => makeCloudTexture(seed));
+    this.textures.push(...cloudTex);
+    for (let i = 0; i < 11; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex[i % 3], color: 0xffffff, fog: false, depthWrite: false, transparent: true, opacity: 0.95 }));
+      const w = 90 + Math.random() * 90;
+      s.scale.set(w, w * 0.5, 1);
       s.position.set((Math.random() - 0.5) * 900, 130 + Math.random() * 90, -300 - Math.random() * 400);
       this.clouds.push(s);
       this.root.add(s);

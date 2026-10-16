@@ -35,7 +35,32 @@ export function getGlowTexture(): THREE.CanvasTexture {
   }
   return glowTexture;
 }
+/** Soft rounded-rectangle shadow that grounds a vehicle on the road. */
+let shadowTexture: THREE.CanvasTexture | null = null;
+function getShadowTexture(): THREE.CanvasTexture {
+  if (!shadowTexture) {
+    const c = document.createElement("canvas");
+    c.width = 64;
+    c.height = 128;
+    const g = c.getContext("2d")!;
+    // Dense core under the body fading to a soft halo that peeks out around it
+    g.filter = "blur(7px)";
+    g.fillStyle = "rgba(0,0,0,0.55)";
+    g.beginPath();
+    g.roundRect(7, 8, 50, 112, 18);
+    g.fill();
+    g.fillStyle = "#000";
+    g.beginPath();
+    g.roundRect(14, 16, 36, 96, 12);
+    g.fill();
+    shadowTexture = new THREE.CanvasTexture(c);
+  }
+  return shadowTexture;
+}
+
 export function disposeGlowTexture() {
+  shadowTexture?.dispose();
+  shadowTexture = null;
   labelTextures.forEach((t) => t.dispose());
   labelTextures.clear();
   glowTexture?.dispose();
@@ -134,10 +159,11 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     return m;
   };
   const paint = mat(new THREE.MeshPhysicalMaterial({ color, metalness: 0.55, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.08 }));
-  const glass = mat(new THREE.MeshPhysicalMaterial({ color: 0x0b1620, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.8 }));
+  // Tinted, reflective glass: the cabin reads as glass from outside without showing bare interior boxes.
+  const glass = mat(new THREE.MeshPhysicalMaterial({ color: 0x0e1a24, metalness: 0.35, roughness: 0.04, transparent: true, opacity: 0.9, envMapIntensity: 1.6 }));
   const chrome = mat(new THREE.MeshStandardMaterial({ color: 0xdfe6ea, metalness: 1, roughness: 0.15 }));
   const dark = mat(new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.8 }));
-  const tyre = mat(new THREE.MeshStandardMaterial({ color: 0x1b1b1f, roughness: 0.9 }));
+  const tyre = mat(new THREE.MeshStandardMaterial({ color: 0x1b1b1f, roughness: 0.85 }));
   const rim = mat(new THREE.MeshStandardMaterial({ color: 0xcfd8dc, metalness: 0.9, roughness: 0.25 }));
   const interior = mat(new THREE.MeshStandardMaterial({ color: 0x2b2d33, roughness: 0.9 }));
   const headMat = mat(new THREE.MeshStandardMaterial({ color: 0xfff4d0, emissive: 0xfff0b0, emissiveIntensity: 1.2 }));
@@ -220,24 +246,42 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   const cabin = spec.cabin;
   if (cabin) {
     add(extrude("cabin", () => roundedClosed(cabin, shaped ? 0.32 : 0.2), W - 0.22, 0.03, shaped ? cabinDeform : undefined), glass, 0, 0, 0);
-    // Roof slab and pillars
     const roofLen = cabin[2][0] - cabin[1][0];
     const roofY = cabin[1][1];
-    add(box("roof", (W - 0.2) * cabinTaper(roofY) * (shaped ? 0.9 : 0.97), 0.06, shaped ? roofLen - 0.3 : roofLen + 0.1), paint, 0, roofY + 0.02, -(cabin[1][0] + cabin[2][0]) / 2, true);
-    const bar = (a: [number, number], b: [number, number], x0: number) => {
-      const x = x0 * cabinTaper((a[1] + b[1]) / 2);
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      const m = add(box(`bar${a}${b}`, 0.07, len, 0.07), paint, x, (a[1] + b[1]) / 2, -(a[0] + b[0]) / 2);
-      m.rotation.x = Math.atan2(-(b[0] - a[0]), b[1] - a[1]);
+    // Painted roof skin: the top band of the glasshouse profile, a touch wider, so it wraps the glass like a real roof panel.
+    const along = (a: Pt, b: Pt, y: number): Pt => [a[0] + ((y - a[1]) / (b[1] - a[1])) * (b[0] - a[0]), y];
+    const capY = roofY - Math.min(0.16, (roofY - cabin[0][1]) * 0.3);
+    const roofProf: Pt[] = [along(cabin[0], cabin[1], capY), [cabin[1][0], roofY + 0.025], [cabin[2][0], roofY + 0.025], along(cabin[3], cabin[2], capY)];
+    const glassHalf = (W - 0.22) / 2;
+    add(extrude("roofskin", () => roundedClosed(roofProf, 0.12), W - 0.18, 0.03, shaped ? cabinDeform : undefined), paint, 0, 0, 0, true);
+    // Pillars are painted strips lying on the glass surface (following its taper), not free-standing bars.
+    const onGlass = (u: number, y: number, s: number) => {
+      const z = -u;
+      const plan = shaped ? 1 - 0.1 * Math.pow(Math.min(1, Math.abs(z) / halfL), 3) : 1;
+      return new THREE.Vector3(s * ((glassHalf + 0.03) * cabinTaper(y) * plan + 0.005), y, z);
     };
+    // `inset` moves the strip along the car so it lies inside the glass outline rather than overhanging its edge
+    const strut = (a: Pt, b: Pt, s: number, width: number, inset = 0) => {
+      const p0 = onGlass(a[0] + inset, a[1], s);
+      const p1 = onGlass(b[0] + inset, b[1], s);
+      const len = p0.distanceTo(p1);
+      const m = add(box(`strut${width}`, 0.035, 1, width), paint, (p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2);
+      m.scale.y = len;
+      // Basis: length along the pillar, thickness along the outward normal, width lying in the glass surface
+      const dir = p1.clone().sub(p0).normalize();
+      const across = new THREE.Vector3(s, 0, 0).cross(dir).normalize();
+      const out = dir.clone().cross(across);
+      m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(out, dir, across));
+    };
+    const lerpPt = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
     for (const s of [-1, 1]) {
-      const x = s * (W / 2 - 0.1);
-      if (!shaped) {
-        bar(cabin[3], cabin[2], x);
-        bar(cabin[0], cabin[1], x);
-      }
-      const midU = (cabin[1][0] + cabin[2][0]) / 2;
-      bar([midU, cabin[0][1]], [midU, roofY], x);
+      // A- and C-pillars along the sloping edges, and a B-pillar between the doors
+      const aw = shaped ? 0.09 : 0.12;
+      const cw = shaped ? 0.16 : 0.12;
+      strut(lerpPt(cabin[3], cabin[2], 0.15), along(cabin[3], cabin[2], capY), s, aw, -(aw / 2 + 0.1));
+      strut(lerpPt(cabin[0], cabin[1], 0.15), along(cabin[0], cabin[1], capY), s, cw, cw / 2 + 0.1);
+      const midU = (cabin[1][0] + cabin[2][0]) / 2 + 0.05;
+      strut([midU, cabin[0][1] + 0.03], [midU, capY], s, 0.1);
     }
     if (spec.features.roofRack) {
       for (const s of [-1, 1]) add(box("rackr", 0.05, 0.05, roofLen), chrome, s * 0.7, roofY + 0.1, -(cabin[1][0] + cabin[2][0]) / 2);
@@ -572,7 +616,15 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   const spinGroups: THREE.Group[] = [];
   const steerGroups: THREE.Group[] = [];
   const tyreW = 0.26;
-  const tyreGeo = cache.get(`${spec.id}:tyre`, () => new THREE.CylinderGeometry(R, R, tyreW, 28).rotateZ(Math.PI / 2));
+  // Lathed tyre with rounded shoulders and a sidewall that steps in to the rim
+  const tyreGeo = cache.get(`${spec.id}:tyre`, () => {
+    const h = tyreW / 2;
+    const pts = [
+      [R * 0.6, -h * 0.9], [R * 0.8, -h], [R * 0.93, -h * 0.97], [R * 0.985, -h * 0.82], [R, -h * 0.55],
+      [R, h * 0.55], [R * 0.985, h * 0.82], [R * 0.93, h * 0.97], [R * 0.8, h], [R * 0.6, h * 0.9],
+    ].map(([x, y]) => new THREE.Vector2(x, y));
+    return new THREE.LatheGeometry(pts, 32).rotateZ(Math.PI / 2);
+  });
   const rimGeo = cache.get(`${spec.id}:rim`, () => new THREE.CylinderGeometry(R * 0.62, R * 0.62, tyreW + 0.02, 20).rotateZ(Math.PI / 2));
   const spokeGeo = cache.get(`${spec.id}:spoke`, () => new THREE.BoxGeometry(tyreW + 0.04, 0.05, R * 1.2));
   const wellR = hasArches ? archR * 0.97 : R * 1.18;
@@ -597,6 +649,11 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
       if (sz === -1) steerGroups.push(steer);
     }
   }
+
+  // Soft contact shadow so the vehicle sits on the road instead of floating
+  const shadowMat = mat(new THREE.MeshBasicMaterial({ map: getShadowTexture(), color: 0x000000, transparent: true, opacity: 0.75, depthWrite: false }));
+  const shadow = add(cache.get(`${spec.id}:shadow`, () => new THREE.PlaneGeometry(W * 1.5, L * 1.15).rotateX(-Math.PI / 2)), shadowMat, 0, 0.03, 0);
+  shadow.renderOrder = 1;
 
   // Interior
   let steeringWheel: THREE.Object3D | null = null;

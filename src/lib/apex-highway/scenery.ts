@@ -134,6 +134,38 @@ export function makeTreeKit(): TreeKit {
   return { pine, oak, poplar, bush, trunk };
 }
 
+/** Barn pieces in local space: gable faces +z, centred on the origin, sitting on y = 0. */
+export function makeBarnKit(): { walls: THREE.BufferGeometry; roof: THREE.BufferGeometry; trim: THREE.BufferGeometry } {
+  const W = 7;
+  const D = 9;
+  const H = 4.2;
+  const R = 2.6;
+  const gable = new THREE.Shape([new THREE.Vector2(-W / 2, H), new THREE.Vector2(W / 2, H), new THREE.Vector2(0, H + R)]);
+  const walls = mergeGeometries([
+    ni(new THREE.BoxGeometry(W, H, D).translate(0, H / 2, 0)),
+    ni(new THREE.ExtrudeGeometry(gable, { depth: D, bevelEnabled: false }).translate(0, 0, -D / 2)),
+  ])!;
+  const slope = Math.hypot(W / 2 + 0.5, R + 0.35);
+  const ang = Math.atan2(R + 0.35, W / 2 + 0.5);
+  const roof = mergeGeometries([-1, 1].map((s) => {
+    const g = new THREE.BoxGeometry(slope, 0.22, D + 0.8);
+    g.rotateZ(-s * ang);
+    g.translate((s * slope * Math.cos(ang)) / 2 - s * 0.02, H + R / 2 + 0.05, 0);
+    return ni(g);
+  }))!;
+  // White door frame with the classic cross brace on the gable end
+  const fz = D / 2 + 0.06;
+  const trim = mergeGeometries([
+    ni(new THREE.BoxGeometry(3.2, 0.25, 0.12).translate(0, 3.2, fz)),
+    ni(new THREE.BoxGeometry(0.25, 3.2, 0.12).translate(-1.5, 1.6, fz)),
+    ni(new THREE.BoxGeometry(0.25, 3.2, 0.12).translate(1.5, 1.6, fz)),
+    ni(new THREE.BoxGeometry(0.22, 4.2, 0.1).rotateZ(Math.atan2(3.0, 2.8)).translate(0, 1.6, fz)),
+    ni(new THREE.BoxGeometry(0.22, 4.2, 0.1).rotateZ(-Math.atan2(3.0, 2.8)).translate(0, 1.6, fz)),
+    ni(new THREE.BoxGeometry(1.1, 1.1, 0.12).translate(0, H + 0.9, fz)),
+  ])!;
+  return { walls, roof, trim };
+}
+
 const PINE_GREENS = [0x1f5d34, 0x24663a, 0x2c7040, 0x1b5530];
 const OAK_GREENS = [0x3e8e41, 0x4a9a43, 0x56a548, 0x35803c, 0x6aa84f];
 const AUTUMN = [0xd9822b, 0xe0a030, 0xc4552b];
@@ -217,6 +249,51 @@ export function buildNature(opts: NatureOptions): { group: THREE.Group; material
       trunks.frustumCulled = false;
       group.add(trunks);
     }
+  }
+
+  // Wildflower patches in the verge
+  const FLOWERS = [0xff5d8f, 0xffd43b, 0xffffff, 0xb197fc, 0xff922b];
+  const flowerMat = mk(0xffffff, false);
+  const flowerGeo = new THREE.IcosahedronGeometry(0.16, 0);
+  const patches = Array.from({ length: 14 }, () => ({ x: 8.6 + r() * 14, z: r() * period, color: FLOWERS[Math.floor(r() * FLOWERS.length)] }));
+  const perPatch = 9;
+  const flowers = new THREE.InstancedMesh(flowerGeo, flowerMat, patches.length * perPatch * 2 * copies);
+  {
+    let k = 0;
+    const c = new THREE.Color();
+    for (let copy = 0; copy < copies; copy++) {
+      for (const sd of [-1, 1]) {
+        for (const p of patches) {
+          for (let i = 0; i < perPatch; i++) {
+            const a = (i / perPatch) * Math.PI * 2 + p.z;
+            const d = 0.3 + ((i * 0.37 + p.x) % 1) * 1.3;
+            place(flowers, k, sd * (p.x + Math.cos(a) * d), 0.12 + (i % 3) * 0.05, origin - copy * period - p.z + Math.sin(a) * d, 0.8 + (i % 4) * 0.15, a);
+            flowers.setColorAt(k, c.setHex(p.color));
+            k++;
+          }
+        }
+      }
+    }
+  }
+  flowers.frustumCulled = false;
+  group.add(flowers);
+
+  // A red barn now and then, gable end facing the road
+  const barn = makeBarnKit();
+  const barnItems = [{ x: 30, z: period * 0.3, sd: 1 }, { x: 36, z: period * 0.78, sd: -1 }];
+  const barnParts = [
+    { geo: barn.walls, mat: mk(0xc0392b, false) },
+    { geo: barn.roof, mat: mk(0x4a4f57, false) },
+    { geo: barn.trim, mat: mk(0xf5f1e6, false) },
+  ];
+  for (const part of barnParts) {
+    const mesh = new THREE.InstancedMesh(part.geo, part.mat, barnItems.length * copies);
+    let k = 0;
+    for (let copy = 0; copy < copies; copy++) {
+      for (const b of barnItems) place(mesh, k++, b.sd * b.x, 0, origin - copy * period - b.z, 1, b.sd > 0 ? -Math.PI / 2 : Math.PI / 2);
+    }
+    mesh.frustumCulled = false;
+    group.add(mesh);
   }
 
   // Rocks
@@ -365,25 +442,215 @@ export function buildCity(opts: NatureOptions): CityPieces {
     group.add(mesh);
   });
 
-  // Bright shop signs facing the road on the near buildings.
-  const signGeo = new THREE.BoxGeometry(0.25, 1.8, 5);
-  const nearOnes = placed.filter((b) => ARCHETYPES[b.arch].row === "near" && r() < 0.6);
-  const signs = new THREE.InstancedMesh(signGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), nearOnes.length * copies);
-  const SIGN = [0xff4d6d, 0x4dabff, 0xffd43b, 0x51cf66, 0xff922b, 0xcc5de8];
-  let k = 0;
-  for (let copy = 0; copy < copies; copy++) {
-    for (const b of nearOnes) {
-      const sd = Math.sign(b.x);
-      const a = ARCHETYPES[b.arch];
-      m4.compose(new THREE.Vector3(b.x - sd * (a.w * b.sx) / 2 - sd * 0.1, 4.5 + r() * 3, origin - copy * period - b.z + (r() - 0.5) * 3), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1));
-      signs.setMatrixAt(k, m4);
-      signs.setColorAt(k, new THREE.Color(SIGN[Math.floor(r() * SIGN.length)]));
-      k++;
+  const textures: THREE.Texture[] = [map, emissive];
+  const q = new THREE.Quaternion();
+  const v = new THREE.Vector3();
+  const sc = new THREE.Vector3();
+  const unitBox = new THREE.BoxGeometry(1, 1, 1);
+
+  // Cornice along every roofline, and chunky rooftop units (AC boxes, water tanks) on the lower blocks
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+  const cornices = new THREE.InstancedMesh(unitBox, trimMat, placed.length * copies);
+  const lowOnes = placed.filter((b) => ARCHETYPES[b.arch].row !== "far");
+  const units = new THREE.InstancedMesh(unitBox, new THREE.MeshStandardMaterial({ color: 0x9aa1a9, roughness: 0.7, metalness: 0.2 }), lowOnes.length * 2 * copies);
+  {
+    let k = 0;
+    let u = 0;
+    const c = new THREE.Color();
+    for (let copy = 0; copy < copies; copy++) {
+      for (const b of placed) {
+        const a = ARCHETYPES[b.arch];
+        const z = origin - copy * period - b.z;
+        cornices.setMatrixAt(k, m4.compose(v.set(b.x, a.h + 0.3, z), q, sc.set(a.w * b.sx + 0.7, 0.6, a.d + 0.7)));
+        cornices.setColorAt(k++, c.setHex(b.tint).multiplyScalar(0.8));
+      }
+      for (const b of lowOnes) {
+        const a = ARCHETYPES[b.arch];
+        const z = origin - copy * period - b.z;
+        const rr = rng(Math.round(b.z * 13 + b.x * 7));
+        for (let i = 0; i < 2; i++) {
+          const w = 1.6 + rr() * 1.6;
+          const h = 1 + rr() * 1.4;
+          units.setMatrixAt(u++, m4.compose(v.set(b.x + (rr() - 0.5) * a.w * 0.5, a.h + 0.6 + h / 2, z + (rr() - 0.5) * a.d * 0.5), q, sc.set(w, h, w * (0.8 + rr() * 0.6))));
+        }
+      }
     }
   }
-  signs.frustumCulled = false;
-  group.add(signs);
-  return { group, facade, textures: [map, emissive] };
+  for (const m of [cornices, units]) {
+    m.frustumCulled = false;
+    group.add(m);
+  }
+
+  // Street-level shopfronts on the near row: big windows, doors and a striped awning
+  const shopTex = makeShopfrontTexture();
+  textures.push(shopTex);
+  const shopMat = new THREE.MeshStandardMaterial({ map: shopTex, roughness: 0.5, metalness: 0.1 });
+  const plain = new THREE.MeshStandardMaterial({ color: 0x5b5f66, roughness: 0.9 });
+  ARCHETYPES.forEach((a, ai) => {
+    if (a.row !== "near") return;
+    const mine = placed.filter((b) => b.arch === ai);
+    if (!mine.length) return;
+    const geo = new THREE.BoxGeometry(a.w + 0.3, 4.2, a.d + 0.3);
+    geo.translate(0, 2.1, 0);
+    const uv = geo.attributes.uv as THREE.BufferAttribute;
+    for (const [f, width] of [[0, a.d], [1, a.d], [4, a.w], [5, a.w]] as const) {
+      for (let i = f * 4; i < f * 4 + 4; i++) uv.setX(i, (uv.getX(i) * width) / 8);
+    }
+    const mesh = new THREE.InstancedMesh(geo, [shopMat, shopMat, plain, plain, shopMat, shopMat], mine.length * copies);
+    let k = 0;
+    for (let copy = 0; copy < copies; copy++) {
+      for (const b of mine) mesh.setMatrixAt(k++, m4.compose(v.set(b.x, 0, origin - copy * period - b.z), q, sc.set(b.sx, 1, 1)));
+    }
+    mesh.frustumCulled = false;
+    group.add(mesh);
+  });
+
+  // Named shop signs facing the road above the shopfronts
+  const nearOnes = placed.filter((b) => ARCHETYPES[b.arch].row === "near" && r() < 0.75);
+  const signGeo = new THREE.PlaneGeometry(5, 1.4);
+  const byName = new Map<number, { b: B; y: number; dz: number }[]>();
+  for (const b of nearOnes) {
+    const i = Math.floor(r() * SHOP_SIGNS.length);
+    byName.set(i, [...(byName.get(i) ?? []), { b, y: 5.4 + r() * 1.2, dz: (r() - 0.5) * 2 }]);
+  }
+  const face = new THREE.Euler();
+  byName.forEach((list, i) => {
+    const tex = makeSignTexture(SHOP_SIGNS[i]);
+    textures.push(tex);
+    const mesh = new THREE.InstancedMesh(signGeo, new THREE.MeshBasicMaterial({ map: tex }), list.length * copies);
+    let k = 0;
+    for (let copy = 0; copy < copies; copy++) {
+      for (const { b, y, dz } of list) {
+        const sd = Math.sign(b.x);
+        const a = ARCHETYPES[b.arch];
+        q.setFromEuler(face.set(0, -sd * (Math.PI / 2), 0));
+        mesh.setMatrixAt(k++, m4.compose(v.set(b.x - sd * ((a.w * b.sx) / 2 + 0.2), y, origin - copy * period - b.z + dz), q, sc.set(1, 1, 1)));
+      }
+    }
+    mesh.frustumCulled = false;
+    group.add(mesh);
+  });
+  q.identity();
+
+  // Street trees in round planters along the pavement
+  const kit = makeTreeKit();
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x4f9d47, roughness: 0.95, flatShading: true });
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 1 });
+  const planterMat = new THREE.MeshStandardMaterial({ color: 0x8d8f94, roughness: 0.9 });
+  const step = 20;
+  const perSide = Math.floor(period / step);
+  const n = perSide * 2 * copies;
+  const crowns = new THREE.InstancedMesh(kit.oak, leafMat, n);
+  const trunks = new THREE.InstancedMesh(kit.trunk, trunkMat, n);
+  const planters = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.9, 1, 0.5, 14).translate(0, 0.25, 0), planterMat, n);
+  {
+    let k = 0;
+    const c = new THREE.Color();
+    for (let copy = 0; copy < copies; copy++) {
+      for (const sd of [-1, 1]) {
+        for (let i = 0; i < perSide; i++) {
+          const z = origin - copy * period - (i * step + (sd > 0 ? 6 : 16));
+          const rot = i * 2.3 + sd;
+          q.setFromEuler(face.set(0, rot, 0));
+          crowns.setMatrixAt(k, m4.compose(v.set(sd * 10.4, 0, z), q, sc.set(0.5, 0.55, 0.5)));
+          crowns.setColorAt(k, c.setHex(OAK_GREENS[(i + (sd > 0 ? 1 : 0)) % OAK_GREENS.length]));
+          trunks.setMatrixAt(k, m4.compose(v.set(sd * 10.4, 0, z), q, sc.set(0.5, 0.6, 0.5)));
+          planters.setMatrixAt(k, m4.compose(v.set(sd * 10.4, 0, z), q, sc.set(1, 1, 1)));
+          k++;
+        }
+      }
+    }
+  }
+  for (const m of [crowns, trunks, planters]) {
+    m.frustumCulled = false;
+    group.add(m);
+  }
+  return { group, facade, textures };
+}
+
+const SHOP_SIGNS = [
+  { text: "TOYS", bg: "#ff4d6d" },
+  { text: "CAFÉ", bg: "#7a4b2a" },
+  { text: "BAKERY", bg: "#f59f00" },
+  { text: "BOOKS", bg: "#1c7ed6" },
+  { text: "PIZZA", bg: "#2f9e44" },
+  { text: "ICE CREAM", bg: "#cc5de8" },
+];
+
+/** A bright shop sign: coloured board, white border and big lettering. */
+export function makeSignTexture(sign: { text: string; bg: string }): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 144;
+  const g = c.getContext("2d")!;
+  g.fillStyle = sign.bg;
+  g.beginPath();
+  g.roundRect(4, 4, 504, 136, 28);
+  g.fill();
+  g.strokeStyle = "#ffffff";
+  g.lineWidth = 8;
+  g.beginPath();
+  g.roundRect(14, 14, 484, 116, 20);
+  g.stroke();
+  g.fillStyle = "#ffffff";
+  g.font = "bold 76px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(sign.text, 256, 78, 450);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/** Ground-floor shop tile (8 m wide): plinth, two big windows, a door, and a striped awning on top. */
+export function makeShopfrontTexture(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 128;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#4b4f57";
+  g.fillRect(0, 0, 256, 128);
+  // Awning stripes along the top
+  for (let x = 0; x < 256; x += 32) {
+    g.fillStyle = (x / 32) % 2 ? "#ffffff" : "#e8504f";
+    g.fillRect(x, 0, 32, 22);
+  }
+  g.fillStyle = "rgba(0,0,0,0.25)";
+  g.fillRect(0, 22, 256, 5);
+  const pane = (x: number, w: number, y: number, h: number) => {
+    const grad = g.createLinearGradient(x, y, x + w, y + h);
+    grad.addColorStop(0, "#9cc7e4");
+    grad.addColorStop(0.5, "#5b86a8");
+    grad.addColorStop(1, "#33546f");
+    g.fillStyle = "#d8d8d8";
+    g.fillRect(x - 4, y - 4, w + 8, h + 8);
+    g.fillStyle = grad;
+    g.fillRect(x, y, w, h);
+    g.fillStyle = "rgba(255,255,255,0.35)";
+    g.beginPath();
+    g.moveTo(x + w * 0.15, y);
+    g.lineTo(x + w * 0.35, y);
+    g.lineTo(x + w * 0.1, y + h);
+    g.lineTo(x - w * 0.1 + 1, y + h);
+    g.fill();
+  };
+  pane(14, 82, 38, 66);
+  pane(160, 82, 38, 66);
+  // Door
+  g.fillStyle = "#d8d8d8";
+  g.fillRect(108, 34, 40, 94);
+  g.fillStyle = "#6d3f22";
+  g.fillRect(112, 38, 32, 90);
+  g.fillStyle = "#ffd43b";
+  g.fillRect(136, 82, 4, 6);
+  g.fillStyle = "#33363c";
+  g.fillRect(0, 116, 256, 12);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
 }
 
 /** A distant skyline: merged towers with vertex colours (lighter at the top), plus window lights as points for the night. */
@@ -413,6 +680,33 @@ export function skylineGeometry(width: number, seed: number, minH: number, maxH:
   const lights = new THREE.BufferGeometry();
   lights.setAttribute("position", new THREE.Float32BufferAttribute(lightPos, 3));
   return { geo, lights };
+}
+
+/** A puffy cartoon cloud: overlapping soft circles, white on top and a little grey underneath. */
+export function makeCloudTexture(seed: number): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 128;
+  const g = c.getContext("2d")!;
+  const r = rng(seed);
+  const puffs = Array.from({ length: 7 }, (_, i) => {
+    const t = i / 6;
+    const rad = 22 + Math.sin(t * Math.PI) * 26 + r() * 10;
+    return { x: 40 + t * 176 + (r() - 0.5) * 14, y: 92 - Math.sin(t * Math.PI) * 26 - r() * 10, rad };
+  });
+  // Shadowed underside first, then the bright puffs slightly higher
+  g.filter = "blur(2px)";
+  for (const [dy, colour] of [[6, "rgba(196,206,222,1)"], [0, "rgba(255,255,255,1)"]] as const) {
+    g.fillStyle = colour;
+    for (const p of puffs) {
+      g.beginPath();
+      g.arc(p.x, p.y - dy, p.rad, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 // ---------------------------------------------------------------- ground
