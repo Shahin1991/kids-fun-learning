@@ -67,6 +67,12 @@ class AudioManager {
     this.get(`note-${step}`, () => tones.tap(step)).play();
   }
 
+  /** A xylophone bar at any pitch (Hz), for the music games. */
+  playBell(freq: number) {
+    if (!this.soundEnabled) return;
+    this.get(`bell-${freq.toFixed(1)}`, () => tones.bell(freq)).play();
+  }
+
   /** Balloon pop; three pitch variants plus a little random rate keep it from sounding repetitive. */
   playPop(variant = 0) {
     if (!this.soundEnabled) return;

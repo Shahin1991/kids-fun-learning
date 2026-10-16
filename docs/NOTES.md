@@ -2,7 +2,16 @@
 
 - Apex Highway and Road Runner use crash/lives states, which deviates from the "no fail states" principle. Keep them labelled as such.
 - The parent PIN is salted+hashed but this is **not real security**; it only deters small children.
-- All data stays on-device (IndexedDB / localStorage). No analytics, no network calls beyond fetching static assets.
+- All data stays on-device (IndexedDB / localStorage). No analytics, no network calls beyond fetching static assets. The app asks for persistent storage after the first star so Safari does not evict it.
+
+## Offline and updates
+- `scripts/stamp-sw.mjs` precaches every exported page (by clean URL), its RSC payloads, all of `_next/static`, the art and the icons, about 4.5 MB in total including Three.js. Offline play is the point of the app, so the size is worth it.
+- `ServiceWorkerRegistration` activates a new worker as soon as it installs and reloads once, so installed apps pick up updates.
+
+## Parental controls
+- `ModuleGate` (in the root layout) sends any route of a switched-off module home, not just the home grid.
+- The play timer merges state across tabs (most time used wins; a parent reset wins by `resetAt`). While "Time is up" shows, `setAppPaused` stops `useRaf` loops and Apex Highway, music and speech stop, the page is `inert` and keys are swallowed.
+- The PIN screen locks out for 1s, 2s, 4s … 30s after wrong guesses; the dashboard re-locks when it is left.
 - `npm audit` reports advisories only in the `eslint-config-next` dev toolchain (braces/micromatch); `next` itself is clean. The suggested `--force` fix downgrades to Next 14 tooling, so do not apply it.
 
 ## Lint rules to remember (React Compiler-era react-hooks)

@@ -99,7 +99,21 @@ export function renderPageTurnSamples(variant = 0, rand: () => number = Math.ran
   return out;
 }
 
+/** A xylophone-like strike: bright attack, a quiet overtone, and a ringing exponential decay. */
+export function renderBell(freq: number, seconds = 0.9): string {
+  const len = Math.floor(seconds * SAMPLE_RATE);
+  const samples = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    const t = i / SAMPLE_RATE;
+    const env = Math.min(1, i / (SAMPLE_RATE * 0.004)) * Math.exp(-t * 5);
+    const tone = Math.sin(2 * Math.PI * freq * t) + 0.25 * Math.sin(2 * Math.PI * freq * 4 * t) * Math.exp(-t * 18);
+    samples[i] = tone * 0.35 * env;
+  }
+  return encodeWavDataUri(samples, SAMPLE_RATE);
+}
+
 export const tones = {
+  bell: (freq: number) => renderBell(freq),
   page: (variant: number) => encodeWavDataUri(renderPageTurnSamples(variant), SAMPLE_RATE),
   pop: (variant: number) => renderPop(0.85 + variant * 0.2),
   success: () => renderNotes([{ freq: 523.25, duration: 0.12 }, { freq: 659.25, duration: 0.18 }]),

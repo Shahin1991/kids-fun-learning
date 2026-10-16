@@ -29,6 +29,8 @@ export const MODULES: LearningModule[] = [
   { id: "sizes", title: "Big or Small", ageGroup: "toddler", route: "/toddler/sizes", icon: "🐘", colorToken: "kid-green", description: "Find the big one, sort them in order" },
   { id: "emotions", title: "Feelings", ageGroup: "toddler", route: "/toddler/emotions", icon: "😊", colorToken: "kid-yellow", description: "Meet the faces and feelings" },
   { id: "balloon-pop", title: "Balloon Pop", ageGroup: "toddler", route: "/toddler/balloon-pop", icon: "🎈", colorToken: "kid-red", description: "Pop the wobbly balloons" },
+  { id: "music-maker", title: "Music Maker", ageGroup: "toddler", route: "/toddler/music-maker", icon: "🎹", colorToken: "kid-purple", description: "Play the xylophone, copy tunes and play songs" },
+  { id: "colouring", title: "Colouring", ageGroup: "toddler", route: "/toddler/colouring", icon: "🖍️", colorToken: "kid-orange", description: "Colour in pictures or finger-paint" },
 
   { id: "books", title: "Picture Books", ageGroup: "early-learning", route: "/early-learning/books", icon: "📚", colorToken: "kid-purple", description: "Pick a book from the shelf and swipe the pages" },
   { id: "alphabet", title: "Alphabet", ageGroup: "early-learning", route: "/early-learning/alphabet", icon: "🔤", colorToken: "kid-blue", description: "Letters with example words" },
@@ -45,6 +47,9 @@ export const MODULES: LearningModule[] = [
   { id: "tic-tac-toe", title: "Tic Tac Toe", ageGroup: "early-learning", route: "/early-learning/tic-tac-toe", icon: "❌", colorToken: "kid-blue", description: "Beat the robot: three in a row wins" },
   { id: "snakes-ladders", title: "Snakes & Ladders", ageGroup: "early-learning", route: "/early-learning/snakes-ladders", icon: "🐍", colorToken: "kid-green", description: "Roll, climb ladders and dodge the snakes" },
   { id: "balance-scale", title: "Balance Scale", ageGroup: "early-learning", route: "/early-learning/balance-scale", icon: "⚖️", colorToken: "kid-orange", description: "Make both sides equal" },
+  { id: "make-ten", title: "Make Ten", ageGroup: "early-learning", route: "/early-learning/make-ten", icon: "🔟", colorToken: "kid-red", description: "How many more make ten?" },
+  { id: "rhyme-time", title: "Rhyme Time", ageGroup: "early-learning", route: "/early-learning/rhyme-time", icon: "🎤", colorToken: "kid-purple", description: "Find the picture that rhymes" },
+  { id: "word-builder", title: "Word Builder", ageGroup: "early-learning", route: "/early-learning/word-builder", icon: "🔤", colorToken: "kid-blue", description: "Spell little words letter by letter" },
 
   { id: "math-racer", title: "Math Racer", ageGroup: "advanced", route: "/advanced/math-racer", icon: "🏎️", colorToken: "kid-red", description: "Answer to race down the road" },
   { id: "vehicles", title: "Vehicle World", ageGroup: "advanced", route: "/advanced/vehicles", icon: "🚒", colorToken: "kid-orange", description: "Vehicles with sounds and facts" },
@@ -55,6 +60,7 @@ export const MODULES: LearningModule[] = [
   { id: "connect-4", title: "Connect 4", ageGroup: "advanced", route: "/advanced/connect-4", icon: "🔴", colorToken: "kid-red", description: "Drop discs and connect four in a row" },
   { id: "uno", title: "Uno", ageGroup: "advanced", route: "/advanced/uno", icon: "🃏", colorToken: "kid-red", description: "Match colours and numbers, shout UNO!" },
   { id: "ludo", title: "Ludo", ageGroup: "advanced", route: "/advanced/ludo", icon: "🎲", colorToken: "kid-yellow", description: "Race your pawns home and send rivals back" },
+  { id: "coin-shop", title: "Coin Shop", ageGroup: "advanced", route: "/advanced/coin-shop", icon: "🪙", colorToken: "kid-yellow", description: "Pay with coins and work out the change" },
   { id: "road-runner", title: "Road Runner", ageGroup: "advanced", route: "/advanced/road-runner", icon: "🛣️", colorToken: "kid-yellow", description: "Dodge across three lanes" },
 
   { id: "alternate-uses", title: "Alternate Uses", ageGroup: "others", route: "/others/alternate-uses", icon: "💡", colorToken: "kid-yellow", description: "How many uses can you think of?" },
