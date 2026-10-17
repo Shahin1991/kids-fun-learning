@@ -345,9 +345,9 @@ export class SnookerEngine extends TableEngine {
     }
   }
 
-  protected robotPlanner() {
+  protected robotPlanner(fromCue = false) {
     const cue = this.cue();
-    const starts = this.canPlace
+    const starts = this.canPlace && !fromCue
       ? [[0, -0.1], [-0.15, -0.08], [0.15, -0.08], [-0.25, -0.04], [0.25, -0.04]].map(([x, y]) => ({ x, y: BAULK_Y + y })).filter((p) => this.isFree(p.x, p.y, BALL_R, CUE_ID))
       : [{ x: cue.x, y: cue.y }];
     if (!starts.length) starts.push({ x: cue.x, y: cue.y });

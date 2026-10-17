@@ -96,6 +96,39 @@ export class BotPlanner {
   }
 }
 
+/**
+ * A player's aim is never perfect: the angle error (standard deviation, radians) grows with the
+ * level and with power, because a hard hit is harder to keep straight.
+ */
+export function aimSpread(level: SportLevel, power: number): number {
+  const deg = level === "easy" ? 0.5 : level === "medium" ? 1.1 : 1.8;
+  return ((deg * (0.6 + 0.6 * Math.max(0, Math.min(1, power)))) * Math.PI) / 180;
+}
+
+const clamp2 = (g: number) => Math.max(-2, Math.min(2, g));
+
+/** The shot that actually happens when a player lets go: a little angle and power error. */
+export function jitterShot(angle: number, speed: number, level: SportLevel, power: number, rand: () => number = Math.random): { angle: number; speed: number } {
+  const sp = level === "easy" ? 0.02 : level === "medium" ? 0.04 : 0.06;
+  return { angle: angle + clamp2(gaussian(rand)) * aimSpread(level, power), speed: speed * (1 + clamp2(gaussian(rand)) * sp) };
+}
+
+/** Which pocket (index) a ball sent from (x, y) along (nx, ny) heads for, or -1. */
+export function pocketOnLine(table: Table, x: number, y: number, nx: number, ny: number): number {
+  let best = -1;
+  let bestT = Infinity;
+  table.pockets.forEach((p, i) => {
+    const t = (p.x - x) * nx + (p.y - y) * ny;
+    if (t <= 0) return;
+    const off = Math.abs((p.x - x) * ny - (p.y - y) * nx);
+    if (off < p.r * 0.9 && t < bestT) {
+      best = i;
+      bestT = t;
+    }
+  });
+  return best;
+}
+
 /** Human-like error on the chosen shot. */
 export function wobbleShot(shot: Shot, level: SportLevel, rand: () => number = Math.random): Shot {
   const deg = level === "easy" ? 3.2 : level === "medium" ? 1.4 : 0.45;

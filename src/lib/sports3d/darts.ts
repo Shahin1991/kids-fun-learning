@@ -54,3 +54,18 @@ export function robotDart(level: SportLevel, rand: () => number = Math.random): 
 
 /** Hand wobble on the reticle while aiming: radius (m) by level. */
 export const SWAY: Record<SportLevel, number> = { easy: 0.006, medium: 0.014, hard: 0.024 };
+
+/** Unseen release error (m, sd) on top of the visible wobble: a dart never lands exactly on the dot. */
+export const DART_SCATTER: Record<SportLevel, number> = { easy: 0.004, medium: 0.009, hard: 0.014 };
+
+/** Where a dart thrown at (x, y) lands, with release error (clamped to 2 sd so it is never wild). */
+export function dartLanding(x: number, y: number, level: SportLevel, rand: () => number = Math.random): { x: number; y: number } {
+  const clamp2 = (g: number) => Math.max(-2, Math.min(2, g));
+  const sd = DART_SCATTER[level];
+  return { x: x + clamp2(gaussian(rand)) * sd, y: y + clamp2(gaussian(rand)) * sd };
+}
+
+/** A good spot to aim for: the bull on easy (big and central), treble 20 otherwise. */
+export function suggestedDartTarget(level: SportLevel): { x: number; y: number; label: string } {
+  return level === "easy" ? { x: 0, y: 0, label: "the bull" } : { x: 0, y: (RINGS.trebleIn + RINGS.trebleOut) / 2, label: "treble 20" };
+}

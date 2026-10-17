@@ -323,10 +323,10 @@ export class CarromEngine extends TableEngine {
     }
   }
 
-  protected robotPlanner() {
+  protected robotPlanner(fromCue = false) {
     const y = this.baselineY(this.turn);
-    const starts = [-2.1, -1.4, -0.7, 0, 0.7, 1.4, 2.1].map((x) => ({ x, y })).filter((p) => this.isFree(p.x, p.y, STRIKER_R, STRIKER_ID));
-    if (!starts.length) starts.push({ x: this.discs[0].x, y });
+    const starts = fromCue ? [] : [-2.1, -1.4, -0.7, 0, 0.7, 1.4, 2.1].map((x) => ({ x, y })).filter((p) => this.isFree(p.x, p.y, STRIKER_R, STRIKER_ID));
+    if (!starts.length) starts.push({ x: this.discs[0].x, y: this.discs[0].y });
     const targets = this.discs.filter((d) => d.active && d.id !== STRIKER_ID).map((d) => d.id);
     const cands = candidateShots({ discs: this.discs, table: this.table, cueId: STRIKER_ID, targets, starts, maxSpeed: MAX_SHOT });
     return new BotPlanner(this.discs, this.table, STRIKER_ID, cands, (_final, ev) => {

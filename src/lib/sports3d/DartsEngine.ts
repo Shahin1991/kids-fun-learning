@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { dartScore, RINGS, robotDart, SEGMENTS, sumLine, SWAY } from "./darts";
+import { DART_SCATTER, dartLanding, dartScore, RINGS, robotDart, SEGMENTS, suggestedDartTarget, sumLine, SWAY } from "./darts";
 import { disposeObject, SportScene, textSprite } from "./SportScene";
 import { resultFor, type SportOptions } from "./types";
 
@@ -84,10 +84,18 @@ interface Flying {
   hit: { x: number; y: number };
 }
 
-/** Darts: aim with your finger (the reticle wobbles a little, like a real hand) and let go to throw. */
+/**
+ * Darts: aim with your finger (the reticle wobbles a little, like a real hand) and let go to throw.
+ * The dart lands somewhere inside the faint circle round the reticle, not exactly on the dot. A
+ * pulsing ring marks a good target (the bull on Easy, treble 20 otherwise) and a small arrow by the
+ * reticle points towards it; the reticle turns green when it is on target.
+ */
 export class DartsEngine extends SportScene {
   private plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -FACE_Z);
   private reticle: THREE.Mesh;
+  private spread: THREE.Mesh;
+  private goal: THREE.Mesh;
+  private pointer: THREE.Mesh;
   private held: THREE.Group;
   private aim = new THREE.Vector2(0, 0); // board coords (m)
   private aiming = false;
@@ -113,6 +121,19 @@ export class DartsEngine extends SportScene {
     dot.renderOrder = 7;
     this.reticle.visible = false;
     this.stage.scene.add(this.reticle);
+    // Where the dart may land: a faint disc round the reticle.
+    this.spread = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.18 }));
+    this.spread.renderOrder = 5;
+    this.reticle.add(this.spread);
+    // Suggested target and a little arrow pointing to it.
+    this.goal = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 40), new THREE.MeshBasicMaterial({ color: 0xffd93d, depthTest: false, transparent: true, opacity: 0.85 }));
+    this.goal.renderOrder = 5;
+    this.goal.visible = false;
+    this.stage.scene.add(this.goal);
+    this.pointer = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0.006), new THREE.Vector2(0.012, 0), new THREE.Vector2(0, -0.006)])), new THREE.MeshBasicMaterial({ color: 0xffd93d, depthTest: false, transparent: true, opacity: 0.95 }));
+    this.pointer.renderOrder = 7;
+    this.pointer.visible = false;
+    this.stage.scene.add(this.pointer);
     this.held = this.makeDart(PLAYER_FLIGHTS[0]);
     this.stage.scene.add(this.held);
     this.start();
@@ -207,7 +228,7 @@ export class DartsEngine extends SportScene {
     this.turnPoints = [];
     this.busy = false;
     this.aiming = false;
-    this.emitHud({ message: this.turnText(), detail: undefined, say: this.isRobotTurn ? undefined : "Aim at the board and let go!" });
+    this.emitHud({ message: this.turnText(), detail: `Try for ${suggestedDartTarget(this.setup.level).label} 🟡`, say: this.isRobotTurn ? undefined : "Aim at the board and let go!" });
     this.prepareTurn();
   }
 
@@ -256,7 +277,8 @@ export class DartsEngine extends SportScene {
     if (!this.aiming) return;
     this.aiming = false;
     const s = this.sway();
-    this.throwAt(this.aim.x + s.x, this.aim.y + s.y);
+    const at = dartLanding(this.aim.x + s.x, this.aim.y + s.y, this.setup.level);
+    this.throwAt(at.x, at.y);
   }
 
   private throwAt(x: number, y: number) {
@@ -350,6 +372,28 @@ export class DartsEngine extends SportScene {
     if (showRet) {
       const s = this.isRobotTurn ? new THREE.Vector2() : this.sway();
       this.reticle.position.set(this.aim.x + s.x, BOARD_Y + this.aim.y + s.y, FACE_Z + 0.03);
+      this.spread.visible = !this.isRobotTurn;
+      this.spread.scale.setScalar(Math.max(0.016, 2 * DART_SCATTER[this.setup.level] + SWAY[this.setup.level]));
+    }
+    // Directional help while a person aims.
+    const helping = this.aiming && !this.isRobotTurn;
+    const goal = suggestedDartTarget(this.setup.level);
+    this.goal.visible = helping || (!this.busy && !this.isRobotTurn && !this.over && !this.aiming);
+    if (this.goal.visible) {
+      const pulse = this.reduced ? 1 : 1 + Math.sin(this.time * 5) * 0.12;
+      this.goal.position.set(goal.x, BOARD_Y + goal.y, FACE_Z + 0.025);
+      this.goal.scale.setScalar(0.024 * pulse);
+    }
+    const dx = goal.x - this.aim.x;
+    const dy = goal.y - this.aim.y;
+    const off = Math.hypot(dx, dy);
+    const onTarget = off < 0.012;
+    (this.reticle.material as THREE.MeshBasicMaterial).color.set(helping && onTarget ? 0x6bcb77 : 0xffffff);
+    this.pointer.visible = helping && off > 0.03;
+    if (this.pointer.visible) {
+      const a = Math.atan2(dy, dx);
+      this.pointer.position.set(this.reticle.position.x + Math.cos(a) * 0.022, this.reticle.position.y + Math.sin(a) * 0.022, FACE_Z + 0.031);
+      this.pointer.rotation.z = a;
     }
     // Held dart points at the aim.
     if (this.held.visible) {

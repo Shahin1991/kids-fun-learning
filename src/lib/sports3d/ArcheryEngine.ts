@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { ARCHERY_SWAY, arrowScore, DISTANCE, FACE_R, RING_COLOURS, RING_W, robotArrow, rollWind, windDrift } from "./archery";
+import { aimOff, ARCHERY_SWAY, arrowLanding, arrowScore, DISTANCE, FACE_R, GUST, nextGust, RING_COLOURS, RING_W, robotArrow, rollWind, windDrift } from "./archery";
 import { sumLine } from "./darts";
 import { disposeObject, SportScene, textSprite } from "./SportScene";
-import { resultFor, type SportOptions } from "./types";
+import { gaussian, resultFor, type SportOptions } from "./types";
 
 const TARGET_Y = 1.3;
 const EYE = new THREE.Vector3(0, 1.5, 0);
@@ -48,8 +48,12 @@ interface Flying {
 
 /**
  * Archery: press and hold to draw the bow (the string comes back), move to aim the sight, let go
- * to shoot. A full draw flies flat to the sight; letting go early drops low. Wind (medium/hard)
- * pushes the arrow sideways, shown by the flag and the HUD.
+ * to shoot. A full draw flies flat to the sight; letting go early drops low. There is always some
+ * wind (a breeze on Easy, strong on Hard). It is set for each end, shifts a little for every arrow,
+ * and gusts while the arrow flies, so the same aim never lands in quite the same place; arrows
+ * also leave the bow with a small random error. The flag and a big arrow under the target show
+ * the wind; on Easy and Medium a green ring shows where to aim off so the wind carries the arrow
+ * into the gold, with a little arrow by the sight pointing to it.
  */
 export class ArcheryEngine extends SportScene {
   private plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), DISTANCE);
@@ -64,6 +68,11 @@ export class ArcheryEngine extends SportScene {
   private stuck: THREE.Group[] = [];
   private labels: { s: THREE.Sprite; t: number }[] = [];
   private wind = 0;
+  private endWind = 0;
+  private lastDrift = 0;
+  private windArrow: THREE.Mesh;
+  private aimRing: THREE.Mesh;
+  private pointer: THREE.Mesh;
   private end = 0;
   private ends = 3;
   private arrowInTurn = 0;
@@ -89,6 +98,22 @@ export class ArcheryEngine extends SportScene {
     pin.renderOrder = 7;
     this.sight.visible = false;
     this.stage.scene.add(this.sight);
+    // Wind arrow under the target (clear of the HUD): points downwind, longer and redder when stronger.
+    const wa = new THREE.Shape([new THREE.Vector2(0, -0.05), new THREE.Vector2(0.7, -0.05), new THREE.Vector2(0.7, -0.12), new THREE.Vector2(1, 0), new THREE.Vector2(0.7, 0.12), new THREE.Vector2(0.7, 0.05), new THREE.Vector2(0, 0.05)]);
+    const waGeo = new THREE.ShapeGeometry(wa);
+    waGeo.translate(-0.5, 0, 0);
+    this.windArrow = new THREE.Mesh(waGeo, new THREE.MeshBasicMaterial({ color: 0x6bcb77, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+    this.windArrow.position.set(0, TARGET_Y - FACE_R - 0.2, -DISTANCE + 0.1);
+    this.stage.scene.add(this.windArrow);
+    // Aim-off help: where to put the sight so the wind blows the arrow into the gold.
+    this.aimRing = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.1, 40), new THREE.MeshBasicMaterial({ color: 0x6bcb77, depthTest: false, transparent: true, opacity: 0.8 }));
+    this.aimRing.renderOrder = 5;
+    this.aimRing.visible = false;
+    this.stage.scene.add(this.aimRing);
+    this.pointer = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0.035), new THREE.Vector2(0.07, 0), new THREE.Vector2(0, -0.035)])), new THREE.MeshBasicMaterial({ color: 0x6bcb77, depthTest: false, transparent: true, opacity: 0.95 }));
+    this.pointer.renderOrder = 7;
+    this.pointer.visible = false;
+    this.stage.scene.add(this.pointer);
     this.bow = this.buildBow();
     this.start();
   }
@@ -248,12 +273,24 @@ export class ArcheryEngine extends SportScene {
   }
 
   private newWind() {
-    this.wind = rollWind(this.setup.level);
+    this.endWind = rollWind(this.setup.level);
+    this.wind = this.endWind;
+  }
+
+  /** The wind shifts a little before every arrow. */
+  private shiftWind() {
+    this.wind = nextGust(this.endWind, this.setup.level);
+  }
+
+  private get helps() {
+    return this.setup.level !== "hard";
   }
 
   private windText() {
-    if (!this.wind) return "No wind 🍃";
-    return `Wind ${this.wind > 0 ? "→" : "←"} ${Math.abs(this.wind)} m/s 🌬️`;
+    if (Math.abs(this.wind) < 0.05) return "No wind 🍃";
+    const dir = this.wind > 0 ? "→" : "←";
+    const tip = this.helps ? ` · aim ${this.wind > 0 ? "left" : "right"} a little` : "";
+    return `Wind ${dir} ${Math.abs(this.wind).toFixed(1)} m/s 🌬️${tip}`;
   }
 
   private turnText() {
@@ -310,9 +347,9 @@ export class ArcheryEngine extends SportScene {
       return;
     }
     const s = this.sway();
-    // An early release flies slower and drops below the sight.
-    const drop = (1 - this.draw * this.draw) * 0.9;
-    this.shoot(this.aim.x + s.x + windDrift(this.wind), this.aim.y + s.y - drop);
+    const at = arrowLanding({ x: this.aim.x + s.x, y: this.aim.y + s.y }, this.draw, this.wind, this.setup.level);
+    this.lastDrift = at.drift;
+    this.shoot(at.x, at.y);
   }
 
   private shoot(x: number, y: number) {
@@ -352,11 +389,13 @@ export class ArcheryEngine extends SportScene {
     if (this.arrowInTurn < 3) {
       this.after(1.5, () => {
         this.busy = false;
+        this.shiftWind();
         this.emitHud({ message: this.turnText(), detail: `${sum || `${sc.points} points`} · ${this.windText()}` });
         this.setBowArrow();
         if (this.isRobotTurn) this.after(0.5, () => this.robotAim());
       });
-      this.emitHud({ say: sc.points ? String(sc.points) : "Missed" });
+      const pushed = !this.isRobotTurn && Math.abs(this.lastDrift) > 0.04 ? `💨 The wind pushed it ${this.lastDrift > 0 ? "right →" : "← left"}` : undefined;
+      this.emitHud({ say: sc.points ? String(sc.points) : "Missed", ...(pushed ? { detail: pushed } : {}) });
       return;
     }
     const total = this.turnPoints.reduce((a, b) => a + b, 0);
@@ -374,7 +413,7 @@ export class ArcheryEngine extends SportScene {
       this.turn = 0;
       this.end++;
       this.newWind();
-    }
+    } else this.shiftWind();
     if (this.end >= this.ends) {
       this.over = true;
       this.turn = 0;
@@ -414,7 +453,8 @@ export class ArcheryEngine extends SportScene {
       if (this.robotT > 1.3) {
         const t = this.robotTarget;
         this.robotTarget = null;
-        this.shoot(t.x + windDrift(this.wind), t.y);
+        // Robo feels the gusts too.
+        this.shoot(t.x + windDrift(this.wind + Math.max(-2, Math.min(2, gaussian())) * GUST[this.setup.level]), t.y);
       }
     }
 
@@ -464,6 +504,34 @@ export class ArcheryEngine extends SportScene {
       cam.updateProjectionMatrix();
     }
     if (this.overlay) this.bow.group.visible = this.zoom < 0.2;
+
+    // Wind arrow: direction, size and colour by strength, with a little flutter.
+    const ws = Math.min(1, Math.abs(this.wind) / 4);
+    this.windArrow.visible = Math.abs(this.wind) >= 0.05;
+    this.windArrow.rotation.z = this.wind >= 0 ? 0 : Math.PI;
+    const flutter = this.reduced ? 1 : 1 + Math.sin(this.time * (5 + ws * 8)) * 0.05;
+    this.windArrow.scale.set((0.25 + ws * 0.55) * flutter, 0.9 + ws * 0.4, 1);
+    (this.windArrow.material as THREE.MeshBasicMaterial).color.setHSL(0.33 - ws * 0.33, 0.85, 0.55);
+
+    // Aim-off ring and pointer (Easy/Medium, while it is a person's go).
+    const mine = !this.isRobotTurn && !this.over && !this.flying && this.zoom < 0.2;
+    const off = aimOff(this.wind);
+    this.aimRing.visible = this.helps && mine;
+    if (this.aimRing.visible) {
+      this.aimRing.position.set(off.x, TARGET_Y + off.y, -DISTANCE + 0.15);
+      const inside = this.drawing && Math.hypot(this.aim.x - off.x, this.aim.y - off.y) < 0.09;
+      const pulse = this.reduced ? 1 : 1 + Math.sin(this.time * 5) * 0.1;
+      this.aimRing.scale.setScalar(inside ? 1.15 : pulse);
+      (this.aimRing.material as THREE.MeshBasicMaterial).opacity = inside ? 1 : 0.7;
+    }
+    const dx = off.x - this.aim.x;
+    const dy = off.y - this.aim.y;
+    this.pointer.visible = this.helps && this.drawing && Math.hypot(dx, dy) > 0.2;
+    if (this.pointer.visible) {
+      const a = Math.atan2(dy, dx);
+      this.pointer.position.set(this.sight.position.x + Math.cos(a) * 0.14, this.sight.position.y + Math.sin(a) * 0.14, -DISTANCE + 0.21);
+      this.pointer.rotation.z = a;
+    }
 
     // Flag streams with the wind.
     const pos = this.flag.geometry.attributes.position as THREE.BufferAttribute;

@@ -39,7 +39,7 @@ Each entry gives the question, the options, and what was chosen and why. Every c
   - Left out: free ball, the miss rule, nominating (the first colour hit counts as nominated), and the re-spotted black on a tie (a tie is a draw).
   - Settings: 3 / 6 / 10 / 15 reds. Default is **6**, so a frame fits a child's attention span.
 - **Darts.** Options: 501 (needs a double to finish), Around the Clock, or Count Up. **Chosen: Count Up**, with 3 darts per turn and 3 / 5 / 8 rounds. The HUD shows the sum ("20 + 5 + 60 = 85") and speaks the total, which is the maths practice. Real board geometry and segment order are used.
-- **Archery.** **Chosen:** a World Archery 10-ring face at 18 m, 3 arrows per end, 3 or 5 ends. Wind is 0 on Easy, up to 2 m/s on Medium and up to 4 m/s on Hard. It is shown by a flag and the HUD, and it changes every end.
+- **Archery.** **Chosen:** a World Archery 10-ring face at 18 m, 3 arrows per end, 3 or 5 ends. Wind was first 0 on Easy, up to 2 m/s on Medium and up to 4 m/s on Hard, changing every end. It now blows on every level (see decision 13).
 
 ### 7. Sizes: real proportions or enlarged?
 - **Chosen: real layouts with friendlier sizes.** Snooker balls are drawn about 30% larger than 52.5 mm and the pockets are generous. Carrom pockets are 3 cm larger in radius than the real ones. Dartboard and archery-face geometry is exact, and only the level-based wobble makes them easier or harder.
@@ -59,6 +59,32 @@ Each entry gives the question, the options, and what was chosen and why. Every c
 ### 11. Sound
 - **Chosen:** new synthesised effects in `tone-generator.ts`: clack, knock, thud, whoosh and plunk. They play through `audioManager.playSfx`, so they follow the sound toggle and add no audio files to the offline cache. Results are spoken with the existing speech helper.
 
+### 12. Aim uncertainty (follow-up request: "introduce some uncertainty in pointing aim")
+- **Question:** before this, a child's carrom/snooker shot went exactly where the guide pointed. Darts and archery only had the visible wobble, so a steady release landed exactly on the dot. How much randomness, and should it be visible?
+- **Options:** (a) hidden random error only, (b) visible wobble only (what darts/archery had), (c) a small random error *and* a visible "it will land somewhere in here" zone.
+- **Chosen: (c)**, so a miss feels fair rather than mysterious. Errors are Gaussian and clamped to 2 standard deviations, so a shot is never wild. They grow with level.
+  - **Carrom and snooker:** the angle error is 0.5° / 1.1° / 1.8° (Easy / Medium / Hard) and grows with power (×0.6 for a soft tap up to ×1.2 for a full hit). Power varies by 2 / 4 / 6%. A faint white wedge on the guide shows the ±2 sd spread out to the first ball. (`aimSpread`, `jitterShot` in `cue-bot.ts`)
+  - **Darts:** a release error of 4 / 9 / 14 mm sd adds to the wobble. A faint disc round the reticle shows the zone. (`dartLanding`)
+  - **Archery:** a release error of 1.2 / 2.5 / 4 cm sd adds to the sway and wind gusts (`arrowLanding`).
+  - The robot keeps its own level-based error (`wobbleShot`, `robotDart`, `robotArrow`).
+
+### 13. Wind in archery on every level
+- **Question:** wind was off on Easy and fixed for a whole end. Make it always present, and should it change during an end?
+- **Options:** (a) keep it off on Easy, (b) a gentle breeze on Easy, with the same fixed-per-end model, (c) a breeze on every level plus small gusts.
+- **Chosen: (c).** Each end rolls a base wind of up to 1 / 2.5 / 4 m/s, and it is never fully calm. Before every arrow it drifts up to ±1 m/s (gust sd 0.15 / 0.35 / 0.6, `nextGust`). While the arrow flies, a further gust of that size adds to the push. The robot feels the gusts too.
+
+### 14. Directional assistance
+- **Question:** where can the game point the child the right way without playing for them?
+- **Options:** (a) none, (b) aim help on Easy only, (c) help tied to level: the most on Easy, less on Medium, and on Hard only feedback that is true for any shot. A separate "aim help" switch was considered, but rejected to keep the settings sheet small.
+- **Chosen: (c).**
+  - **Carrom and snooker:**
+    - All levels: the object ball's line turns green, runs all the way to the pocket, and the pocket pulses when the ball is heading in (`pocketOnLine`).
+    - Easy and Medium: a pulsing green arrow on the cloth shows a good shot from where the cue ball/striker sits. Its length shows how hard to hit. The robot's planner works it out with the real physics and rules, limited to the current position (`robotPlanner(true)`), and it is recomputed after the striker or cue ball is slid. It appears only for shots the rules score above zero, so it never points at a foul.
+  - **Darts:** a pulsing gold ring marks a good target: the bull on Easy, treble 20 otherwise. The HUD says "Try for the bull". A small gold arrow next to the reticle points toward it, and the reticle turns green when it is on target.
+  - **Archery:**
+    - All levels: a large arrow under the target points downwind. It grows and turns from green to red as the wind strengthens. The flag still streams.
+    - Easy and Medium: a green aim-off ring shows where to put the sight so the wind carries the arrow into the gold (`aimOff`). A small arrow by the sight points to it, and the HUD adds "aim left/right a little". After a person's arrow the HUD says which way the wind pushed it.
+
 ## Testing done
 - Unit tests in `src/lib/sports3d/sports3d.test.ts` cover these areas:
   - Physics: momentum, no tunnelling, cushions, pockets, stopping distance, the aim ray-cast.
@@ -66,12 +92,14 @@ Each entry gives the question, the options, and what was chosen and why. Every c
   - Snooker: rack, break flow, fouls, the colour sequence, corner pockets.
   - Darts: segments, rings, sums, robot spread.
   - Archery: rings and wind.
+  - Aim uncertainty and help: spread grows with level and power and stays within 2 sd; pocket-line detection; dart spread by level and the suggested target; wind always present and gusts bounded; aiming off cancels the wind; an early release drops low.
 - Played in Chrome on the dev server:
   - Carrom: slide, aim, shoot, scoring and robot turns.
   - Snooker: aim guide and cue stick, foul flow and robot turns.
   - Darts: three-dart turns, sums and robot turns.
   - Archery: draw, aim and release, a full game to the end panel, settings, and Hard-level wind.
   - Landscape snooker layout checked.
+  - Aim uncertainty and help (follow-up): the snooker spread wedge; the darts target ring, pointer and green on-target reticle, plus a throw; the archery wind arrow, aim-off ring and pointer on Medium, plus a shot; the carrom hint arrow, which was widened after the first look.
 - `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` all pass.
 
 ## Follow-ups (not done)

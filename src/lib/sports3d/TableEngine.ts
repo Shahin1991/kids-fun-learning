@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BotPlanner, wobbleShot, type Shot } from "./cue-bot";
+import { aimSpread, BotPlanner, jitterShot, pocketOnLine, wobbleShot, type Shot } from "./cue-bot";
 import { anyMoving, castDisc, emptyEvents, simStep, type Disc, type SimEvents, type Table } from "./physics2d";
 import { SportScene } from "./SportScene";
 import type { SportOptions } from "./types";
@@ -20,6 +20,11 @@ interface Sinking {
  * Aiming is a slingshot anchored on the cue ball/striker: press near it, pull back, let go. The
  * shot goes the opposite way to the pull and harder the further you pull; letting go close to
  * the ball cancels. A guide line shows the first ball it will touch and where that ball will go.
+ *
+ * Aim is not perfect: a faint wedge shows how far the shot may stray (wider on harder levels and
+ * for harder hits), and the real shot gets a little random angle and power error. To help, the
+ * object ball's line turns green and its pocket lights up when it is heading in, and on Easy and
+ * Medium a green hint arrow (worked out by the robot's planner) points at a good shot.
  */
 export abstract class TableEngine extends SportScene {
   protected discs: Disc[] = [];
@@ -41,6 +46,11 @@ export abstract class TableEngine extends SportScene {
   private guideObj: THREE.Line;
   private ghost: THREE.Mesh;
   private powerRing: THREE.Mesh;
+  private spread: THREE.Mesh;
+  private pocketRing: THREE.Mesh;
+  private hint: THREE.Group;
+  private hintPlanner: BotPlanner | null = null;
+  private hintShot: Shot | null = null;
   private lastClack = 0;
   protected surface: THREE.Plane;
 
@@ -65,10 +75,30 @@ export abstract class TableEngine extends SportScene {
     this.ghost.rotation.x = -Math.PI / 2;
     this.powerRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 48, 1, 0, Math.PI * 2), new THREE.MeshBasicMaterial({ color: 0x6bcb77, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide }));
     this.powerRing.rotation.x = -Math.PI / 2;
-    [this.guideLine, this.guideObj, this.ghost, this.powerRing].forEach((o) => (o.renderOrder = 5));
-    this.guide.add(this.guideLine, this.guideObj, this.ghost, this.powerRing);
+    // Uncertainty wedge: where the shot may actually go (±2 standard deviations).
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(9), 3));
+    this.spread = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, depthTest: false, side: THREE.DoubleSide }));
+    this.pocketRing = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 40), new THREE.MeshBasicMaterial({ color: 0x6bcb77, transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide }));
+    this.pocketRing.rotation.x = -Math.PI / 2;
+    [this.guideLine, this.guideObj, this.ghost, this.powerRing, this.spread, this.pocketRing].forEach((o) => (o.renderOrder = 5));
+    this.guide.add(this.spread, this.guideLine, this.guideObj, this.ghost, this.powerRing, this.pocketRing);
     this.guide.visible = false;
     this.stage.scene.add(this.guide);
+
+    // Hint arrow (unit length along +x, scaled to the shot): a flat green arrow on the cloth.
+    this.hint = new THREE.Group();
+    const hm = new THREE.MeshBasicMaterial({ color: 0x6bcb77, transparent: true, opacity: 0.55, depthTest: false, side: THREE.DoubleSide });
+    const shaft = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.12), hm);
+    shaft.position.x = 0.4;
+    const head = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0.75, 0.16), new THREE.Vector2(1, 0), new THREE.Vector2(0.75, -0.16)])), hm);
+    [shaft, head].forEach((m) => {
+      m.rotation.x = -Math.PI / 2;
+      m.renderOrder = 4;
+      this.hint.add(m);
+    });
+    this.hint.visible = false;
+    this.stage.scene.add(this.hint);
   }
 
   // ---- subclass hooks ----
@@ -79,8 +109,8 @@ export abstract class TableEngine extends SportScene {
   protected abstract clampPlace(x: number, y: number): { x: number; y: number } | null;
   /** Called once everything has stopped after a shot. */
   protected abstract shotFinished(events: SimEvents): void;
-  /** Robot: candidate shots and how to score a simulated result. */
-  protected abstract robotPlanner(): BotPlanner;
+  /** Robot: candidate shots and how to score a simulated result. `fromCue` keeps the cue where it is (for the hint). */
+  protected abstract robotPlanner(fromCue?: boolean): BotPlanner;
   /** Whether discs roll (balls) or slide (carrom coins). */
   protected rolls = true;
   protected onShot?(): void;
@@ -110,7 +140,17 @@ export abstract class TableEngine extends SportScene {
     } else {
       this.phase = "aim";
       this.guide.visible = false;
+      this.startHint();
     }
+  }
+
+  /** Easy and Medium: work out a good shot from where the cue sits and point at it. */
+  private startHint() {
+    this.hint.visible = false;
+    this.hintShot = null;
+    this.hintPlanner = null;
+    if (this.setup.level === "hard" || this.over) return;
+    this.hintPlanner = this.robotPlanner(true);
   }
 
   protected shoot(angle: number, speed: number) {
@@ -120,6 +160,8 @@ export abstract class TableEngine extends SportScene {
     this.shotEvents = emptyEvents();
     this.phase = "rolling";
     this.guide.visible = false;
+    this.hint.visible = false;
+    this.hintPlanner = null;
     this.onShot?.();
     this.sound("clack", Math.min(1, speed / this.maxSpeed + 0.2));
   }
@@ -188,13 +230,16 @@ export abstract class TableEngine extends SportScene {
     if (!this.dragging) return;
     const was = this.dragging;
     this.dragging = null;
+    if (was === "place" && this.phase === "aim") this.startHint();
     if (was !== "aim" || this.phase !== "aim") return;
     if (this.power < 0.06) {
       this.guide.visible = false;
       this.power = 0;
       return;
     }
-    this.shoot(this.aimAngle, this.power * this.maxSpeed);
+    // The real shot strays a little from the aim, inside the wedge the guide showed.
+    const j = jitterShot(this.aimAngle, this.power * this.maxSpeed, this.setup.level, this.power);
+    this.shoot(j.angle, j.speed);
   }
 
   private updateAim(e: PointerEvent) {
@@ -227,10 +272,34 @@ export abstract class TableEngine extends SportScene {
     this.ghost.scale.setScalar(c.r);
     this.ghost.visible = hit.disc !== null;
     this.guideObj.visible = hit.disc !== null;
+    this.pocketRing.visible = false;
+    const objMat = this.guideObj.material as THREE.LineBasicMaterial;
     if (hit.disc !== null) {
       const t = this.discs.find((d) => d.id === hit.disc)!;
-      const len = this.table.halfW * 0.35;
+      let len = this.table.halfW * 0.35;
+      // Heading for a pocket: draw the line all the way in, in green, and light the pocket.
+      const pk = pocketOnLine(this.table, t.x, t.y, hit.nx, hit.ny);
+      if (pk >= 0) {
+        const p = this.table.pockets[pk];
+        len = (p.x - t.x) * hit.nx + (p.y - t.y) * hit.ny;
+        this.pocketRing.visible = true;
+        this.pocketRing.position.copy(this.toWorld(p, y));
+        this.pocketRing.scale.setScalar(p.r * (this.reduced ? 1.1 : 1.1 + Math.sin(this.time * 8) * 0.1));
+      }
+      objMat.color.set(pk >= 0 ? 0x6bcb77 : 0xffe066);
       this.guideObj.geometry.setFromPoints([this.toWorld(t, y), this.toWorld({ x: t.x + hit.nx * len, y: t.y + hit.ny * len }, y)]);
+    }
+    // Uncertainty wedge out to the first contact (players only; the robot's error is its own).
+    const human = this.phase === "aim";
+    this.spread.visible = human;
+    if (human) {
+      const half = 2 * aimSpread(this.setup.level, this.power);
+      const reach = Math.max(c.r * 3, hit.dist + c.r);
+      const pos = this.spread.geometry.attributes.position as THREE.BufferAttribute;
+      const pts = [start, this.toWorld({ x: c.x + Math.cos(this.aimAngle - half) * reach, y: c.y + Math.sin(this.aimAngle - half) * reach }, y), this.toWorld({ x: c.x + Math.cos(this.aimAngle + half) * reach, y: c.y + Math.sin(this.aimAngle + half) * reach }, y)];
+      pts.forEach((v, i) => pos.setXYZ(i, v.x, v.y, v.z));
+      pos.needsUpdate = true;
+      this.spread.geometry.computeBoundingSphere();
     }
     this.powerRing.position.copy(this.toWorld(c, y));
     this.powerRing.scale.setScalar(c.r * (1.4 + this.power * 2.2));
@@ -255,6 +324,8 @@ export abstract class TableEngine extends SportScene {
       }
     } else if (this.phase === "robot") {
       this.robotStep(dt);
+    } else if (this.phase === "aim") {
+      this.hintStep();
     }
     this.animateSinking(dt);
     this.idle?.(dt);
@@ -332,6 +403,30 @@ export abstract class TableEngine extends SportScene {
 
   protected isFree(x: number, y: number, r: number, ignore = -1) {
     return this.discs.every((d) => !d.active || d.id === ignore || Math.hypot(d.x - x, d.y - y) >= d.r + r + 0.002);
+  }
+
+  private hintStep() {
+    if (this.hintPlanner) {
+      const t0 = performance.now();
+      let res = null;
+      while (!res && performance.now() - t0 < 5) res = this.hintPlanner.work(1);
+      if (!res) return;
+      this.hintPlanner = null;
+      // Only point at shots the rules score above zero (a pot; in carrom a clean hit counts too).
+      this.hintShot = res.value > 0 ? res.shot : null;
+    }
+    const s = this.hintShot;
+    this.hint.visible = s !== null && this.dragging !== "place";
+    if (!s) return;
+    const c = this.cue();
+    // Arrow length shows how hard to hit; it starts just outside the cue ball.
+    const len = c.r * 2.5 + this.table.halfW * 0.5 * (s.speed / this.maxSpeed);
+    const from = { x: c.x + Math.cos(s.angle) * c.r * 1.3, y: c.y + Math.sin(s.angle) * c.r * 1.3 };
+    this.hint.position.copy(this.toWorld(from, 0.002));
+    this.hint.rotation.y = s.angle;
+    this.hint.scale.set(len, 1, c.r * 5);
+    const m = (this.hint.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
+    m.opacity = this.dragging ? 0.3 : this.reduced ? 0.55 : 0.4 + Math.sin(this.time * 4) * 0.2;
   }
 
   // ---- robot ----

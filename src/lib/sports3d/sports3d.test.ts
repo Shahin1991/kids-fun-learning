@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { arrowScore, windDrift } from "./archery";
+import { aimOff, arrowLanding, arrowScore, nextGust, rollWind, windDrift } from "./archery";
 import { CARROM_TABLE, carromLayout, carromOutcome, COIN_R } from "./carrom";
-import { BotPlanner, candidateShots } from "./cue-bot";
-import { dartScore, robotDart, segmentAt, sumLine } from "./darts";
+import { aimSpread, BotPlanner, candidateShots, jitterShot, pocketOnLine } from "./cue-bot";
+import { dartLanding, dartScore, robotDart, segmentAt, suggestedDartTarget, sumLine } from "./darts";
 import { anyMoving, castDisc, simStep, simulateShot, speedForDistance, type Disc, type Table } from "./physics2d";
 import { ballsOn, newSnooker, redRack, SNOOKER_TABLE, snookerOutcome, SPOTS } from "./snooker";
 import { resultFor } from "./types";
@@ -204,6 +204,67 @@ describe("archery", () => {
     expect(arrowScore(0.62, 0).points).toBe(0);
     expect(windDrift(4)).toBeGreaterThan(0.1);
     expect(windDrift(0)).toBe(0);
+  });
+});
+
+describe("aim uncertainty and help", () => {
+  const seq = (vals: number[]) => {
+    let i = 0;
+    return () => vals[i++ % vals.length];
+  };
+
+  it("table shots stray more on harder levels and harder hits, never past 2 sd", () => {
+    expect(aimSpread("hard", 1)).toBeGreaterThan(aimSpread("easy", 1));
+    expect(aimSpread("medium", 1)).toBeGreaterThan(aimSpread("medium", 0.1));
+    let worst = 0;
+    for (let i = 0; i < 500; i++) {
+      const j = jitterShot(1, 5, "hard", 1);
+      worst = Math.max(worst, Math.abs(j.angle - 1));
+      expect(j.speed).toBeGreaterThan(5 * 0.85);
+    }
+    expect(worst).toBeGreaterThan(0);
+    expect(worst).toBeLessThanOrEqual(2 * aimSpread("hard", 1) + 1e-9);
+  });
+
+  it("finds the pocket a ball is heading for", () => {
+    const t: Table = { ...table, pockets: [{ x: 2, y: 2, r: 0.15 }, { x: -2, y: 2, r: 0.15 }] };
+    const n = Math.SQRT1_2;
+    expect(pocketOnLine(t, 0, 0, n, n)).toBe(0);
+    expect(pocketOnLine(t, 0, 0, -n, n)).toBe(1);
+    expect(pocketOnLine(t, 0, 0, 1, 0)).toBe(-1);
+    expect(pocketOnLine(t, 0, 0, -n, -n)).toBe(-1);
+  });
+
+  it("darts land near the aim, spread by level", () => {
+    const spread = (level: "easy" | "hard") => {
+      let s = 0;
+      for (let i = 0; i < 400; i++) {
+        const p = dartLanding(0, 0, level);
+        s += Math.hypot(p.x, p.y);
+      }
+      return s / 400;
+    };
+    expect(spread("hard")).toBeGreaterThan(spread("easy") * 2);
+    expect(suggestedDartTarget("easy")).toMatchObject({ x: 0, y: 0 });
+    expect(dartScore(suggestedDartTarget("hard").x, suggestedDartTarget("hard").y).label).toBe("Treble 20");
+  });
+
+  it("archery always has some wind, which gusts, and aiming off cancels it on average", () => {
+    for (let i = 0; i < 50; i++) {
+      const w = rollWind("easy");
+      expect(Math.abs(w)).toBeGreaterThan(0);
+      expect(Math.abs(w)).toBeLessThanOrEqual(1);
+      expect(Math.abs(nextGust(3, "hard") - 3)).toBeLessThanOrEqual(1);
+    }
+    // With no random error (gaussian of 0), aiming off lands dead centre at full draw.
+    const calm = seq([1, 0.25]); // sqrt(-2 ln 1) = 0 → gaussian 0
+    const off = aimOff(3);
+    const hit = arrowLanding(off, 1, 3, "medium", calm);
+    expect(hit.x).toBeCloseTo(0, 6);
+    expect(hit.y).toBeCloseTo(0, 6);
+    expect(hit.drift).toBeCloseTo(windDrift(3), 6);
+    // An early release drops low.
+    expect(arrowLanding({ x: 0, y: 0 }, 0.5, 0, "easy", calm).y).toBeLessThan(-0.5);
   });
 });
 
