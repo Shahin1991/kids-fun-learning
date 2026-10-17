@@ -1,5 +1,5 @@
 // Pure data: dimensions in metres, profile points are [x along length (front +), y up].
-export type VehicleKind = "sedan" | "coupe" | "suv" | "pickup" | "van" | "bus" | "police" | "police-uae" | "ambulance" | "fire";
+export type VehicleKind = "sedan" | "coupe" | "suv" | "family-suv" | "big-4x4" | "exec-saloon" | "pickup" | "van" | "bus" | "police" | "police-uae" | "ambulance" | "fire";
 type Pt = [number, number];
 
 export interface BoxSpec {
@@ -10,6 +10,41 @@ export interface BoxSpec {
   /** How far the top edge is pulled in at the front / rear, so the box is raked rather than square */
   rakeFront?: number;
   rakeRear?: number;
+}
+
+/** How a shaped (non-boxy) body narrows. Every field is optional; the defaults are the original look. */
+export interface ShapeSpec {
+  /** How much narrower the body gets at the very nose and tail (0.16) */
+  planTaper?: number;
+  /** How late along the length that narrowing starts: higher keeps the sides straight for longer (3) */
+  planPower?: number;
+  /** Lean-in of the upper flank toward the belt line (0.06) */
+  tumblehome?: number;
+  /** How much narrower the glasshouse is at the roof than at its base (0.2) */
+  cabinTaper?: number;
+  /** Nose/tail narrowing of the glasshouse (0.1) */
+  cabinPlan?: number;
+  /** Corner rounding of the body and glasshouse profiles, in metres (0.2 / 0.32) */
+  bodyRadius?: number;
+  cabinRadius?: number;
+}
+
+/** Signature details that make a look-alike read as the real car it is based on. */
+export interface StyleSpec {
+  /** Wheel-arch outline: semicircle (default) or flat-topped trapezoid */
+  arches?: "round" | "square";
+  /** Black plastic lower body and arch surrounds */
+  cladding?: boolean;
+  /** Large tall hexagon, low wide trapezoid, or horizontal chrome bars */
+  grille?: "hex" | "trapezoid" | "bars";
+  /** A full-width light bar joining the tail lamps */
+  tailBar?: boolean;
+  /** Two slim roof rails (no cross bars) */
+  roofRails?: boolean;
+  /** Running boards between the wheels */
+  sideSteps?: boolean;
+  /** Chrome strips along the side windows */
+  chromeWindowTrim?: boolean;
 }
 
 export interface VehicleSpec {
@@ -39,6 +74,8 @@ export interface VehicleSpec {
     /** H plays a siren instead of the horn */
     siren?: boolean;
   };
+  shape?: ShapeSpec;
+  style?: StyleSpec;
   /** Front windscreen slab for boxy bodies */
   frontGlass?: { u: number; y: number; w: number; h: number };
   driver: { x: number; y: number; z: number };
@@ -79,6 +116,43 @@ export const VEHICLES: VehicleSpec[] = [
     topSpeedKmh: 200, accel: 5, brake: 8.5, lock: 0.48,
     rating: { speed: 0.65, accel: 0.5, brake: 0.6, steer: 0.5 },
     engine: { base: 48, filter: 800, wave: "sawtooth", rpmRange: 2.4 }, defaultColor: "#2e7d32",
+  },
+  // Look-alikes of real cars: real length, width, height and wheelbase, generic names, no badges.
+  {
+    // Compact family SUV in the style of a RAV4 (XA50): 4.60 × 1.855 × 1.685 m, 2.69 m wheelbase
+    id: "family-suv", name: "Family SUV", length: 4.6, width: 1.855, wheelbase: 2.69, wheelRadius: 0.36,
+    body: [[-2.3, 0.42], [-2.3, 0.9], [-2.22, 1.1], [-2.08, 1.13], [0.95, 1.13], [1.85, 1.03], [2.22, 0.95], [2.3, 0.88], [2.3, 0.42]],
+    cabin: [[-2.1, 1.13], [-1.82, 1.66], [0.35, 1.66], [1.0, 1.13]],
+    shape: { planTaper: 0.13, tumblehome: 0.05, cabinTaper: 0.17, bodyRadius: 0.14, cabinRadius: 0.22 },
+    style: { arches: "square", cladding: true, grille: "trapezoid", roofRails: true },
+    features: {}, driver: { x: -0.42, y: 1.42, z: 0.15 },
+    topSpeedKmh: 190, accel: 5.2, brake: 8.8, lock: 0.5,
+    rating: { speed: 0.6, accel: 0.5, brake: 0.62, steer: 0.58 },
+    engine: { base: 50, filter: 820, wave: "sawtooth", rpmRange: 2.5 }, defaultColor: "#8a9aa6",
+  },
+  {
+    // Big upright 4x4 in the style of a Land Cruiser 300: 4.985 × 1.98 × 1.925 m, 2.85 m wheelbase
+    id: "big-4x4", name: "Big 4x4", length: 4.985, width: 1.98, wheelbase: 2.85, wheelRadius: 0.4,
+    body: [[-2.49, 0.48], [-2.49, 1.12], [-2.45, 1.22], [1.15, 1.22], [2.3, 1.17], [2.49, 1.06], [2.49, 0.48]],
+    cabin: [[-2.42, 1.22], [-2.34, 1.9], [0.55, 1.9], [1.2, 1.22]],
+    shape: { planTaper: 0.07, planPower: 4, tumblehome: 0.03, cabinTaper: 0.1, cabinPlan: 0.04, bodyRadius: 0.12, cabinRadius: 0.14 },
+    style: { arches: "square", cladding: true, grille: "bars", roofRails: true, sideSteps: true },
+    features: {}, driver: { x: -0.45, y: 1.6, z: 0.15 },
+    topSpeedKmh: 180, accel: 4.4, brake: 8, lock: 0.45,
+    rating: { speed: 0.55, accel: 0.42, brake: 0.55, steer: 0.45 },
+    engine: { base: 42, filter: 700, wave: "sawtooth", rpmRange: 2.2 }, defaultColor: "#f4f6f8",
+  },
+  {
+    // Executive saloon in the style of an A6 (C8): 4.94 × 1.886 × 1.457 m, 2.924 m wheelbase
+    id: "exec-saloon", name: "Executive Saloon", length: 4.94, width: 1.886, wheelbase: 2.924, wheelRadius: 0.35,
+    body: [[-2.47, 0.34], [-2.47, 0.8], [-2.38, 0.94], [-2.05, 0.98], [0.85, 0.96], [1.9, 0.88], [2.35, 0.8], [2.47, 0.72], [2.45, 0.34]],
+    cabin: [[-1.95, 0.97], [-1.0, 1.43], [0.3, 1.43], [1.0, 0.97]],
+    shape: { planTaper: 0.17, tumblehome: 0.07, cabinTaper: 0.24, bodyRadius: 0.24, cabinRadius: 0.42 },
+    style: { grille: "hex", tailBar: true, chromeWindowTrim: true },
+    features: {}, driver: { x: -0.4, y: 1.12, z: 0.1 },
+    topSpeedKmh: 240, accel: 6.8, brake: 9.8, lock: 0.5,
+    rating: { speed: 0.82, accel: 0.7, brake: 0.75, steer: 0.68 },
+    engine: { base: 58, filter: 1100, wave: "sawtooth", rpmRange: 2.8 }, defaultColor: "#212121",
   },
   {
     id: "pickup", name: "Pickup", length: 5.4, width: 2.0, wheelbase: 3.3, wheelRadius: 0.4,
@@ -162,5 +236,5 @@ export function getVehicleSpec(id: string): VehicleSpec {
   return VEHICLES.find((v) => v.id === id) ?? VEHICLES[0];
 }
 
-export const TRAFFIC_KINDS: VehicleKind[] = ["sedan", "suv", "van", "pickup", "bus"];
+export const TRAFFIC_KINDS: VehicleKind[] = ["sedan", "suv", "family-suv", "exec-saloon", "van", "pickup", "bus"];
 export const EMERGENCY_KINDS: VehicleKind[] = ["police", "police-uae", "ambulance", "fire"];

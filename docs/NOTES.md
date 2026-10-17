@@ -70,6 +70,19 @@
 - City: 7 building archetypes with window textures that tile at real-world size (UVs scaled per geometry), lit-window emissive map driven by night, shop signs, paving ground, and a two-layer skyline with night lights. Built lazily the first time it is needed.
 - `World.setEnvironment(env, instant?)` swaps scenery behind a short fog fade. Garage chips: Country / City / Auto (Auto alternates every 4 km).
 
+## Apex Highway look-alike cars (`vehicle-specs.ts`, `vehicle-builder.ts`)
+- Family SUV, Big 4x4 and Executive Saloon are built in code in the style of a RAV4 (XA50), a Land Cruiser 300 and an A6 (C8). They use the real length, width, height (within 5%) and wheelbase. Names are generic, with no badges or logos, to avoid trademark use. No model files, so they add nothing to the offline cache.
+- What makes them recognisable lives in two optional spec fields, so the original ten vehicles are unchanged:
+  - `shape`: how much the body narrows toward the nose, tail and roof, and the corner radii (`shapeOf()` supplies the old numbers as defaults).
+  - `style`:
+    - square arches;
+    - black cladding and arch surrounds;
+    - a `hex`, `trapezoid` or `bars` grille, laid on the nose by raycasting the body;
+    - a full-width tail light bar;
+    - roof rails, side steps and chrome window trim.
+- Two headlamp styles were added: `slim` (wide and thin, saloon) and `rect` (compact, so the 4x4's wide grille fits between the lamps). Square arches use a smaller arch radius (1.12 × wheel instead of 1.22) because their corners already add room.
+- Family SUV and Executive Saloon are also in `TRAFFIC_KINDS`.
+
 ## Pass-and-play (two people, one device)
 - `lib/board-games/seats.ts`: the first `humans` seats are people (names "You" for one person, "Player 1/2" for two), the rest are robots (Robo, Froggy, Unicorn). Settings sheet: "Who is playing?" (1 or 2 people) and "How many seats?" (2-4). Choice is saved per game.
 - Snakes & Ladders and Ludo: engines take `humans` and use `isHuman(seat)`; only a person can press Roll or tap pawns, the message says "Player 2's turn! Pass the device, then roll". Ludo seats map to board colours via the player set, so two people plus a robot is red/green/yellow.

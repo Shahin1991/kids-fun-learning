@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import type { BoxSpec, VehicleKind, VehicleSpec } from "./vehicle-specs";
+import type { BoxSpec, ShapeSpec, VehicleKind, VehicleSpec } from "./vehicle-specs";
 
 /** Geometry shared between all vehicles of the same spec. */
 export class GeometryCache {
@@ -194,10 +194,13 @@ const LAMP = {
  * saloons a wide lamp with an LED brow, SUVs a running-light bar over the beams, pickups a big
  * C-clamp, vans tall upright lamps, and buses and fire engines twin round lamps with a big amber.
  */
-type HeadStyle = "blade" | "swept" | "split" | "clamp" | "tall" | "round";
+type HeadStyle = "blade" | "slim" | "swept" | "split" | "rect" | "clamp" | "tall" | "round";
 const HEAD_STYLE: Record<VehicleKind, HeadStyle> = {
   coupe: "blade",
   sedan: "swept",
+  "exec-saloon": "slim",
+  "family-suv": "blade",
+  "big-4x4": "rect",
   police: "swept",
   "police-uae": "swept",
   suv: "split",
@@ -209,8 +212,10 @@ const HEAD_STYLE: Record<VehicleKind, HeadStyle> = {
 };
 const HEAD_SIZE: Record<HeadStyle, { w: number; h: number }> = {
   blade: { w: 0.6, h: 0.075 },
+  slim: { w: 0.62, h: 0.1 },
   swept: { w: 0.5, h: 0.14 },
   split: { w: 0.5, h: 0.2 },
+  rect: { w: 0.36, h: 0.17 },
   clamp: { w: 0.48, h: 0.2 },
   tall: { w: 0.3, h: 0.26 },
   round: { w: 0.56, h: 0.2 },
@@ -224,8 +229,9 @@ function headOutlineFor(style: HeadStyle, w: number, h: number): Pt[] {
   const pts: Pt[] =
     style === "blade" ? [[-w / 2, -h / 2], [-w / 2, h / 2], [w / 2, h / 2], [w / 2, h * 0.1], [w * 0.3, -h / 2]]
     : style === "swept" ? [[-w / 2, -h / 2], [-w / 2, h / 2], [w / 2, h / 2], [w / 2, -h * 0.05], [w * 0.25, -h / 2]]
+    : style === "slim" ? [[-w / 2, -h / 2], [-w / 2, h / 2], [w / 2, h / 2], [w / 2, -h * 0.1], [w * 0.35, -h / 2]]
     : [[-w / 2, -h / 2], [-w / 2, h / 2], [w / 2, h / 2], [w / 2, -h / 2]];
-  const r = style === "blade" ? h * 0.4 : style === "swept" ? h * 0.3 : style === "tall" ? 0.07 : 0.04;
+  const r = style === "blade" ? h * 0.4 : style === "slim" ? h * 0.35 : style === "swept" ? h * 0.3 : style === "tall" ? 0.07 : 0.04;
   return roundedClosed(pts, r).getSpacedPoints(96).map((p) => [p.x, p.y] as Pt);
 }
 
@@ -281,19 +287,88 @@ function roundedClosed(pts: Pt[], radius: number): THREE.Shape {
   return shape;
 }
 
-/** Lower body: rounded profile with semicircular wheel arches cut into the bottom edge. */
-function bodyShape(pts: Pt[], radius: number, arches: { u: number; r: number; cy: number }[]): THREE.Shape {
+interface Arch {
+  u: number;
+  r: number;
+  cy: number;
+  /** Flat-topped trapezoid (modern SUVs) instead of a semicircle */
+  square?: boolean;
+}
+
+/** Arch opening from its front foot on the line y0 to its rear foot (front is +u). */
+function archOutline(a: Arch, y0: number): Pt[] {
+  if (a.square) {
+    // Angular trapezoid: steep sides, a long flat top and chamfered top corners
+    return [
+      [a.u + a.r * 1.04, y0],
+      [a.u + a.r * 0.98, a.cy + a.r * 0.45],
+      [a.u + a.r * 0.62, a.cy + a.r * 0.98],
+      [a.u - a.r * 0.62, a.cy + a.r * 0.98],
+      [a.u - a.r * 0.98, a.cy + a.r * 0.45],
+      [a.u - a.r * 1.04, y0],
+    ];
+  }
+  const a0 = Math.asin(Math.max(-1, Math.min(1, (y0 - a.cy) / a.r)));
+  const pts: Pt[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const t = a0 + ((Math.PI - 2 * a0) * i) / 16;
+    pts.push([a.u + a.r * Math.cos(t), a.cy + a.r * Math.sin(t)]);
+  }
+  return pts;
+}
+
+/** Appends an arch opening to a shape that is running along its bottom edge toward the rear. */
+function cutArch(shape: THREE.Shape, a: Arch, y0: number) {
+  if (!a.square) {
+    const a0 = Math.asin(Math.max(-1, Math.min(1, (y0 - a.cy) / a.r)));
+    shape.lineTo(a.u + a.r * Math.cos(a0), y0);
+    shape.absarc(a.u, a.cy, a.r, a0, Math.PI - a0, false);
+    return;
+  }
+  const pts = archOutline(a, y0);
+  shape.lineTo(pts[0][0], pts[0][1]);
+  roundedChain(shape, pts, a.r * 0.18);
+}
+
+/** Lower body: rounded profile with wheel arches cut into the bottom edge. */
+function bodyShape(pts: Pt[], radius: number, arches: Arch[]): THREE.Shape {
   const shape = new THREE.Shape();
   shape.moveTo(pts[0][0], pts[0][1]);
   roundedChain(shape, pts, radius);
   const y0 = pts[0][1];
-  for (const a of [...arches].sort((m, n) => n.u - m.u)) {
-    const a0 = Math.asin(Math.max(-1, Math.min(1, (y0 - a.cy) / a.r)));
-    shape.lineTo(a.u + a.r * Math.cos(a0), y0);
-    shape.absarc(a.u, a.cy, a.r, a0, Math.PI - a0, false);
-  }
+  for (const a of [...arches].sort((m, n) => n.u - m.u)) cutArch(shape, a, y0);
   shape.closePath();
   return shape;
+}
+
+/** A band of width `t` hugging an arch opening (the black plastic surround on SUVs). */
+function archSurround(a: Arch, y0: number, t: number): THREE.Shape {
+  const inner = archOutline(a, y0);
+  const outer = archOutline({ ...a, r: a.r + t }, y0);
+  const shape = new THREE.Shape();
+  // Round arches are already finely sampled; square ones get the same fillets as the opening
+  const run = (pts: Pt[], r: number) => (a.square ? roundedChain(shape, pts, r) : pts.slice(1).forEach(([x, y]) => shape.lineTo(x, y)));
+  shape.moveTo(outer[0][0], outer[0][1]);
+  run(outer, (a.r + t) * 0.18);
+  const back = [...inner].reverse();
+  shape.lineTo(back[0][0], back[0][1]);
+  run(back, a.r * 0.18);
+  shape.closePath();
+  return shape;
+}
+
+/** Body-narrowing settings with the original values as defaults. */
+function shapeOf(spec: VehicleSpec): Required<ShapeSpec> {
+  const s = spec.shape ?? {};
+  return {
+    planTaper: s.planTaper ?? 0.16,
+    planPower: s.planPower ?? 3,
+    tumblehome: s.tumblehome ?? 0.06,
+    cabinTaper: s.cabinTaper ?? 0.2,
+    cabinPlan: s.cabinPlan ?? 0.1,
+    bodyRadius: s.bodyRadius ?? 0.2,
+    cabinRadius: s.cabinRadius ?? 0.32,
+  };
 }
 
 export interface BuiltVehicle {
@@ -342,11 +417,16 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   const hw = W / 2;
   const halfL = L / 2;
   const shaped = !spec.boxes;
+  const sh = shapeOf(spec);
+  const st = spec.style ?? {};
+  /** Nose/tail narrowing of the body at z (1 = full width) */
+  const bodyPlan = (z: number) => 1 - sh.planTaper * Math.pow(Math.min(1, Math.abs(z) / halfL), sh.planPower);
   const bodyYs = spec.body.map((p) => p[1]);
   const bodyBottom = Math.min(...bodyYs);
   const bodyTop = Math.max(...bodyYs);
   const R = spec.wheelRadius;
-  const archR = Math.min(R * 1.22, bodyTop - 0.05 - R);
+  // Square arches hug the tyre more closely than round ones (their corners already add room)
+  const archR = Math.min(R * (spec.style?.arches === "square" ? 1.12 : 1.22), bodyTop - 0.05 - R);
   const hasArches = archR >= R * 1.05;
 
   const extrude = (key: string, shape: () => THREE.Shape, width: number, bevel: number, deform?: (v: THREE.Vector3) => void) =>
@@ -369,20 +449,20 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   // Real bodies narrow toward the roof and the nose/tail and have a slightly crowned hood.
   const bodyDeform = (v: THREE.Vector3) => {
     const t = clamp01((v.y - bodyBottom) / (bodyTop - bodyBottom));
-    const plan = 1 - 0.16 * Math.pow(Math.min(1, Math.abs(v.z) / halfL), 3);
-    v.x *= (1 - 0.06 * smooth(0.5, 1, t)) * plan;
+    v.x *= (1 - sh.tumblehome * smooth(0.5, 1, t)) * bodyPlan(v.z);
     if (t > 0.9) v.y += 0.04 * (1 - Math.min(1, (v.x / hw) ** 2));
   };
   const cabin0 = spec.cabin;
   const roofTop = cabin0 ? cabin0[1][1] : 0;
-  const cabinTaper = (y: number) => (shaped && cabin0 ? 1 - 0.2 * clamp01((y - cabin0[0][1]) / (roofTop - cabin0[0][1])) : 1);
+  const cabinTaper = (y: number) => (shaped && cabin0 ? 1 - sh.cabinTaper * clamp01((y - cabin0[0][1]) / (roofTop - cabin0[0][1])) : 1);
+  const cabinPlan = (z: number) => 1 - sh.cabinPlan * Math.pow(Math.min(1, Math.abs(z) / halfL), 3);
   const cabinDeform = (v: THREE.Vector3) => {
-    const plan = 1 - 0.1 * Math.pow(Math.min(1, Math.abs(v.z) / halfL), 3);
+    const plan = cabinPlan(v.z);
     v.x *= cabinTaper(v.y) * plan;
   };
 
-  const archSpec = hasArches ? [-1, 1].map((sz) => ({ u: sz * (spec.wheelbase / 2), r: archR, cy: R })) : [];
-  const bodyMesh = add(extrude("body", () => bodyShape(spec.body, shaped ? 0.2 : 0.14, archSpec), W - 0.1, 0.06, shaped ? bodyDeform : undefined), paint, 0, 0, 0, true);
+  const archSpec: Arch[] = hasArches ? [-1, 1].map((sz) => ({ u: sz * (spec.wheelbase / 2), r: archR, cy: R, square: st.arches === "square" })) : [];
+  const bodyMesh = add(extrude("body", () => bodyShape(spec.body, shaped ? sh.bodyRadius : 0.14, archSpec), W - 0.1, 0.06, shaped ? bodyDeform : undefined), paint, 0, 0, 0, true);
   // Upper bodies (van, bus, ambulance, fire engine): rounded, raked profiles that lean in
   // toward the roof, taper at the ends and have a slightly crowned roof.
   const boxInset = (b: BoxSpec, y: number) => 0.07 * smooth(0.4, 1, clamp01((y - b.y0) / (b.y1 - b.y0)));
@@ -404,7 +484,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
 
   const cabin = spec.cabin;
   if (cabin) {
-    add(extrude("cabin", () => roundedClosed(cabin, shaped ? 0.32 : 0.2), W - 0.22, 0.03, shaped ? cabinDeform : undefined), glass, 0, 0, 0);
+    add(extrude("cabin", () => roundedClosed(cabin, shaped ? sh.cabinRadius : 0.2), W - 0.22, 0.03, shaped ? cabinDeform : undefined), glass, 0, 0, 0);
     const roofLen = cabin[2][0] - cabin[1][0];
     const roofY = cabin[1][1];
     // Painted roof skin: the top band of the glasshouse profile, a touch wider, so it wraps the glass like a real roof panel.
@@ -412,19 +492,21 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     const capY = roofY - Math.min(0.16, (roofY - cabin[0][1]) * 0.3);
     const roofProf: Pt[] = [along(cabin[0], cabin[1], capY), [cabin[1][0], roofY + 0.025], [cabin[2][0], roofY + 0.025], along(cabin[3], cabin[2], capY)];
     const glassHalf = (W - 0.22) / 2;
-    add(extrude("roofskin", () => roundedClosed(roofProf, 0.12), W - 0.18, 0.03, shaped ? cabinDeform : undefined), paint, 0, 0, 0, true);
+    // Corner rounding follows the glasshouse, so a rounded fastback roof does not overhang its glass like a lid
+    const roofR = shaped && spec.shape?.cabinRadius ? Math.max(0.12, sh.cabinRadius * 0.55) : 0.12;
+    add(extrude("roofskin", () => roundedClosed(roofProf, roofR), W - 0.18, 0.03, shaped ? cabinDeform : undefined), paint, 0, 0, 0, true);
     // Pillars are painted strips lying on the glass surface (following its taper), not free-standing bars.
     const onGlass = (u: number, y: number, s: number) => {
       const z = -u;
-      const plan = shaped ? 1 - 0.1 * Math.pow(Math.min(1, Math.abs(z) / halfL), 3) : 1;
+      const plan = shaped ? cabinPlan(z) : 1;
       return new THREE.Vector3(s * ((glassHalf + 0.03) * cabinTaper(y) * plan + 0.005), y, z);
     };
     // `inset` moves the strip along the car so it lies inside the glass outline rather than overhanging its edge
-    const strut = (a: Pt, b: Pt, s: number, width: number, inset = 0) => {
+    const strut = (a: Pt, b: Pt, s: number, width: number, inset = 0, m0: THREE.Material = paint) => {
       const p0 = onGlass(a[0] + inset, a[1], s);
       const p1 = onGlass(b[0] + inset, b[1], s);
       const len = p0.distanceTo(p1);
-      const m = add(box(`strut${width}`, 0.035, 1, width), paint, (p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2);
+      const m = add(box(`strut${width}`, 0.035, 1, width), m0, (p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2);
       m.scale.y = len;
       // Basis: length along the pillar, thickness along the outward normal, width lying in the glass surface
       const dir = p1.clone().sub(p0).normalize();
@@ -441,6 +523,25 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
       strut(lerpPt(cabin[0], cabin[1], 0.15), along(cabin[0], cabin[1], capY), s, cw, cw / 2 + 0.1);
       const midU = (cabin[1][0] + cabin[2][0]) / 2 + 0.05;
       strut([midU, cabin[0][1] + 0.03], [midU, capY], s, 0.1);
+      if (st.chromeWindowTrim) {
+        // Bright strips framing the side glass: along its base and under the roof line
+        const baseY = cabin[0][1] + 0.035;
+        strut(along(cabin[0], cabin[1], baseY), along(cabin[3], cabin[2], baseY), s, 0.022, 0, chrome);
+        const topY = capY - 0.012;
+        strut(along(cabin[0], cabin[1], topY), along(cabin[3], cabin[2], topY), s, 0.018, 0, chrome);
+      }
+    }
+    if (st.roofRails) {
+      // Two slim rails standing on little feet near the roof edges
+      const u0 = cabin[1][0] + 0.12;
+      const u1 = cabin[2][0] - 0.08;
+      const railY = roofY + 0.025;
+      const railMat = mat(new THREE.MeshStandardMaterial({ color: 0xb0b8bf, metalness: 0.85, roughness: 0.35 }));
+      for (const s of [-1, 1]) {
+        const x = s * (onGlass((u0 + u1) / 2, roofY, 1).x - 0.12);
+        add(box("rail", 0.045, 0.035, u1 - u0), railMat, x, railY + 0.07, -(u0 + u1) / 2);
+        for (const u of [u0 + 0.04, u1 - 0.04]) add(box("railfoot", 0.05, 0.06, 0.09), dark, x, railY + 0.03, -u);
+      }
     }
     if (spec.features.roofRack) {
       for (const s of [-1, 1]) add(box("rackr", 0.05, 0.05, roofLen), chrome, s * 0.7, roofY + 0.1, -(cabin[1][0] + cabin[2][0]) / 2);
@@ -488,8 +589,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   const skinX = (y: number, z: number) => {
     if (!shaped) return W / 2 + 0.01;
     const t = clamp01((y - bodyBottom) / (bodyTop - bodyBottom));
-    const plan = 1 - 0.16 * Math.pow(Math.min(1, Math.abs(z) / halfL), 3);
-    return bodyHalf * (1 - 0.06 * smooth(0.5, 1, t)) * plan;
+    return bodyHalf * (1 - sh.tumblehome * smooth(0.5, 1, t)) * bodyPlan(z);
   };
   // Tumblehome lean so thin details lie flat against the curved flank
   const skinLean = (y: number, z: number) => Math.atan((skinX(y + 0.1, z) - skinX(y - 0.1, z)) / 0.2);
@@ -541,6 +641,21 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     add(box("mirror", 0.14, 0.1, 0.1), paint, s * (skinX(beltY + 0.2, cabin ? -(cabin[3][0] - 0.2) : 0) + 0.06), beltY + 0.2, -(cabin ? cabin[3][0] - 0.2 : spec.length / 2 - 1.2));
   }
 
+  // Black plastic lower body and arch surrounds, a touch proud of the paint (modern SUVs)
+  const plastic = mat(new THREE.MeshStandardMaterial({ color: 0x24272c, roughness: 0.92 }));
+  if (st.cladding && shaped) {
+    const top = bodyBottom + 0.17;
+    const rearU = endU(-1, top) + 0.06;
+    const frontU = endU(1, top) - 0.06;
+    const prof: Pt[] = [[rearU, bodyBottom], [rearU, top], [frontU, top], [frontU, bodyBottom]];
+    add(extrude("clad", () => bodyShape(prof, 0.05, archSpec), W - 0.07, 0.07, bodyDeform), plastic, 0, 0, 0, true);
+    archSpec.forEach((a, i) => add(extrude(`cladarch${i}`, () => archSurround(a, bodyBottom, 0.08), W - 0.06, 0.065, bodyDeform), plastic, 0, 0, 0, true));
+  }
+  if (st.sideSteps && hasArches) {
+    const len = spec.wheelbase - archR * 2.2 - 0.1;
+    for (const s of [-1, 1]) add(box("step", 0.2, 0.05, len), dark, s * (skinX(bodyBottom, 0) - 0.02), bodyBottom - 0.04, 0, true);
+  }
+
   // Features
   const f = spec.features;
   if (f.spoiler) {
@@ -587,7 +702,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   const noseTop = Math.max(...spec.body.filter((p) => p[0] > halfL - 0.01).map((p) => p[1]), 0);
   const tailTop = Math.max(...spec.body.filter((p) => p[0] < -halfL + 0.01).map((p) => p[1]), 0);
   const tailY = shaped ? tailTop - 0.12 : Math.min(beltY - 0.12, 0.85);
-  const planAt = (z: number) => (shaped ? 1 - 0.16 * Math.pow(Math.min(1, Math.abs(z) / halfL), 3) : 1);
+  const planAt = (z: number) => (shaped ? bodyPlan(z) : 1);
   const tailZ = -endU(-1, tailY) + 0.02;
   const tailX = (W / 2 - 0.42) * planAt(tailZ);
   // Headlamps sit flush in the nose: the top just under the hood line, the outer edge clear of the
@@ -680,6 +795,12 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
         drl(g, ([, y]) => y > h * 0.1, 0.86);
         projector(g, -w * 0.28, -h * 0.1, h * 0.3);
         break;
+      case "slim": // executive saloon: a wide, thin lamp with an LED brow and three small projectors
+        drl(g, ([, y]) => y > h * 0.15, 0.85);
+        projector(g, -w * 0.3, -h * 0.12, h * 0.26);
+        projector(g, -w * 0.12, -h * 0.12, h * 0.26);
+        projector(g, w * 0.06, -h * 0.12, h * 0.26);
+        break;
       case "swept": // family saloon: LED brow over twin projectors, amber at the outer corner
         drl(g, ([, y]) => y > h * 0.2);
         projector(g, -w * 0.3, -h * 0.1, h * 0.28);
@@ -691,6 +812,11 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
         projector(g, -w * 0.26, -h * 0.12, h * 0.25);
         projector(g, -w * 0.02, -h * 0.12, h * 0.25);
         indicator(g, w * 0.3, -h * 0.12, w * 0.14, h * 0.3);
+        break;
+      case "rect": // big 4x4: compact upright lamp beside a wide grille, L-shaped running light
+        drl(g, ([x, y]) => y > h * 0.3 || x > w * 0.38, 0.84);
+        projector(g, -w * 0.22, -h * 0.08, h * 0.26);
+        projector(g, w * 0.08, -h * 0.08, h * 0.26);
         break;
       case "clamp": // pickup: C-shaped running light hugging a big projector
         drl(g, ([x]) => x > -w * 0.15);
@@ -792,6 +918,77 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     pool.renderOrder = 2;
   }
 
+  if (st.tailBar) {
+    // One light strip right across the tail, joining the two lamps
+    const by = tailY + 0.06; // clear of the number plate below
+    const bz = -endU(-1, by) + 0.016;
+    add(box("tailbarbg", tailX * 2 + 0.02, 0.06, 0.02), dark, 0, by, bz - 0.006);
+    add(box("tailbar", tailX * 2, 0.026, 0.02), tailLedMat, 0, by, bz);
+  }
+
+  // Styled grilles: flat plates laid on the nose (found by probing the body), tilted to its slope
+  if (st.grille) {
+    const ray = new THREE.Raycaster();
+    const noseZ = (y: number) => {
+      ray.set(new THREE.Vector3(0.05, y, frontZ - 2), new THREE.Vector3(0, 0, 1));
+      return ray.intersectObject(bodyMesh, false)[0]?.point.z ?? -endU(1, y);
+    };
+    const grilleMat = mat(new THREE.MeshStandardMaterial({ color: 0x0b0c0f, metalness: 0.5, roughness: 0.3 }));
+    const barMat = mat(new THREE.MeshStandardMaterial({ color: 0x5b6168, metalness: 0.8, roughness: 0.35 }));
+    // A plate whose outline `pts` is centred on (0, y); its front face sits just proud of the skin
+    const plate = (key: string, pts: Pt[], radius: number, y: number, m: THREE.Material, depth = 0.03, proud = 0.008) => {
+      const geo = cache.get(`${spec.id}:${key}`, () => new THREE.ExtrudeGeometry(roundedClosed(pts, radius), { depth, bevelEnabled: false, curveSegments: 4 }).translate(0, 0, -depth));
+      const ys = pts.map((p) => p[1]);
+      const top = y + Math.max(...ys);
+      const bot = y + Math.min(...ys);
+      const zt = noseZ(top - 0.01);
+      const zb = noseZ(bot + 0.01);
+      const mesh = add(geo, m, 0, y, (zt + zb) / 2 - proud);
+      mesh.rotation.set(Math.atan2(zt - zb, top - bot), Math.PI, 0);
+      return mesh;
+    };
+    // Horizontal bars in front of a plate (children, so they share its tilt)
+    const bars = (on: THREE.Mesh, key: string, n: number, w: number, h: number, t: number, m: THREE.Material) => {
+      for (let i = 0; i < n; i++) part(on, box(`${key}`, w, t, 0.02), m, 0, -h / 2 + ((i + 1) * h) / (n + 1), 0.008);
+    };
+    const between = 2 * (headX - headW / 2) - 0.06; // room between the headlamps
+    if (st.grille === "hex") {
+      // Big single-frame grille: fits between the lamps at the top, then widens below them, chamfered base
+      const top = headY + headH / 2 - 0.01;
+      const bot = bodyBottom + 0.08;
+      const h = top - bot;
+      const wt = Math.min(0.72, between);
+      const wm = Math.min(wt * 1.35, W * 0.5);
+      const wb = wm * 0.92;
+      const shoulder = headY - headH / 2 - 0.03 - (top + bot) / 2; // just under the lamps
+      const pts: Pt[] = [[-wt / 2, h / 2], [wt / 2, h / 2], [wm / 2, shoulder], [wb / 2, -h / 2 + 0.06], [wb / 2 - 0.06, -h / 2], [-wb / 2 + 0.06, -h / 2], [-wb / 2, -h / 2 + 0.06], [-wm / 2, shoulder]];
+      const cy = (top + bot) / 2;
+      plate("grillerim", pts.map(([x, y]) => [x * 1.07, y * 1.05] as Pt), 0.04, cy, chrome, 0.03, 0.004);
+      const g = plate("grille", pts, 0.035, cy, grilleMat, 0.03, 0.01);
+      bars(g, "grillebar", 6, wb * 0.92, h * 0.9, 0.012, barMat);
+    } else if (st.grille === "trapezoid") {
+      // Slim slot between the lamps and a big low trapezoid in the bumper
+      const slotW = Math.max(0.2, between);
+      plate("grilleslot", [[-slotW / 2, 0.03], [slotW / 2, 0.03], [slotW / 2 - 0.04, -0.03], [-slotW / 2 + 0.04, -0.03]], 0.02, headY - headH * 0.15, grilleMat);
+      const wt = Math.min(1.05, W * 0.55);
+      const wb = wt * 0.8;
+      const h = 0.22;
+      const g = plate("grillelow", [[-wt / 2, h / 2], [wt / 2, h / 2], [wb / 2, -h / 2], [-wb / 2, -h / 2]], 0.04, bodyBottom + 0.22, grilleMat);
+      bars(g, "grillelowbar", 3, wb * 0.9, h * 0.85, 0.014, barMat);
+    } else {
+      // Wide chrome-barred grille filling the space between the lamps
+      const top = headY + headH / 2;
+      const bot = Math.max(bodyBottom + 0.2, top - 0.38);
+      const h = top - bot;
+      const w = Math.max(0.5, between + 0.02);
+      const cy = (top + bot) / 2;
+      const rect: Pt[] = [[-w / 2, h / 2], [w / 2, h / 2], [w / 2, -h / 2], [-w / 2, -h / 2]];
+      plate("grillerim", rect.map(([x, y]) => [x + Math.sign(x) * 0.035, y + Math.sign(y) * 0.03] as Pt), 0.04, cy, chrome, 0.03, 0.004);
+      const g = plate("grille", rect, 0.03, cy, grilleMat, 0.03, 0.01);
+      bars(g, "grillebar", 3, w * 0.96, h * 0.92, 0.04, chrome);
+    }
+  }
+
   // Bumpers, grille and number plates
   if (detailed) {
     const bumperY = bodyBottom + 0.07;
@@ -799,11 +996,13 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     const bumpRZ = -endU(-1, bumperY);
     add(box("bumpf", (W - 0.6) * planAt(bumpFZ), 0.1, 0.1), dark, 0, bumperY, bumpFZ - 0.01);
     add(box("bumpr", (W - 0.6) * planAt(bumpRZ), 0.1, 0.1), dark, 0, bumperY, bumpRZ + 0.01);
-    const grilleY = Math.max(bodyBottom + 0.19, headY - 0.1);
-    const grilleZ = -endU(1, grilleY) - 0.015;
-    add(box("grille", W * 0.24, 0.09, 0.05), dark, 0, grilleY, grilleZ);
-    add(box("grilleframe", W * 0.24 + 0.04, 0.014, 0.055), chrome, 0, grilleY + 0.052, grilleZ - 0.003);
-    add(box("grilleframeb", W * 0.24 + 0.04, 0.014, 0.055), chrome, 0, grilleY - 0.052, grilleZ - 0.003);
+    if (!st.grille) {
+      const grilleY = Math.max(bodyBottom + 0.19, headY - 0.1);
+      const grilleZ = -endU(1, grilleY) - 0.015;
+      add(box("grille", W * 0.24, 0.09, 0.05), dark, 0, grilleY, grilleZ);
+      add(box("grilleframe", W * 0.24 + 0.04, 0.014, 0.055), chrome, 0, grilleY + 0.052, grilleZ - 0.003);
+      add(box("grilleframeb", W * 0.24 + 0.04, 0.014, 0.055), chrome, 0, grilleY - 0.052, grilleZ - 0.003);
+    }
     const plate = mat(new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 }));
     add(box("plater", 0.5, 0.12, 0.02), plate, 0, bumperY + 0.2, -endU(-1, bumperY + 0.22) + 0.015);
   }
@@ -902,7 +1101,8 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   });
   const rimGeo = cache.get(`${spec.id}:rim`, () => new THREE.CylinderGeometry(R * 0.62, R * 0.62, tyreW + 0.02, 20).rotateZ(Math.PI / 2));
   const spokeGeo = cache.get(`${spec.id}:spoke`, () => new THREE.BoxGeometry(tyreW + 0.04, 0.05, R * 1.2));
-  const wellR = hasArches ? archR * 0.97 : R * 1.18;
+  // A square arch's corners reach further from the hub, so its dark well is a little bigger
+  const wellR = hasArches ? archR * (st.arches === "square" ? 1.16 : 0.97) : R * 1.18;
   const wellGeo = cache.get(`${spec.id}:well`, () => new THREE.CylinderGeometry(wellR, wellR, hasArches ? 0.7 : 0.05, 24).rotateZ(Math.PI / 2));
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
