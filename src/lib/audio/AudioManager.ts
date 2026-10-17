@@ -1,5 +1,5 @@
 import { Howl, Howler } from "howler";
-import { tones } from "./tone-generator";
+import { tones, type SfxName } from "./tone-generator";
 
 type SoundName = "success" | "failure" | "reward";
 
@@ -89,6 +89,15 @@ class AudioManager {
     const h = this.get(`paper-${v}`, () => tones.page(v), { volume: 0.8 });
     h.rate((forward ? 1 : 0.88) * (0.94 + Math.random() * 0.14));
     h.play();
+  }
+
+  /** Sports sound effect at a volume (0..1) so soft taps stay soft. */
+  playSfx(name: SfxName, volume = 1) {
+    if (!this.soundEnabled) return;
+    const h = this.get(`sfx-${name}`, () => tones.sfx(name));
+    const id = h.play();
+    h.volume(Math.max(0.05, Math.min(1, volume)), id);
+    h.rate(0.94 + Math.random() * 0.12, id);
   }
 
   setMusic(enabled: boolean) {

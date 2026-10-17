@@ -16,6 +16,8 @@ Memory and reasoning ideas still to build: Simon Says (repeat the sequence), Wha
 
 Built in the October 2026 pass: **Make Ten**, **Rhyme Time**, **Word Builder** (tap-to-place letters), **Coin Shop** (USD / GBP / AED, exact pay and change), **Music Maker** (xylophone: free play, copy-me, four songs) and **Colouring** (tap-to-fill pages and finger painting).
 
+Built in the October 2026 sports pass: **Carrom**, **Snooker**, **Darts** (count-up maths) and **Archery** (wind), all 3D with Robo / pass-and-play / solo. Decisions: `docs/SPORTS_3D_DECISIONS.md`.
+
 Next, roughly by expected learning value:
 1. **Robot Path 2**: loops ("repeat 3 times"), turn left/right commands, "fix the broken program" levels; adds computational-thinking depth.
 2. **Tangram / Jigsaw** (5-8): spatial reasoning; tap-to-rotate, snap to silhouette.

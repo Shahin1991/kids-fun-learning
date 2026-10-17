@@ -75,3 +75,9 @@
 - Snakes & Ladders and Ludo: engines take `humans` and use `isHuman(seat)`; only a person can press Roll or tap pawns, the message says "Player 2's turn! Pass the device, then roll". Ludo seats map to board colours via the player set, so two people plus a robot is red/green/yellow.
 - Uno: secret hands. With two people, whenever it becomes a person's turn and they have not confirmed, a full-screen curtain says "Pass the device to Player 2!" and the cards stay face-down until they tap "I'm Player 2!". During robot turns the hand is hidden too. With one person nothing changes.
 - Math Racer: `RacerEngine.setPlayers(1|2)`. Two cars side by side (no computer rivals), each player has their own question and answer buttons on their half of the screen, the leader pulls ahead by 3.2 m per answer lead, first to 10 wins. The camera looks lower and nearer in two-player mode so the cars stay above the answer panels.
+
+## 3D sports: Carrom, Snooker, Darts, Archery (`/advanced/*`)
+- Questions, options and decisions are logged in `docs/SPORTS_3D_DECISIONS.md`.
+- Pure logic in `src/lib/sports3d/` (`physics2d.ts` disc solver, `carrom.ts`, `snooker.ts`, `darts.ts`, `archery.ts`, `cue-bot.ts`), tested in `sports3d.test.ts`.
+- Engines: `SportScene` (base: loop, pause, HUD, timers) → `TableEngine` (slingshot aim, guide, robot, pot animation) → `CarromEngine` / `SnookerEngine`; `DartsEngine` and `ArcheryEngine` extend `SportScene` directly. One React shell, `components/sports3d/SportsGame.tsx`, for all four.
+- Testing in an automated browser: a hidden tab pauses `requestAnimationFrame`, so shim it with `setTimeout` before driving the games.

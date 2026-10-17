@@ -112,7 +112,51 @@ export function renderBell(freq: number, seconds = 0.9): string {
   return encodeWavDataUri(samples, SAMPLE_RATE);
 }
 
+/** Sports effects: a ball "clack", a wooden knock, a dart/arrow thud, a throw whoosh and a pocket plunk. */
+export type SfxName = "clack" | "knock" | "thud" | "whoosh" | "plunk";
+
+export function renderSfxSamples(name: SfxName, rand: () => number = Math.random): Float32Array {
+  const dur = { clack: 0.08, knock: 0.14, thud: 0.16, whoosh: 0.32, plunk: 0.24 }[name];
+  const n = Math.floor(SAMPLE_RATE * dur);
+  const out = new Float32Array(n);
+  let lp = 0;
+  let band = 0;
+  let low = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / SAMPLE_RATE;
+    const noise = rand() * 2 - 1;
+    let v = 0;
+    if (name === "clack") {
+      // Hard phenolic balls: two bright partials and a tiny click.
+      v = (Math.sin(2 * Math.PI * 2350 * t) * 0.6 + Math.sin(2 * Math.PI * 3720 * t) * 0.35) * Math.exp(-t * 85) + noise * Math.exp(-t * 600) * 0.5;
+    } else if (name === "knock" || name === "thud") {
+      lp += (name === "knock" ? 0.25 : 0.12) * (noise - lp);
+      const f = name === "knock" ? 210 : 120;
+      v = (Math.sin(2 * Math.PI * f * t) * 0.8 + lp * 1.6) * Math.exp(-t * (name === "knock" ? 38 : 30));
+    } else if (name === "whoosh") {
+      const fc = 600 + 2600 * (t / dur);
+      const f = 2 * Math.sin((Math.PI * fc) / SAMPLE_RATE);
+      const high = noise - low - 0.6 * band;
+      band += f * high;
+      low += f * band;
+      const k = t / dur;
+      v = band * Math.sin(Math.PI * k) * 0.9;
+    } else {
+      // Plunk: a falling hollow tone as the ball drops into the pocket.
+      const f = 320 * Math.exp(-t * 5);
+      v = Math.sin(2 * Math.PI * f * t) * Math.exp(-t * 12) * 0.8;
+    }
+    out[i] = v * Math.min(1, (n - i) / (SAMPLE_RATE * 0.01));
+  }
+  let peak = 0;
+  for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(out[i]));
+  const gain = peak > 0 ? 0.6 / peak : 1;
+  for (let i = 0; i < n; i++) out[i] *= gain;
+  return out;
+}
+
 export const tones = {
+  sfx: (name: SfxName) => encodeWavDataUri(renderSfxSamples(name), SAMPLE_RATE),
   bell: (freq: number) => renderBell(freq),
   page: (variant: number) => encodeWavDataUri(renderPageTurnSamples(variant), SAMPLE_RATE),
   pop: (variant: number) => renderPop(0.85 + variant * 0.2),

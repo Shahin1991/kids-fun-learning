@@ -61,6 +61,10 @@ export const MODULES: LearningModule[] = [
   { id: "uno", title: "Uno", ageGroup: "advanced", route: "/advanced/uno", icon: "🃏", colorToken: "kid-red", description: "Match colours and numbers, shout UNO!" },
   { id: "ludo", title: "Ludo", ageGroup: "advanced", route: "/advanced/ludo", icon: "🎲", colorToken: "kid-yellow", description: "Race your pawns home and send rivals back" },
   { id: "coin-shop", title: "Coin Shop", ageGroup: "advanced", route: "/advanced/coin-shop", icon: "🪙", colorToken: "kid-yellow", description: "Pay with coins and work out the change" },
+  { id: "carrom", title: "Carrom", ageGroup: "advanced", route: "/advanced/carrom", icon: "⚪", colorToken: "kid-orange", description: "Flick the striker and pocket the coins" },
+  { id: "snooker", title: "Snooker", ageGroup: "advanced", route: "/advanced/snooker", icon: "🎱", colorToken: "kid-green", description: "Pot a red, then a colour, in 3D" },
+  { id: "darts", title: "Darts", ageGroup: "advanced", route: "/advanced/darts", icon: "🎯", colorToken: "kid-red", description: "Throw three darts and add up your score" },
+  { id: "archery", title: "Archery", ageGroup: "advanced", route: "/advanced/archery", icon: "🏹", colorToken: "kid-blue", description: "Draw the bow, beat the wind, hit the gold" },
   { id: "road-runner", title: "Road Runner", ageGroup: "advanced", route: "/advanced/road-runner", icon: "🛣️", colorToken: "kid-yellow", description: "Dodge across three lanes" },
 
   { id: "alternate-uses", title: "Alternate Uses", ageGroup: "others", route: "/others/alternate-uses", icon: "💡", colorToken: "kid-yellow", description: "How many uses can you think of?" },
