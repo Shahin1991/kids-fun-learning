@@ -60,9 +60,11 @@
 }
 
 html, body {
-  /* No rubber-banding into blank space, and never a sideways scroll. */
+  /* No rubber-banding into blank space, and never a sideways scroll. `clip` rather than `hidden`:
+     with `hidden` on both, <body> becomes its own scroll container and, with overscroll-behavior
+     none, swallows the mouse wheel so the page cannot be scrolled on desktop. */
   overscroll-behavior: none;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Full-screen game pages (a single h-dvh wrapper) must not scroll at all, in any direction. */
