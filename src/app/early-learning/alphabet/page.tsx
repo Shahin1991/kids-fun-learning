@@ -46,50 +46,58 @@ export default function AlphabetPage() {
     >
       {(engine) => {
         const e = engine as LetterEngine | null;
+        const modeButtons = (
+          <>
+            {(["learn", "trace"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                aria-label={m === "learn" ? "Learn" : "Trace it"}
+                onClick={() => {
+                  setMode(m);
+                  e?.setMode(m);
+                }}
+                className={`${BTN} ${mode === m ? "bg-kid-blue text-white" : "bg-surface/90 text-foreground"}`}
+              >
+                {m === "learn" ? "👀" : "✏️"}<span className="hidden sm:inline">{m === "learn" ? " Learn" : " Trace it!"}</span>
+              </button>
+            ))}
+            {(["letters", "numbers"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-pressed={set === s}
+                onClick={() => {
+                  setSet(s);
+                  e?.setSet(s);
+                }}
+                className={`${BTN} ${set === s ? "bg-kid-green text-white" : "bg-surface/90 text-foreground"}`}
+              >
+                {s === "letters" ? "ABC" : "123"}
+              </button>
+            ))}
+          </>
+        );
+        const pager = (
+          <div className="flex items-center justify-center gap-3">
+            <button type="button" aria-label="Previous" disabled={!paging.canPrev} onClick={() => e?.prev()} className={`${BTN} bg-kid-orange text-white disabled:opacity-40`}>
+              ◀
+            </button>
+            <span className="min-w-28 rounded-full bg-surface/90 px-4 py-2 text-center text-2xl font-extrabold text-foreground shadow">{paging.label}</span>
+            <button type="button" aria-label="Next" disabled={!paging.canNext} onClick={() => e?.next()} className={`${BTN} bg-kid-orange text-white disabled:opacity-40`}>
+              ▶
+            </button>
+          </div>
+        );
         return (
           <>
-            <div className={`absolute inset-x-0 flex justify-center gap-2 px-2 ${paging.wide ? "bottom-3" : "top-20"}`}>
-              {(["learn", "trace"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  aria-pressed={mode === m}
-                  aria-label={m === "learn" ? "Learn" : "Trace it"}
-                  onClick={() => {
-                    setMode(m);
-                    e?.setMode(m);
-                  }}
-                  className={`${BTN} ${mode === m ? "bg-kid-blue text-white" : "bg-surface/90 text-foreground"}`}
-                >
-                  {m === "learn" ? "👀" : "✏️"}<span className="hidden sm:inline">{m === "learn" ? " Learn" : " Trace it!"}</span>
-                </button>
-              ))}
-              {(["letters", "numbers"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  aria-pressed={set === s}
-                  onClick={() => {
-                    setSet(s);
-                    e?.setSet(s);
-                  }}
-                  className={`${BTN} ${set === s ? "bg-kid-green text-white" : "bg-surface/90 text-foreground"}`}
-                >
-                  {s === "letters" ? "ABC" : "123"}
-                </button>
-              ))}
+            {/* Landscape: one bottom row holding both groups. Portrait: modes under the header, ◀ ▶ at the bottom. */}
+            <div className={`pointer-events-none absolute inset-x-0 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 px-2 ${paging.wide ? "bottom-3" : "top-20"}`}>
+              <div className="pointer-events-auto flex gap-2">{modeButtons}</div>
+              {paging.wide && paging.show && <div className="pointer-events-auto">{pager}</div>}
             </div>
-            {paging.show && (
-              <div className="absolute inset-x-0 bottom-3 flex items-center justify-center gap-3">
-                <button type="button" aria-label="Previous" disabled={!paging.canPrev} onClick={() => e?.prev()} className={`${BTN} bg-kid-orange text-white disabled:opacity-40`}>
-                  ◀
-                </button>
-                <span className="min-w-28 rounded-full bg-surface/90 px-4 py-2 text-center text-2xl font-extrabold text-foreground shadow">{paging.label}</span>
-                <button type="button" aria-label="Next" disabled={!paging.canNext} onClick={() => e?.next()} className={`${BTN} bg-kid-orange text-white disabled:opacity-40`}>
-                  ▶
-                </button>
-              </div>
-            )}
+            {!paging.wide && paging.show && <div className="absolute inset-x-0 bottom-3 flex justify-center">{pager}</div>}
           </>
         );
       }}

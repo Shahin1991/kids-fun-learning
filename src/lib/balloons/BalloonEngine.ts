@@ -211,6 +211,7 @@ export class BalloonEngine {
   }
 
   // ---- input ----
+  // Listens on the container, so presses on overlay buttons (the exit button) pop balloons too.
   private onDown = (e: PointerEvent) => {
     const r = this.stage.renderer.domElement.getBoundingClientRect();
     this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);

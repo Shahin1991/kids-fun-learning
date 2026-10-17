@@ -64,7 +64,7 @@ export const BOOKS: BookDef[] = [
         big: `${a.letter}${a.letter.toLowerCase()}`,
         emoji: a.emoji,
         caption: `${a.letter} is for ${a.word}`,
-        say: `${a.letter}. ${a.letter} is for ${a.word}!`,
+        say: `${a.letter} is for ${a.word}!`,
       })),
       END_PAGE,
     ],

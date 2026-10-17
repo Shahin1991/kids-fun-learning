@@ -4,7 +4,7 @@ import { Floaters } from "@/lib/toy3d/floaters";
 import { Spring } from "@/lib/toy3d/spring";
 import { ToyScene, type PickInfo, type ToyOptions } from "@/lib/toy3d/ToyScene";
 import { Assets, TIER_H, TIER_R, Tier, makePipe, makeTopping } from "./CakeModel";
-import { FLAVORS, FROSTINGS, scoreCake, type CakeSpec, type Customer, type Grade, type Order, type PipeShape } from "./recipe";
+import { FLAVORS, FROSTINGS, scoreCake, type CakeSpec, type Customer, type Grade, type HairStyle, type Order, type PipeShape } from "./recipe";
 
 export const STATIONS = ["pantry", "mix", "bake", "frost", "decorate", "serve"] as const;
 export type Sfx = "note" | "ding" | "pop" | "splash";
@@ -130,10 +130,16 @@ export class BakeryEngine extends ToyScene {
   private head!: THREE.Mesh;
   private faceCanvas = document.createElement("canvas");
   private faceTex: THREE.CanvasTexture;
-  private hairMat = new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.8 });
+  // double-sided: the open hair shells are seen from inside at the edges
+  private hairMat = new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.8, side: THREE.DoubleSide });
   private skinMat = new THREE.MeshStandardMaterial({ color: 0xf6c9a5, roughness: 0.6 });
   private outfitMat = new THREE.MeshStandardMaterial({ color: 0xff7aa8, roughness: 0.6 });
   private customerHop = new Spring(0, 0, 220, 9);
+  private trimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+  private hairStyles = new Map<HairStyle, THREE.Group>();
+  private arms: THREE.Group[] = [];
+  /** seconds left of the customer's wave (hello, and when a cake is delivered) */
+  private waveFor = 0;
   private cakeYaw = 0;
   private yawTarget = 0;
 
@@ -560,35 +566,112 @@ export class BakeryEngine extends ToyScene {
     this.stage.scene.add(g);
   }
 
+  /**
+   * A friendly cartoon person rather than a stick figure: a shaped shirt with collar and buttons,
+   * a neck, an egg-shaped head with ears and a nose, jointed arms with sleeves and hands, and
+   * one of several hairstyles. Only the top half shows above the counter.
+   */
   private buildCustomer() {
     const a = this.assets;
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.55, 6, 16), this.outfitMat);
-    body.position.y = 0.7;
-    this.head = new THREE.Mesh(new THREE.SphereGeometry(0.62, 32, 24), new THREE.MeshStandardMaterial({ map: this.faceTex, roughness: 0.6 }));
-    this.head.position.y = 1.75;
-    this.head.rotation.y = 0;
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.66, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.55), this.hairMat);
-    hair.position.y = 1.82;
-    hair.rotation.x = -0.35;
-    const arms = [-1, 1].map((s) => {
-      const arm = new THREE.Mesh(a.geo("arm", () => new THREE.CapsuleGeometry(0.11, 0.4, 4, 8)), this.skinMat);
-      arm.position.set(s * 0.52, 0.85, 0.05);
-      arm.rotation.z = s * 0.35;
+    const g = this.customerGroup;
+    const add = (geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, parent: THREE.Object3D = g) => {
+      const mesh = new THREE.Mesh(geo, m);
+      mesh.position.set(x, y, z);
+      parent.add(mesh);
+      return mesh;
+    };
+    const ball = a.geo("cu-ball", () => new THREE.SphereGeometry(1, 20, 14));
+
+    // Torso: lathed shirt with rounded shoulders, a little narrower at the waist, flatter front to back
+    const shirt = a.geo("cu-shirt", () =>
+      new THREE.LatheGeometry(
+        [[0, 0], [0.4, 0], [0.42, 0.22], [0.39, 0.5], [0.45, 0.82], [0.43, 0.98], [0.3, 1.1], [0.15, 1.15], [0, 1.15]].map(([x, y]) => new THREE.Vector2(x, y)),
+        32,
+      ),
+    );
+    add(shirt, this.outfitMat).scale.z = 0.72;
+    const collar = add(a.geo("cu-collar", () => new THREE.TorusGeometry(0.16, 0.045, 8, 24)), this.trimMat, 0, 1.12, 0.01);
+    collar.rotation.x = Math.PI / 2 - 0.25;
+    for (const y of [0.42, 0.62, 0.82]) add(ball, this.trimMat, 0, y, 0.305 - (y - 0.42) * 0.02).scale.setScalar(0.035);
+    // Neck
+    add(a.geo("cu-neck", () => new THREE.CylinderGeometry(0.12, 0.13, 0.26, 16)), this.skinMat, 0, 1.22, 0);
+
+    // Head (the face texture is painted round the sphere; features face +z)
+    this.head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 40, 28), new THREE.MeshStandardMaterial({ map: this.faceTex, roughness: 0.6 }));
+    this.head.position.y = 1.66;
+    this.head.scale.set(1, 1.06, 0.96);
+    g.add(this.head);
+    // Nose, ears: children of the head so they tilt with it
+    add(ball, this.skinMat, 0, -0.03, 0.49, this.head).scale.set(0.065, 0.055, 0.05);
+    for (const sx of [-1, 1]) add(ball, this.skinMat, sx * 0.49, -0.02, -0.02, this.head).scale.set(0.05, 0.1, 0.08);
+
+    // Hairstyles, built once and switched per customer
+    const cap = (k = 1.06) => {
+      const m = new THREE.Mesh(a.geo("cu-cap", () => new THREE.SphereGeometry(0.5, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.5)), this.hairMat);
+      m.scale.setScalar(k);
+      m.rotation.x = -0.32;
+      return m;
+    };
+    const style = (s: HairStyle, ...parts: THREE.Object3D[]) => {
+      const hg = new THREE.Group();
+      hg.add(...parts);
+      hg.visible = false;
+      this.head.add(hg);
+      this.hairStyles.set(s, hg);
+      return hg;
+    };
+    const lump = (x: number, y: number, z: number, sx: number, sy = sx, sz = sx) => {
+      const m = new THREE.Mesh(ball, this.hairMat);
+      m.position.set(x, y, z);
+      m.scale.set(sx, sy, sz);
+      return m;
+    };
+    style("short", cap(1.06), lump(0, 0.27, 0.25, 0.32, 0.12, 0.2));
+    // Long: cap plus a back shell falling past the shoulders
+    const back = new THREE.Mesh(a.geo("cu-back", () => new THREE.SphereGeometry(0.5, 28, 18, Math.PI - 0.5, Math.PI + 1.0, 0, Math.PI * 0.8)), this.hairMat);
+    back.scale.set(1.13, 1.55, 1.1);
+    back.position.y = -0.2;
+    style("long", cap(1.08), back, lump(-0.18, 0.3, 0.3, 0.24, 0.12, 0.16), lump(0.2, 0.32, 0.28, 0.2, 0.1, 0.15));
+    // side ponytail so it shows from the front
+    style("ponytail", cap(1.07), lump(0.5, 0.0, -0.22, 0.16, 0.32, 0.16), lump(0.42, 0.24, -0.2, 0.08), lump(0.15, 0.3, 0.3, 0.26, 0.1, 0.16));
+    style("puffs", cap(1.07), lump(-0.42, 0.4, -0.05, 0.22), lump(0.42, 0.4, -0.05, 0.22));
+    // Curly: a cap covered in little curls
+    const curls: THREE.Object3D[] = [cap(1.05)];
+    for (let i = 0; i < 26; i++) {
+      const th = (i * 2.399) % (Math.PI * 2);
+      const up = 0.2 + ((i * 0.37) % 1) * 0.95; // polar angle from the crown
+      const front = Math.sin(th) > 0.5 && up > 0.75; // keep the forehead clear
+      if (front) continue;
+      const r = 0.53;
+      curls.push(lump(Math.cos(th) * Math.sin(up) * r, Math.cos(up) * r + 0.02, Math.sin(th) * Math.sin(up) * r - 0.04, 0.12));
+    }
+    style("curly", ...curls);
+
+    // Arms pivot at the shoulder: sleeve, forearm, hand
+    this.arms = [-1, 1].map((sx) => {
+      const arm = new THREE.Group();
+      arm.position.set(sx * 0.44, 0.98, 0);
+      add(a.geo("cu-sleeve", () => new THREE.CapsuleGeometry(0.125, 0.26, 6, 14)), this.outfitMat, 0, -0.2, 0, arm);
+      add(a.geo("cu-forearm", () => new THREE.CapsuleGeometry(0.095, 0.3, 6, 12)), this.skinMat, 0, -0.55, 0, arm);
+      add(ball, this.skinMat, 0, -0.78, 0.01, arm).scale.set(0.11, 0.12, 0.09);
+      g.add(arm);
       return arm;
     });
-    this.customerGroup.add(body, this.head, hair, ...arms);
-    this.customerGroup.position.set(3.7, COUNTER_Y, -3.0);
-    this.customerGroup.scale.setScalar(0.9);
-    this.stage.scene.add(this.customerGroup);
+
+    g.position.set(3.7, COUNTER_Y, -3.0);
+    g.scale.setScalar(1.05);
+    this.stage.scene.add(g);
   }
 
   private setCustomer(c: Customer | null) {
-    const cu = c ?? { skin: "#f6c9a5", outfit: "#ff7aa8", hair: "#5b3a29", name: "" };
+    const cu = c ?? { skin: "#f6c9a5", outfit: "#ff7aa8", hair: "#5b3a29", hairStyle: "short" as HairStyle, name: "" };
     this.hairMat.color.set(cu.hair);
     this.outfitMat.color.set(cu.outfit);
     this.skinMat.color.set(cu.skin);
+    this.hairStyles.forEach((h, s) => (h.visible = s === cu.hairStyle));
     this.setCustomerFace("happy", cu.skin);
     this.customerGroup.visible = c !== null;
+    if (c) this.waveFor = 1.6;
   }
 
   private setCustomerFace(e: Emotion, skin?: string) {
@@ -689,6 +772,7 @@ export class BakeryEngine extends ToyScene {
     this.grade = scoreCake(this.order, cake);
     this.setCustomerFace(this.grade.stars === 3 ? "loved" : this.grade.stars === 2 ? "happy" : "surprised");
     this.customerHop.kick(7);
+    this.waveFor = 1.8;
     this.options("ding");
     const at = new THREE.Vector3(3.7, 3.4, -3.0);
     this.burstAt(at, ["#ff8fb8", "#ffe27a", "#ffffff", "#9be59f"], 28);
@@ -1064,5 +1148,14 @@ export class BakeryEngine extends ToyScene {
     this.customerGroup.position.y = COUNTER_Y + bob + Math.max(0, hop) * 0.12;
     this.customerGroup.rotation.y = this.reduced ? -0.3 : -0.3 + Math.sin(this.time * 0.9) * 0.08;
     this.head.rotation.z = this.reduced ? 0 : Math.sin(this.time * 1.7) * 0.05;
+    // Arms hang relaxed and sway a little; the right arm lifts to wave hello and to cheer.
+    this.waveFor = Math.max(0, this.waveFor - dt);
+    const sway = this.reduced ? 0 : Math.sin(this.time * 1.9) * 0.04;
+    const [left, right] = this.arms;
+    if (left) left.rotation.set(0.12, 0, -0.16 - sway);
+    if (right) {
+      const lift = this.reduced ? 0 : Math.min(1, this.waveFor * 3) * Math.min(1, (1.8 - this.waveFor) * 5 + 0.2);
+      right.rotation.set(0.12 - lift * 0.3, 0, 0.16 + sway + lift * (2.3 + Math.sin(this.time * 13) * 0.3));
+    }
   }
 }

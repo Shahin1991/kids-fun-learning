@@ -25,7 +25,7 @@ describe("orders", () => {
 });
 
 describe("scoring", () => {
-  const order = { customer: { name: "Mia", skin: "", outfit: "", hair: "" }, flavor: "vanilla", tiers: 2, frosting: "pink", toppings: ["star"] };
+  const order = { customer: { name: "Mia", skin: "", outfit: "", hair: "", hairStyle: "short" as const }, flavor: "vanilla", tiers: 2, frosting: "pink", toppings: ["star"] };
   it("gives three stars for a full match", () => {
     expect(scoreCake(order, { flavor: "vanilla", tiers: 2, frosting: "pink", toppings: ["star", "cherry"] }).stars).toBe(3);
   });

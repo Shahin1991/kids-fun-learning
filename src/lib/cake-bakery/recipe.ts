@@ -78,14 +78,17 @@ export interface Customer {
   skin: string;
   outfit: string;
   hair: string;
+  hairStyle: HairStyle;
 }
 
+export type HairStyle = "short" | "long" | "puffs" | "ponytail" | "curly";
+
 export const CUSTOMERS: Customer[] = [
-  { name: "Mia", skin: "#f6c9a5", outfit: "#ff7aa8", hair: "#5b3a29" },
-  { name: "Leo", skin: "#d8a47a", outfit: "#4aa8ff", hair: "#2b1d16" },
-  { name: "Ava", skin: "#8d5a3c", outfit: "#ffb43a", hair: "#1d1410" },
-  { name: "Zoe", skin: "#ffe0c2", outfit: "#8f6cff", hair: "#e0a23c" },
-  { name: "Sam", skin: "#c68a63", outfit: "#4fd18b", hair: "#3a2418" },
+  { name: "Mia", skin: "#f6c9a5", outfit: "#ff7aa8", hair: "#5b3a29", hairStyle: "long" },
+  { name: "Leo", skin: "#d8a47a", outfit: "#4aa8ff", hair: "#2b1d16", hairStyle: "short" },
+  { name: "Ava", skin: "#8d5a3c", outfit: "#ffb43a", hair: "#1d1410", hairStyle: "puffs" },
+  { name: "Zoe", skin: "#ffe0c2", outfit: "#8f6cff", hair: "#f5cf55", hairStyle: "ponytail" },
+  { name: "Sam", skin: "#c68a63", outfit: "#4fd18b", hair: "#3a2418", hairStyle: "curly" },
 ];
 
 /** Simple seeded random so tests are deterministic. */

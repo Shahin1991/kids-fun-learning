@@ -1,5 +1,6 @@
 "use client";
 
+import { HoldToExitButton } from "@/components/HoldToExitButton";
 import { NoWebGL } from "@/components/NoWebGL";
 import { useEffect, useRef, useState } from "react";
 import type { BalloonEngine, BalloonOptions } from "@/lib/balloons/BalloonEngine";
@@ -58,9 +59,8 @@ export default function BalloonGame({ onPop, onMilestone, onExit, reducedMotion,
     <div ref={containerRef} className={`relative touch-none overflow-hidden ${className}`} style={{ position: "relative", overflow: "hidden", touchAction: "none" }}>
       {failed && <NoWebGL />}
       {onExit && (
-        <button type="button" aria-label="Exit" onClick={onExit} className="absolute left-3 top-3 flex min-h-touch min-w-touch items-center justify-center rounded-full bg-surface/90 text-3xl shadow active:scale-95">
-          ✕
-        </button>
+        // Balloons float up behind this corner: the press still pops them, and leaving takes a hold.
+        <HoldToExitButton className="absolute left-3 top-3 z-10" onExit={onExit} />
       )}
       <div role="status" className="absolute right-3 top-3 flex min-h-touch items-center rounded-full bg-surface/90 px-5 text-3xl font-extrabold text-foreground shadow">
         {failed ? "3D is not available" : `🎈 ${total}`}

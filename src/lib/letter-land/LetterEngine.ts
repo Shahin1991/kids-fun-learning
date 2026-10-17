@@ -33,13 +33,13 @@ interface Entry {
 const NUMBER_WORDS = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Zero"];
 const NUMBER_EMOJI = ["🍎", "🐥", "🎈", "🍪", "⭐", "🐞", "🌸", "🚗", "🍓"];
 
-const LETTER_ENTRIES: Entry[] = ALPHABET.map((a) => ({ key: a.letter, word: a.word, emoji: a.emoji, count: 1, spoken: `${a.letter}. ${a.letter} is for ${a.word}` }));
+const LETTER_ENTRIES: Entry[] = ALPHABET.map((a) => ({ key: a.letter, word: a.word, emoji: a.emoji, count: 1, spoken: `${a.letter} is for ${a.word}` }));
 const NUMBER_ENTRIES: Entry[] = "1234567890".split("").map((d, i) => ({
   key: d,
   word: NUMBER_WORDS[i],
   emoji: d === "0" ? "⭕" : NUMBER_EMOJI[i],
   count: d === "0" ? 1 : i + 1,
-  spoken: `${d}. ${NUMBER_WORDS[i]}`,
+  spoken: NUMBER_WORDS[i],
 }));
 
 export interface LetterOptions extends ToyOptions {
@@ -249,14 +249,51 @@ export class LetterEngine extends ToyScene {
       // Phones: look down from higher up so the two rows of letters separate on screen.
       cam.position.set(0, 13 + rows * 0.5, this.dist);
       cam.lookAt(0, 2, -1.2);
+    } else if (learn) {
+      cam.position.set(0, 7.4 + rows * 0.8, this.dist);
+      cam.lookAt(0, 2.6, 1.8);
     } else {
-      cam.position.set(0, learn ? 7.4 + rows * 0.8 : 7, this.dist);
-      cam.lookAt(0, learn ? 2.6 : 3.4, 1.8);
+      this.fitTraceCamera();
     }
     if (this.emoji) this.emoji.sprite.visible = learn;
     if (this.word) this.word.sprite.visible = learn;
     this.refreshPickables();
     if (this.big) this.rebuildTrace();
+  }
+
+  /**
+   * Tracing: aim at the big letter and back the camera off until the whole letter sits between
+   * the header and the controls at the bottom, so no part of it hides behind a button.
+   */
+  private fitTraceCamera() {
+    const cam = this.stage.camera;
+    const h = this.container.clientHeight || 600;
+    const geo = this.glyph(this.entries[this.current]?.key ?? "A");
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    const bb = geo.boundingBox!;
+    const top = this.bigPos.y + bb.max.y * this.bigScale;
+    const bottom = this.bigPos.y + bb.min.y * this.bigScale;
+    // Screen space kept clear: the header (plus the mode row in portrait) and the bottom controls.
+    const topNdc = 1 - (2 * (this.wide ? 92 : 176)) / h;
+    const bottomNdc = -1 + (2 * (this.wide ? 96 : 100)) / h;
+    const centre = (top + bottom) / 2;
+    const v = new THREE.Vector3();
+    for (let d = this.dist; d < this.dist * 4; d *= 1.05) {
+      cam.position.set(0, centre + 1.5, d);
+      cam.lookAt(0, centre, 0);
+      cam.updateMatrixWorld();
+      const t = v.set(0, top, 0).project(cam).y;
+      const b = v.set(0, bottom, 0).project(cam).y;
+      // Shift the view so the letter's centre sits midway between the clear bands.
+      const shift = (topNdc + bottomNdc) / 2 - (t + b) / 2;
+      if (t + shift <= topNdc && b + shift >= bottomNdc) {
+        // Panning the camera down by Δ moves the letter up the screen by Δ / (tan(fov/2)·d) in NDC.
+        const pan = shift * Math.tan((cam.fov * Math.PI) / 360) * d;
+        cam.position.y -= pan;
+        cam.lookAt(0, centre - pan, 0);
+        return;
+      }
+    }
   }
 
   private refreshPickables() {
