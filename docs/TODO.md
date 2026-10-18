@@ -89,3 +89,51 @@ offline cache size (currently about 4.5 MB).
 References:
 - [piper-tts-web](https://github.com/Mintplex-Labs/piper-tts-web): browser Piper TTS, works offline with local WASM and a cached model
 - [Offline Piper in the browser (demo)](https://offlinetts.com/app/piper/): runs without WebGPU, Safari included
+
+## 3. Physics games 4–7: Domino Chain, Hamster Ball Maze, Float or Sink, Fire Hose
+
+**Now:** the October 2026 physics pass built recommendations 1–3: Peg Drop, Catapult and
+Marble Run (`src/lib/physics-play/`, decisions in `docs/PHYSICS_GAMES.md`). They share these parts:
+- the `SportsGame` shell, with solo play and a `levelLabel`;
+- `SportScene`;
+- the cannon-es helpers in `physics.ts`: a fixed step, interpolated `syncMesh`, `lockToPlane` and the HUD-aware `fitFrontCamera`.
+
+New games should reuse them, keep rules and layouts in a pure module with tests, and have no way
+to fail.
+
+**Goal:** four more cause-and-effect toys.
+
+4. **Domino Chain (Ages 4-6).** Draw a path with a finger, and dominoes stand up along it, spaced
+   about 0.6 × their height. Tap the first one and watch the chain fall. Score the dominoes that
+   fell, and celebrate a full chain.
+   - *Approach:* cannon-es boxes placed on a smoothed polyline of the stroke and turned to face
+     along it. Give them a little friction and a stiffer solver (more iterations), and wake them
+     all on the first tip.
+   - *Risk:* chains stalling on tight curves. Limit the curve radius, and add an auto-nudge to any
+     domino that stopped leaning. Use a headless test to prove that a straight line and an S-curve
+     both fall completely.
+5. **Hamster Ball Maze (Ages 4-6).** Drag (or tilt the phone, where the browser allows it) to
+   tilt a maze board and roll the ball to the carrot. Add "Hit the target" levels as in PBS Ramp
+   and Roll.
+   - *Approach:* a cannon-es sphere inside static wall boxes, with gravity tilted by the drag
+     vector instead of rotating the board. `DeviceOrientationEvent` needs a permission tap on iOS,
+     so dragging is the default.
+   - *Tests:* every maze is solvable, found by a grid search, with its start and goal reachable.
+6. **Float or Sink (Ages 4-6).** Guess first ("Will the duck float?"), then drop toys into a
+   bath: a duck, a stone, an apple, a key, a sponge or a coin. They bob up or sink, and the
+   words float, sink, heavy and light are spoken.
+   - *Approach:* buoyancy as an upward force proportional to how much of the toy is under water,
+     times the water's density over the toy's. Add drag and a small bob. No fluid simulation.
+   - *Tests:* each toy's density gives the expected result.
+7. **Fire Hose (Ages 4-6).** Aim a water arc to put out fires in the windows of a toy house.
+   Each fire shrinks as water hits it.
+   - *Approach:* simple flying droplets with gravity (pooled meshes or `Points`), no fluid. Reuse
+     the slingshot-style aim from Catapult and the flight-path dots for help.
+   - *Tests:* the arc maths, and a hit on each fire is possible from the hose position.
+
+Check each one: it plays through in Chrome on a hidden-tab-safe setup (see the `requestAnimationFrame`
+shim note in `docs/NOTES.md`), frame rate on an iPad-class device, and a portrait phone layout.
+
+References: see the research sources in `docs/PHYSICS_GAMES.md`; for Hamster Ball and the
+target levels, [PBS Ruff Ruffman games](https://www.pbs.org/parents/shows/ruff); for Float or Sink,
+Thinkrolls' buoyancy puzzles ([Fatherly](https://www.fatherly.com/gear/the-best-physics-apps-for-kids/)).
