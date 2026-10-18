@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { onAppPause } from "@/lib/app-pause";
 import { audioManager } from "@/lib/audio/AudioManager";
-import type { ApexEngine, CameraMode, GameSummary, HudData, Phase } from "@/lib/apex-highway/engine";
+import type { ApexEngine, CameraMode, GameSummary, HudData, Phase, TrafficLevel } from "@/lib/apex-highway/engine";
 import { PAINT_SWATCHES, VEHICLES } from "@/lib/apex-highway/vehicle-specs";
 
 interface Prefs {
@@ -12,17 +12,19 @@ interface Prefs {
   night: boolean;
   camera: CameraMode;
   scenery: "countryside" | "city" | "auto";
+  traffic: TrafficLevel;
 }
 
 const PREFS_KEY = "apex-highway-prefs";
 const BEST_KEY = "apex-highway-best";
-const DEFAULT_PREFS: Prefs = { vehicle: "sedan", color: VEHICLES[0].defaultColor, night: false, camera: "follow", scenery: "auto" };
+const DEFAULT_PREFS: Prefs = { vehicle: "sedan", color: VEHICLES[0].defaultColor, night: false, camera: "follow", scenery: "auto", traffic: "busy" };
 
 function readPrefs(): Prefs {
   try {
     const saved = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
     // The old chase view was removed; saved choices fall back to the follow camera.
     if (saved.camera !== "cockpit") saved.camera = "follow";
+    if (!["none", "little", "busy"].includes(saved.traffic)) saved.traffic = "busy";
     return saved;
   } catch {
     return DEFAULT_PREFS;
@@ -196,6 +198,7 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
         engine.setPaint(p.color);
         engine.setNight(p.night);
         engine.setScenery(p.scenery, true);
+        engine.setTraffic(p.traffic);
         engine.setCameraMode(p.camera);
         engineRef.current = engine;
         ro = new ResizeObserver(() => {
@@ -377,6 +380,22 @@ export default function ApexHighwayGame({ onExit }: { onExit?: () => void }) {
                 ] as const
               ).map(([id, label]) => (
                 <button key={id} type="button" aria-pressed={prefs.scenery === id} onClick={() => { update({ scenery: id }); engineRef.current?.setScenery(id); }} className={`flex-1 rounded-lg border px-1 py-2 ${prefs.scenery === id ? "border-cyan-300 bg-white/15" : "border-white/20"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="text-sm">
+            <p className="mb-1 opacity-80">Traffic</p>
+            <div className="flex gap-1">
+              {(
+                [
+                  ["none", "🛣️ None"],
+                  ["little", "🚗 A little"],
+                  ["busy", "🚙🚕 Busy"],
+                ] as const
+              ).map(([id, label]) => (
+                <button key={id} type="button" aria-pressed={prefs.traffic === id} onClick={() => { update({ traffic: id }); engineRef.current?.setTraffic(id); }} className={`flex-1 rounded-lg border px-1 py-2 ${prefs.traffic === id ? "border-cyan-300 bg-white/15" : "border-white/20"}`}>
                   {label}
                 </button>
               ))}

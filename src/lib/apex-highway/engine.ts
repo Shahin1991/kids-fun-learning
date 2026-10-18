@@ -2,12 +2,21 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { ApexAudio } from "./audio";
 import { applyBend, bendUniform, curvatureAt } from "./curve";
-import { buildVehicle, disposeGlowTexture, GeometryCache, type BuiltVehicle } from "./vehicle-builder";
+import { buildVehicle, disposeGlowTexture, GeometryCache, type BuiltVehicle, type Signal } from "./vehicle-builder";
 import { EMERGENCY_KINDS, getVehicleSpec, TRAFFIC_KINDS, type VehicleKind, type VehicleSpec } from "./vehicle-specs";
 import { LANE_COUNT, ROAD_HALF, World } from "./world";
 
 export type CameraMode = "follow" | "cockpit";
 export type Phase = "garage" | "playing" | "paused" | "crashed";
+export type TrafficLevel = "none" | "little" | "busy";
+
+/** How many cars, how often new ones appear (seconds), and how far apart the first ones start (metres). */
+const TRAFFIC: Record<TrafficLevel, { max: number; every: [number, number]; seedGap: [number, number] }> = {
+  none: { max: 0, every: [1, 1], seedGap: [0, 0] },
+  little: { max: 6, every: [1.8, 1.4], seedGap: [70, 50] },
+  // The original density
+  busy: { max: 14, every: [0.5, 0.7], seedGap: [30, 25] },
+};
 export type InputKey = "left" | "right" | "brake" | "gas";
 
 export interface HudData {
@@ -50,6 +59,11 @@ interface Traffic {
   flashing: boolean;
   spheres: number[];
   r: number;
+  /** Indicating before (and during) a lane change */
+  signal: Signal;
+  /** Lane it is about to move into once the indicator has blinked for a moment */
+  pendingLane: number | null;
+  signalT: number;
 }
 
 interface Spark {
@@ -84,6 +98,11 @@ export class ApexEngine {
   private keys: Record<InputKey, boolean> = { left: false, right: false, brake: false, gas: false };
   private sirenOn = false;
   private sceneryMode: "countryside" | "city" | "auto" = "countryside";
+  private trafficLevel: TrafficLevel = "busy";
+  /** Player indicators: blink while steering into a lane change, and a moment after */
+  private steerT = 0;
+  private signalHold = 0;
+  private signalSide: Signal = "off";
   private lightsLatched = false;
   private muted = false;
   private nightTarget = 0;
@@ -179,6 +198,12 @@ export class ApexEngine {
   setScenery(mode: "countryside" | "city" | "auto", instant = false) {
     this.sceneryMode = mode;
     if (mode !== "auto") this.world.setEnvironment(mode, instant);
+  }
+
+  /** None, a little, or busy. Fewer cars takes effect as cars drive away; none clears the road at once. */
+  setTraffic(level: TrafficLevel) {
+    this.trafficLevel = level;
+    if (level === "none") this.clearTraffic();
   }
 
   setNight(night: boolean) {
@@ -314,8 +339,11 @@ export class ApexEngine {
     this.scraping = false;
     this.sparks = [];
     this.spawnT = 0;
+    this.steerT = 0;
+    this.signalHold = 0;
     this.clearTraffic();
-    for (let d = 50; d < 260; d += 30 + Math.random() * 25) this.trySpawn(d);
+    const tl = TRAFFIC[this.trafficLevel];
+    if (tl.max > 0) for (let d = 50; d < 260 && this.traffic.length < tl.max; d += tl.seedGap[0] + Math.random() * tl.seedGap[1]) this.trySpawn(d);
   }
 
   /**
@@ -339,6 +367,7 @@ export class ApexEngine {
     this.scene.remove(t.built.group);
     const list = this.pool.get(t.built.spec.id) ?? [];
     if (list.length < 3) {
+      t.built.setIndicator("off");
       t.built.tick(0, false);
       list.push(t.built);
       this.pool.set(t.built.spec.id, list);
@@ -432,7 +461,7 @@ export class ApexEngine {
       const r = (spec.width / 2) * 0.92;
       const n = Math.max(1, Math.round(spec.length / spec.width));
       const spheres = Array.from({ length: n }, (_, i) => (n === 1 ? 0 : ((i / (n - 1)) - 0.5) * (spec.length - spec.width)));
-      const t: Traffic = { built, lane, x: this.world.laneX(lane), d, speed: base, baseSpeed: base, changeIn: 4 + Math.random() * 8, lastD: d, scored: false, flashing: emergency && Math.random() < 0.7, spheres, r };
+      const t: Traffic = { built, lane, x: this.world.laneX(lane), d, speed: base, baseSpeed: base, changeIn: 4 + Math.random() * 8, lastD: d, scored: false, flashing: emergency && Math.random() < 0.7, spheres, r, signal: "off", pendingLane: null, signalT: 0 };
       built.group.position.set(t.x, 0, -d);
       this.scene.add(built.group);
       this.traffic.push(t);
@@ -452,14 +481,29 @@ export class ApexEngine {
       t.built.setLights(this.world.night, target < t.speed - 0.4);
       t.speed += (target - t.speed) * Math.min(1, dt * 1.5);
 
+      // Lane changes: indicate first, move over after a second if it is still clear, stop indicating once there
+      const clear = (to: number) => to >= 0 && to < LANE_COUNT && !this.laneOccupied(to, t.d, 18, t) && !(Math.abs(t.d) < 16 && Math.abs(this.world.laneX(to) - this.x) < 3);
       t.changeIn -= dt;
-      if (t.changeIn <= 0) {
+      if (t.changeIn <= 0 && t.pendingLane === null) {
         t.changeIn = 6 + Math.random() * 10;
         const dir = Math.random() < 0.5 ? -1 : 1;
         const to = Math.round(t.lane) + dir;
-        const playerNear = Math.abs(t.d) < 16 && Math.abs(this.world.laneX(to) - this.x) < 3;
-        if (to >= 0 && to < LANE_COUNT && !this.laneOccupied(to, t.d, 18, t) && !playerNear) t.lane = to;
+        if (clear(to)) {
+          t.pendingLane = to;
+          t.signalT = 1.1;
+          // Lane 0 is on the left
+          t.signal = dir < 0 ? "left" : "right";
+        }
       }
+      if (t.pendingLane !== null) {
+        t.signalT -= dt;
+        if (t.signalT <= 0) {
+          if (clear(t.pendingLane)) t.lane = t.pendingLane;
+          else t.signal = "off";
+          t.pendingLane = null;
+        }
+      } else if (t.signal !== "off" && Math.abs(this.world.laneX(t.lane) - t.x) < 0.25) t.signal = "off";
+      t.built.setIndicator(t.signal);
       t.x += (this.world.laneX(t.lane) - t.x) * Math.min(1, dt * 2.2);
       t.lastD = t.d;
       t.d += (t.speed - this.speed) * dt;
@@ -475,8 +519,9 @@ export class ApexEngine {
       return true;
     });
     this.spawnT -= dt;
-    if (this.spawnT <= 0 && this.traffic.length < 14) {
-      this.spawnT = 0.5 + Math.random() * 0.7;
+    const tl = TRAFFIC[this.trafficLevel];
+    if (this.spawnT <= 0 && this.traffic.length < tl.max) {
+      this.spawnT = tl.every[0] + Math.random() * tl.every[1];
       this.trySpawn(230 + Math.random() * 40);
     }
   }
@@ -609,6 +654,19 @@ export class ApexEngine {
     for (const s of this.player.steerGroups) s.rotation.y = -this.steer * 0.45;
     if (this.player.steeringWheel) this.player.steeringWheel.rotation.z = -this.steer * 1.6;
     this.player.setLights(this.world.night, this.keys.brake && this.phase === "playing");
+    this.player.setIndicator(this.playerSignal(dt));
+  }
+
+  /** Hazards after a crash; otherwise indicate while steering for a moment (a lane change, not a nudge). */
+  private playerSignal(dt: number): Signal {
+    if (this.phase === "crashed") return "hazard";
+    if (this.phase !== "playing") return "off";
+    const side: Signal = this.keys.left && !this.keys.right ? "left" : this.keys.right && !this.keys.left ? "right" : "off";
+    this.steerT = side !== "off" && side === this.signalSide ? this.steerT + dt : 0;
+    if (side !== "off") this.signalSide = side;
+    if (side !== "off" && this.steerT > 0.2 && this.speed > 3) this.signalHold = 0.8;
+    else this.signalHold = Math.max(0, this.signalHold - dt);
+    return this.signalHold > 0 ? this.signalSide : "off";
   }
 
   /** Tall phone screens need a wider vertical view or the road and car get cut off at the sides. */

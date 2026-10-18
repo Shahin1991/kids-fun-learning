@@ -76,6 +76,15 @@
 - City: 7 building archetypes with window textures that tile at real-world size (UVs scaled per geometry), lit-window emissive map driven by night, shop signs, paving ground, and a two-layer skyline with night lights. Built lazily the first time it is needed.
 - `World.setEnvironment(env, instant?)` swaps scenery behind a short fog fade. Garage chips: Country / City / Auto (Auto alternates every 4 km).
 
+## Apex Highway rear lights, indicators and traffic levels
+- Tail lamps follow the body type:
+  - Cars (`shaped`): a wide, level lamp wrapped 0.22 rad round the corner. It has an LED outline, a light bar, a brake panel under a smoked red lens, and amber and white segments *in front of* the lens (behind it they looked pink).
+  - Boxy vehicles: an upright cluster at the rear corners, red on top, then amber, then white.
+- Indicators use one unlit amber material per side (`amberSide[0]` is the left, `-x`), shared by the front lamp, the rear lamp and the side repeater.
+  - `setIndicator("left" | "right" | "hazard" | "off")` chooses the side; `tick()` does the blinking (0.7 s cycle) and the amber flares.
+  - Traffic: a car indicates for 1.1 s, then changes lane if it is still clear, and stops indicating once it is in the new lane. The player's car indicates after 0.2 s of steering, holds for 0.8 s, and shows hazards when crashed.
+- Traffic option (garage, saved): None, A little (up to 6 cars, a new one every 1.8–3.2 s) or Busy (the original: up to 14 cars, every 0.5–1.2 s). The default is Busy, so the game plays as it did before.
+
 ## Apex Highway look-alike cars (`vehicle-specs.ts`, `vehicle-builder.ts`)
 - Family SUV, Big 4x4 and Executive Saloon are built in code in the style of a RAV4 (XA50), a Land Cruiser 300 and an A6 (C8). They use the real length, width, height (within 5%) and wheelbase. Names are generic, with no badges or logos, to avoid trademark use. No model files, so they add nothing to the offline cache.
 - What makes them recognisable lives in two optional spec fields, so the original ten vehicles are unchanged:

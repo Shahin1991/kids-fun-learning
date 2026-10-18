@@ -371,6 +371,9 @@ function shapeOf(spec: VehicleSpec): Required<ShapeSpec> {
   };
 }
 
+/** Turn signals: one side, or both (hazard lights). */
+export type Signal = "off" | "left" | "right" | "hazard";
+
 export interface BuiltVehicle {
   group: THREE.Group;
   spec: VehicleSpec;
@@ -381,8 +384,10 @@ export interface BuiltVehicle {
   setPaint: (hex: string) => void;
   /** night 0..1 switches headlights on as it gets dark; braking flares the tail lights */
   setLights: (night: number, braking: boolean) => void;
-  /** Flashes the light bar (no-op for vehicles without one) */
+  /** Flashes the light bar (no-op for vehicles without one) and blinks the indicators */
   tick: (timeSec: number, flashing: boolean) => void;
+  /** Which indicators blink (the blinking itself happens in tick) */
+  setIndicator: (s: Signal) => void;
   dispose: () => void;
 }
 
@@ -704,7 +709,8 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   const tailY = shaped ? tailTop - 0.12 : Math.min(beltY - 0.12, 0.85);
   const planAt = (z: number) => (shaped ? bodyPlan(z) : 1);
   const tailZ = -endU(-1, tailY) + 0.02;
-  const tailX = (W / 2 - 0.42) * planAt(tailZ);
+  // Car lamps wrap the corner; upright clusters sit right at the rear corners
+  const tailX = shaped ? (W / 2 - 0.42) * planAt(tailZ) : W / 2 - 0.2;
   // Headlamps sit flush in the nose: the top just under the hood line, the outer edge clear of the
   // rounded corner, the inner edge clear of the grille, and turned to match the skin under them.
   const headStyle = HEAD_STYLE[spec.id];
@@ -732,16 +738,12 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
   // Clear cover glass: almost invisible, but its clearcoat throws a sharp highlight
   const glassLens = mat(new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.02, clearcoat: 1, clearcoatRoughness: 0.02, transparent: true, opacity: 0.16, depthWrite: false }));
   const reverseMat = mat(new THREE.MeshStandardMaterial({ color: 0xf4f4f4, emissive: 0xffffff, emissiveIntensity: 0.15, roughness: 0.3 }));
-  const amberMat = mat(new THREE.MeshStandardMaterial({ color: 0xc77a00, emissive: 0xff9a00, emissiveIntensity: 0.9, roughness: 0.3 }));
+  // Indicators: unlit amber, one material per side so each blinks on its own (dark amber when off, like a real lens)
+  const AMBER_OFF = new THREE.Color(0x4a2e00);
+  const AMBER_ON = new THREE.Color(0xffa31a);
+  const amberSide = [lightMat(AMBER_OFF), lightMat(AMBER_OFF)]; // [left, right]
+  let sideAmber = amberSide[0];
 
-  // Swept almond outline (x is outward along the flank, y up), sampled so it can be scaled and used as a hole
-  const lampOutline = (w: number, h: number, sweep: number): Pt[] =>
-    roundedClosed(
-      [[-w / 2, -h * 0.45], [-w / 2, h * 0.25], [w * 0.05, h * (0.45 + sweep * 0.1)], [w / 2, h * (0.5 + sweep * 0.2)], [w / 2, -h * 0.1], [w * 0.1, -h * 0.5]],
-      h * 0.22,
-    )
-      .getPoints(8)
-      .map((p) => [p.x, p.y] as Pt);
   const lampShape = (pts: Pt[], k: number, hole = 0): THREE.Shape => {
     const sh = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x * k, y * k)));
     if (hole) sh.holes.push(new THREE.Path(pts.map(([x, y]) => new THREE.Vector2(x * hole, y * hole)).reverse()));
@@ -755,7 +757,17 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
       return g;
     });
   const headOutline = headOutlineFor(headStyle, headW, headH);
-  const tailOutline = lampOutline(0.56, 0.17, 0.6);
+  // Cars: a wide, calm LED lamp (level top, inner end tapered) that wraps round the corner.
+  // Vans, buses and fire engines: an upright cluster with stacked red, amber and white segments.
+  const TW = shaped ? 0.62 : 0.26;
+  const TH = shaped ? 0.16 : 0.66;
+  const tailOutline: Pt[] = (
+    shaped
+      ? roundedClosed([[-TW / 2, -TH * 0.5], [-TW / 2, TH * 0.25], [-TW * 0.3, TH * 0.5], [TW / 2, TH * 0.5], [TW / 2, -TH * 0.5]], TH * 0.28)
+      : roundedClosed([[-TW / 2, -TH / 2], [-TW / 2, TH / 2], [TW / 2, TH / 2], [TW / 2, -TH / 2]], 0.06)
+  )
+    .getPoints(8)
+    .map((p) => [p.x, p.y] as Pt);
   const bulbGeo = cache.get("bulb", () => new THREE.CylinderGeometry(1, 1, 1, 16).rotateX(Math.PI / 2));
   const part = (g: THREE.Object3D, geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0) => {
     const mesh = new THREE.Mesh(geo, m);
@@ -783,7 +795,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     part(g, bulbGeo, projMat, x, y, 0.0065).scale.set(r * 0.4, r * 0.4, 0.004);
   };
   const drl = (g: THREE.Group, keep: (p: Pt) => boolean, k = 0.84) => part(g, guide("hl-drl", headOutline, k, keep, 0.002, 0.011), drlMat);
-  const indicator = (g: THREE.Group, x: number, y: number, w: number, h: number) => part(g, box("hl-ind", w, h, 0.006), amberMat, x, y, 0.004);
+  const indicator = (g: THREE.Group, x: number, y: number, w: number, h: number) => part(g, box(`hl-ind${w.toFixed(3)}`, w, h, 0.006), sideAmber, x, y, 0.004);
   const w = headW;
   const h = headH;
   const makeHeadlamp = () => {
@@ -834,21 +846,36 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
         indicator(g, w * 0.33, 0, w * 0.18, h * 0.5);
         break;
     }
+    // Lamps without a built-in indicator get a slim amber strip just under them
+    if (headStyle === "blade" || headStyle === "slim" || headStyle === "rect" || headStyle === "clamp" || headStyle === "tall") indicator(g, w * 0.12, -h / 2 - 0.032, w * 0.55, 0.03);
     part(g, lampGeo("hl-glass", lampShape(headOutline, 0.95), 0.004, 0.012, 0), glassLens);
     return g;
   };
-  // Tail lamp: a red brake panel behind a glossy red lens, wrapped by a C-shaped LED light guide
+  // Tail lamp (x is outward). Cars: a glowing LED outline and a light bar over the brake panel, the
+  // indicator at the outer end and the reverse light at the inner end, under a smoked red lens.
+  // Boxy vehicles: a stacked cluster, red tail/brake on top, then amber, then white reverse.
   const makeTaillamp = () => {
     const g = new THREE.Group();
-    part(g, lampGeo("tl-bezel", lampShape(tailOutline, 1, 0.88), 0.09, 0.035), dark);
-    part(g, lampGeo("tl-back", lampShape(tailOutline, 0.9), 0.01, -0.004, 0), dark);
-    part(g, lampGeo("tl-fill", lampShape(tailOutline, 0.62), 0.004, 0.004, 0), brakeMat);
-    part(g, guide("tl-led", tailOutline, 0.76, ([x]) => x < 0.11, 0.012, 0.014), tailLedMat);
-    part(g, box("tl-rev", 0.1, 0.035, 0.008), reverseMat, 0.2, -0.03, 0.012);
-    part(g, box("tl-ind", 0.09, 0.03, 0.008), amberMat, 0.2, 0.035, 0.012);
-    part(g, lampGeo("tl-lens", lampShape(tailOutline, 0.9), 0.012, 0.032, 0.006), tailLens);
+    part(g, lampGeo("tl-bezel", lampShape(tailOutline, 1, 0.9), 0.06, 0.03), dark);
+    part(g, lampGeo("tl-back", lampShape(tailOutline, 0.92), 0.01, -0.004, 0), housing);
+    if (shaped) {
+      part(g, lampGeo("tl-fill", lampShape(tailOutline, 0.55), 0.004, 0.004, 0), brakeMat).position.x = -TW * 0.08;
+      part(g, guide("tl-led", tailOutline, 0.8, () => true, 0.012, 0.012), tailLedMat);
+      part(g, box("tl-bar", TW * 0.5, 0.014, 0.006), tailLedMat, -TW * 0.12, TH * 0.08, 0.013);
+      part(g, lampGeo("tl-lens", lampShape(tailOutline, 0.92), 0.012, 0.03, 0.006), tailLens);
+      // In front of the red lens, so they read as true amber and white rather than pink
+      part(g, box("tl-ind", TW * 0.24, TH * 0.5, 0.006), sideAmber, TW * 0.3, -TH * 0.02, 0.045);
+      part(g, box("tl-rev", TW * 0.13, TH * 0.24, 0.006), reverseMat, -TW * 0.31, -TH * 0.12, 0.045);
+    } else {
+      part(g, box("tl-brake", TW * 0.78, TH * 0.4, 0.006), brakeMat, 0, TH * 0.24, 0.006);
+      part(g, box("tl-tail", TW * 0.62, TH * 0.06, 0.006), tailLedMat, 0, TH * 0.24, 0.011);
+      part(g, box("tl-ind", TW * 0.78, TH * 0.22, 0.006), sideAmber, 0, -TH * 0.1, 0.006);
+      part(g, box("tl-rev", TW * 0.78, TH * 0.16, 0.006), reverseMat, 0, -TH * 0.32, 0.006);
+      part(g, lampGeo("tl-lens", lampShape(tailOutline, 0.92), 0.008, 0.03, 0.004), glassLens);
+    }
     return g;
   };
+  const indGlows: THREE.Sprite[][] = [[], []];
   // Night beam: a fan of light spreading forward from each headlamp (one flat, one upright plane)
   const beamGeo = cache.get("beam", () => {
     const g = new THREE.PlaneGeometry(1, 1, 1, 8);
@@ -870,6 +897,8 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     };
   };
   for (const s of [-1, 1]) {
+    // Parts built in this pass (headlamp and tail indicators, side repeater) use this side's amber
+    sideAmber = amberSide[s < 0 ? 0 : 1];
     const head = makeHeadlamp();
     head.position.set(s * headX, headY, headZ);
     head.rotation.set(mount.tilt, Math.PI - s * mount.toe, 0);
@@ -877,7 +906,7 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     group.add(head);
     const tail = makeTaillamp();
     tail.position.set(s * tailX, tailY, tailZ);
-    tail.rotation.y = s * 0.35;
+    tail.rotation.y = shaped ? s * 0.22 : 0;
     tail.scale.x = s;
     group.add(tail);
     const a = new THREE.Object3D();
@@ -886,7 +915,8 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     headAnchors.push(a);
     for (const [lamp, z, c, x, y, list] of [
       [head, headZ - 0.1, 0xf4f8ff, headX, headY, headGlows],
-      [tail, tailZ + 0.08, 0xff2418, tailX, tailY, tailGlows],
+      // On upright clusters the red glow belongs to the red top segment, clear of the amber one
+      [tail, tailZ + 0.08, 0xff2418, tailX, shaped ? tailY : tailY + TH * 0.24, tailGlows],
     ] as const) {
       const sm = new THREE.SpriteMaterial({ map: getFlareTexture(), color: c, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 });
       glowMats.push(sm);
@@ -896,6 +926,20 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
       facing(sp, lamp);
       group.add(sp);
       list.push(sp);
+    }
+    // Amber flares at the front and rear indicators, shown only while they blink
+    for (const [lamp, x, y, z] of [
+      [head, headX + headW * 0.3, headY - headH * 0.2, headZ - 0.08],
+      [tail, shaped ? tailX + TW * 0.25 : tailX, shaped ? tailY - TH * 0.08 : tailY - TH * 0.1, tailZ + 0.07],
+    ] as const) {
+      const sm = new THREE.SpriteMaterial({ map: getFlareTexture(), color: 0xffa31a, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 });
+      glowMats.push(sm);
+      const sp = new THREE.Sprite(sm);
+      sp.position.set(s * x, y, z);
+      sp.userData = { opacity: 0, size: 0.6 };
+      facing(sp, lamp);
+      group.add(sp);
+      indGlows[s < 0 ? 0 : 1].push(sp);
     }
     for (const upright of [false, true]) {
       const beam = add(beamGeo, beamMat, s * headX, headY - 0.03, headZ - 0.08);
@@ -910,12 +954,23 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     if (shaped) {
       const ry = beltY - 0.14;
       const rz = -(spec.wheelbase / 2 + archR + 0.12);
-      const rep = add(box("repeater", 0.014, 0.03, 0.1), amberMat, s * (skinX(ry, rz) + 0.003), ry, rz);
+      const rep = add(box("repeater", 0.014, 0.03, 0.1), sideAmber, s * (skinX(ry, rz) + 0.003), ry, rz);
       rep.rotation.z = -s * skinLean(ry, rz);
     }
     // Light cast on the road ahead
     const pool = add(poolGeo, poolMat, s * (W / 2 - 0.5), 0.07, headZ - 9.5);
     pool.renderOrder = 2;
+  }
+
+  // High-mounted third brake light along the top of the rear window
+  if (shaped && cabin) {
+    const [p0, p1] = [cabin[0], cabin[1]];
+    const y = p1[1] - Math.min(0.16, (p1[1] - p0[1]) * 0.3) - 0.04; // just under the roof panel
+    const du = p1[0] - p0[0];
+    const dy = p1[1] - p0[1];
+    const u = p0[0] + ((y - p0[1]) / dy) * du;
+    const hm = add(box("hmsl", Math.min(0.6, W * 0.3), 0.035, 0.03), brakeMat, 0, y, -u + 0.035);
+    hm.rotation.x = -Math.atan2(du, dy); // lies on the sloping glass
   }
 
   if (st.tailBar) {
@@ -1009,6 +1064,20 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
 
   // Emergency liveries and light bar
   let tick: (t: number, on: boolean) => void = () => {};
+  // Indicators blink about 85 times a minute (a real car's rate); amber flares grow at night
+  let signal: Signal = "off";
+  let nightLevel = 0;
+  const blink = (t: number) => {
+    const phaseOn = t % 0.7 < 0.38;
+    for (let i = 0; i < 2; i++) {
+      const lit = phaseOn && (signal === "hazard" || signal === (i === 0 ? "left" : "right"));
+      amberSide[i].color.copy(lit ? AMBER_ON : AMBER_OFF);
+      for (const sp of indGlows[i]) {
+        sp.userData.opacity = lit ? 0.75 + 0.25 * nightLevel : 0;
+        sp.userData.size = 0.8 + 0.6 * nightLevel;
+      }
+    }
+  };
   const accent = (c: number) => mat(new THREE.MeshStandardMaterial({ color: c, roughness: 0.5 }));
   if (f.livery === "police" || f.livery === "police-uae") {
     const uae = f.livery === "police-uae";
@@ -1181,9 +1250,17 @@ export function buildVehicle(spec: VehicleSpec, color: string, cache: GeometryCa
     steeringWheel,
     headAnchors,
     setPaint: (hex) => paint.color.set(hex),
-    tick: (t, on) => tick(t, on),
+    tick: (t, on) => {
+      tick(t, on);
+      blink(t);
+    },
+    setIndicator: (sig) => {
+      signal = sig;
+      if (sig === "off") blink(0);
+    },
     setLights: (night, braking) => {
       const on = Math.min(1, Math.max(0, (night - 0.15) / 0.5));
+      nightLevel = on;
       projMat.color.lerpColors(LAMP.projOff, LAMP.projOn, on);
       beamMat.opacity = on * 0.1;
       poolMat.opacity = on * 0.55;

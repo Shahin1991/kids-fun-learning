@@ -35,7 +35,13 @@ that clearly flare when braking.
    lamp, no shadows, `depthWrite: false`. Fade it in with `night` in `setLights`. Keep the
    existing road light-pool decal but give it a soft elliptical texture that brightens with the
    beam.
-5. **Brake / indicator polish.** Brake = tail core intensity ×3 plus a larger glare sprite
+5. **Done (October 2026):**
+   - Tail lamps redesigned: cars get a level LED lamp with a glowing outline, a light bar, the indicator at the outer end and the reverse light at the inner end; vans, buses and fire engines get upright red/amber/white clusters.
+   - A third brake light sits on the rear window.
+   - Real indicators: each side blinks on its own, front, rear and the side repeaters, with an amber flare.
+   - Traffic indicates before it changes lane, the player's car indicates while steering into a lane change, and the hazards flash after a crash.
+
+   The original plan for this step: **Brake / indicator polish.** Brake = tail core intensity ×3 plus a larger glare sprite
    (already partly there); add a third high-mounted brake strip; animate indicators with a
    0.5 s blink for AI cars that change lanes.
 
