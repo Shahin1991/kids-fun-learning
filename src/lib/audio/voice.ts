@@ -78,18 +78,18 @@ export function voiceScore(v: VoiceLike): number {
   return s;
 }
 
-/** English voices, best first. */
-export function rankVoices<T extends VoiceLike>(voices: T[]): T[] {
-  return voices.filter((v) => voiceScore(v) > -1).sort((a, b) => voiceScore(b) - voiceScore(a) || a.name.localeCompare(b.name));
+/** English voices, best first, leaving out any in `skip` (voices that stayed silent on this device). */
+export function rankVoices<T extends VoiceLike>(voices: T[], skip: ReadonlySet<string> = new Set()): T[] {
+  return voices.filter((v) => voiceScore(v) > -1 && !skip.has(v.name)).sort((a, b) => voiceScore(b) - voiceScore(a) || a.name.localeCompare(b.name));
 }
 
 /** The voice to use: the parent's pick if the device still has it, otherwise the best one. */
-export function chooseVoice<T extends VoiceLike>(voices: T[], name: string | null): T | null {
-  if (name) {
+export function chooseVoice<T extends VoiceLike>(voices: T[], name: string | null, skip: ReadonlySet<string> = new Set()): T | null {
+  if (name && !skip.has(name)) {
     const picked = voices.find((v) => v.name === name);
     if (picked) return picked;
   }
-  return rankVoices(voices)[0] ?? null;
+  return rankVoices(voices, skip)[0] ?? null;
 }
 
 export const VOICE_SAMPLE = "Hi there! Let's count together. One, two, three. Well done!";

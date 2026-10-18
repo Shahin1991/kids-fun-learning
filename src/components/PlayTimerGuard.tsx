@@ -116,7 +116,7 @@ export function PlayTimerGuard() {
     setAppPaused(true);
     const musicWasOn = audioManager.isMusicOn;
     audioManager.setMusic(false);
-    if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
+    audioManager.stopSpeech();
     const overlayRoot = overlayRef.current;
     const others = Array.from(document.body.children).filter((el) => el !== overlayRoot && !el.hasAttribute("inert")) as HTMLElement[];
     others.forEach((el) => el.setAttribute("inert", ""));

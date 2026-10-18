@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { audioManager } from "@/lib/audio/AudioManager";
 
 /**
  * `sleep(ms)` for step-by-step sequences (hopping, robot moves) that resolves to false once the page has been left,
@@ -12,7 +13,7 @@ export function useAliveSleep() {
     alive.current = true;
     return () => {
       alive.current = false;
-      if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
+      audioManager.stopSpeech();
     };
   }, []);
   return useCallback((ms: number) => new Promise<boolean>((r) => setTimeout(() => r(alive.current), ms)), []);

@@ -21,7 +21,7 @@ class AudioManager {
 
   configure(soundEnabled: boolean, musicEnabled: boolean) {
     this.soundEnabled = soundEnabled;
-    if (!soundEnabled) window.speechSynthesis?.cancel();
+    if (!soundEnabled) this.stopSpeech();
     this.setMusic(musicEnabled);
   }
 
@@ -31,6 +31,14 @@ class AudioManager {
   private speakTimer: ReturnType<typeof setTimeout> | null = null;
   /** Chrome can garbage-collect an utterance before it finishes, which silences it; keep references. */
   private current: SpeechSynthesisUtterance[] = [];
+  /**
+   * Voices that stayed silent here. iOS lists Premium/Enhanced voices that were never downloaded,
+   * and speaking with one plays nothing and reports no error, so each line is checked as it starts.
+   */
+  private silentVoices = new Set<string>();
+  private speechWatch: ReturnType<typeof setTimeout> | null = null;
+  /** Bumped by every new line and every stop, so handlers from an older line do nothing. */
+  private speechGen = 0;
 
   /** Speed, style and device voice from the parent dashboard. */
   setVoicePrefs(prefs: VoicePrefs) {
@@ -63,7 +71,7 @@ class AudioManager {
 
   private pickVoice(synth: SpeechSynthesis): SpeechSynthesisVoice | null {
     if (this.voice) return this.voice;
-    this.voice = chooseVoice(synth.getVoices(), this.voicePrefs.voiceName);
+    this.voice = chooseVoice(synth.getVoices(), this.voicePrefs.voiceName, this.silentVoices);
     return this.voice;
   }
 
@@ -122,13 +130,88 @@ class AudioManager {
     }
   }
 
+  /** Stops any speech, e.g. when leaving a page or while the play timer's "Time is up" screen shows. */
+  stopSpeech() {
+    this.speechGen++;
+    if (this.speakTimer) clearTimeout(this.speakTimer);
+    if (this.speechWatch) clearTimeout(this.speechWatch);
+    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+  }
+
   /** `prefs` overrides the saved voice settings (the dashboard's "Test voice" button). */
   speak(text: string, prefs?: VoicePrefs) {
     if (!this.soundEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
     const synth = window.speechSynthesis;
     const p = prefs ?? this.voicePrefs;
-    const voice = prefs ? chooseVoice(synth.getVoices(), prefs.voiceName) : this.pickVoice(synth);
-    // One utterance per sentence: the engine pauses between them, so children can keep up
+    const voice = prefs ? chooseVoice(synth.getVoices(), prefs.voiceName, this.silentVoices) : this.pickVoice(synth);
+    const gen = ++this.speechGen;
+    if (this.speechWatch) clearTimeout(this.speechWatch);
+    const utterances = this.utterances(text, p, voice);
+    if (!utterances.length) return;
+    if (voice) this.watchVoice(utterances[0], voice, gen, text, prefs);
+    if (this.speakTimer) clearTimeout(this.speakTimer);
+    const busy = synth.speaking || synth.pending;
+    synth.resume();
+    const go = () => utterances.forEach((u) => synth.speak(u));
+    if (busy) {
+      // A new line interrupts the old one; Chrome drops an utterance spoken in the same tick as cancel().
+      synth.cancel();
+      this.speakTimer = setTimeout(go, 70);
+    } else {
+      go();
+    }
+  }
+
+  /**
+   * If the chosen voice never starts, errors, or "finishes" instantly, it is not really available:
+   * skip it from now on and say the line again with the device's default voice.
+   */
+  private watchVoice(u: SpeechSynthesisUtterance, voice: SpeechSynthesisVoice, gen: number, text: string, prefs?: VoicePrefs) {
+    let startedAt = 0;
+    let done = false;
+    const fail = () => {
+      if (done || gen !== this.speechGen) return;
+      done = true;
+      this.silentVoices.add(voice.name);
+      this.voice = null;
+      this.stopSpeech();
+      this.speakTimer = setTimeout(() => this.speakWithDefaultVoice(text, prefs ?? this.voicePrefs), 70);
+    };
+    const settle = () => {
+      done = true;
+      if (this.speechWatch) clearTimeout(this.speechWatch);
+    };
+    const onEnd = u.onend;
+    const onError = u.onerror;
+    u.onstart = () => {
+      startedAt = performance.now();
+      if (this.speechWatch) clearTimeout(this.speechWatch);
+    };
+    u.onend = (e) => {
+      onEnd?.call(u, e);
+      if (startedAt && performance.now() - startedAt < 120 && u.text.length > 1) fail();
+      else settle();
+    };
+    u.onerror = (e) => {
+      onError?.call(u, e);
+      if (e.error === "interrupted" || e.error === "canceled") settle();
+      else fail();
+    };
+    // Counted from now, which includes the short wait after cancelling an older line
+    this.speechWatch = setTimeout(() => {
+      if (!startedAt && !done && document.visibilityState === "visible") fail();
+    }, 1500);
+  }
+
+  /** The line again without choosing a voice: the device's own default is always installed. */
+  private speakWithDefaultVoice(text: string, p: VoicePrefs) {
+    const synth = window.speechSynthesis;
+    synth.resume();
+    this.utterances(text, p, null).forEach((u) => synth.speak(u));
+  }
+
+  /** One utterance per sentence: the engine pauses between them, so children can keep up. */
+  private utterances(text: string, p: VoicePrefs, voice: SpeechSynthesisVoice | null): SpeechSynthesisUtterance[] {
     const utterances = speechChunks(text).map((chunk) => {
       const u = new SpeechSynthesisUtterance(chunk);
       u.lang = voice?.lang ?? "en-US";
@@ -141,19 +224,8 @@ class AudioManager {
       };
       return u;
     });
-    if (!utterances.length) return;
     this.current = utterances;
-    if (this.speakTimer) clearTimeout(this.speakTimer);
-    const busy = synth.speaking || synth.pending;
-    synth.resume();
-    const go = () => utterances.forEach((u) => synth.speak(u));
-    if (busy) {
-      // A new line interrupts the old one; Chrome drops an utterance spoken in the same tick as cancel().
-      synth.cancel();
-      this.speakTimer = setTimeout(go, 70);
-    } else {
-      go();
-    }
+    return utterances;
   }
 
   playAnimal(onomatopoeia: string) {
