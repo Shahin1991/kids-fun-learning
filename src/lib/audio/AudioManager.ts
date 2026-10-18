@@ -200,7 +200,7 @@ class AudioManager {
     // Counted from now, which includes the short wait after cancelling an older line
     this.speechWatch = setTimeout(() => {
       if (!startedAt && !done && document.visibilityState === "visible") fail();
-    }, 1500);
+    }, 3000);
   }
 
   /** The line again without choosing a voice: the device's own default is always installed. */

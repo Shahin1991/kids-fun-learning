@@ -56,20 +56,20 @@ describe("speech voice fallback", () => {
   it("uses the best voice when it works", async () => {
     const { audioManager, spoken } = await setup([]);
     audioManager.speak("Pop the balloons!");
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(5000);
     expect(spoken).toEqual([{ text: "Pop the balloons!", voice: "Ava (Premium)" }]);
   });
 
   it("repeats the line with the device voice when the chosen voice stays silent, then skips it", async () => {
     const { audioManager, spoken } = await setup(["Ava (Premium)"]);
     audioManager.speak("Pop the balloons!");
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(5000);
     expect(spoken).toEqual([
       { text: "Pop the balloons!", voice: "Ava (Premium)" },
       { text: "Pop the balloons!", voice: null },
     ]);
     audioManager.speak("Well done!");
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(5000);
     expect(spoken.at(-1)).toEqual({ text: "Well done!", voice: "Samantha" });
   });
 
@@ -78,7 +78,7 @@ describe("speech voice fallback", () => {
     audioManager.speak("Pop the balloons!");
     await vi.advanceTimersByTimeAsync(500);
     audioManager.stopSpeech();
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(5000);
     expect(spoken).toHaveLength(1);
   });
 });

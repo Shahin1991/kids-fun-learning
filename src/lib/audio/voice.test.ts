@@ -34,4 +34,14 @@ describe("voice preferences", () => {
     // A picked voice the device no longer has falls back to the best one
     expect(chooseVoice(voices, "Gone")?.name).toBe("Ava (Premium)");
   });
+
+  it("leaves automatic mode to the system on Apple devices, where listed voices may not be downloaded", () => {
+    const apple = [
+      { name: "Ava (Premium)", lang: "en-US", voiceURI: "com.apple.voice.premium.en-US.Ava" },
+      { name: "Samantha", lang: "en-US", voiceURI: "com.apple.voice.compact.en-US.Samantha" },
+    ];
+    expect(chooseVoice(apple, null)).toBeNull();
+    // A voice the parent picked is still used
+    expect(chooseVoice(apple, "Ava (Premium)")?.name).toBe("Ava (Premium)");
+  });
 });

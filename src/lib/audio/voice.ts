@@ -62,6 +62,7 @@ interface VoiceLike {
   name: string;
   lang: string;
   localService?: boolean;
+  voiceURI?: string;
 }
 
 /** Higher is better: high-quality voices first, then well-known clear ones, then any English. */
@@ -83,12 +84,21 @@ export function rankVoices<T extends VoiceLike>(voices: T[], skip: ReadonlySet<s
   return voices.filter((v) => voiceScore(v) > -1 && !skip.has(v.name)).sort((a, b) => voiceScore(b) - voiceScore(a) || a.name.localeCompare(b.name));
 }
 
-/** The voice to use: the parent's pick if the device still has it, otherwise the best one. */
+/** Apple's speech engine (iPad, iPhone, Safari on Mac) names its voices com.apple.… */
+export const isAppleSpeech = (voices: VoiceLike[]) => voices.some((v) => v.voiceURI?.startsWith("com.apple."));
+
+/**
+ * The voice to use: the parent's pick if the device still has it, otherwise the best one, or null
+ * for the device's own default. Apple lists Premium and Enhanced voices that were never downloaded,
+ * and they speak in silence while reporting normal start and end events, so on Apple devices
+ * automatic mode leaves the choice to the system, whose default English voice is always installed.
+ */
 export function chooseVoice<T extends VoiceLike>(voices: T[], name: string | null, skip: ReadonlySet<string> = new Set()): T | null {
   if (name && !skip.has(name)) {
     const picked = voices.find((v) => v.name === name);
     if (picked) return picked;
   }
+  if (isAppleSpeech(voices)) return null;
   return rankVoices(voices, skip)[0] ?? null;
 }
 
