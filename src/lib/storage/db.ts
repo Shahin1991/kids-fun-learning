@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { AgeGroup } from "@/data/modules";
+import type { VoicePrefs } from "@/lib/audio/voice";
 
 export type { AgeGroup };
 
@@ -16,6 +17,8 @@ export interface AppSettings {
   disabledModules: string[];
   /** Daily play limit in minutes; null/undefined means no timer. */
   timerMinutes?: number | null;
+  /** Spoken voice speed, style and device voice; missing means the defaults (slow, natural, automatic). */
+  voice?: Partial<VoicePrefs>;
 }
 
 export interface ProgressRecord {

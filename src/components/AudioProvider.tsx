@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isAppPaused } from "@/lib/app-pause";
 import { audioManager } from "@/lib/audio/AudioManager";
+import { normalizeVoice } from "@/lib/audio/voice";
 import { getSettings, updateSettings } from "@/lib/storage/settings";
 
 interface Ctx {
@@ -27,6 +28,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         setMusic(s.musicEnabled);
         musicOnUnlock.current = s.soundEnabled && s.musicEnabled;
         audioManager.configure(s.soundEnabled, false);
+        audioManager.setVoicePrefs(normalizeVoice(s.voice));
       })
       .catch(() => {});
     // Touch screens only count a finished tap (pointerup/touchend/click) as permission to play audio and speech.

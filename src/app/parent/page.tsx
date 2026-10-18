@@ -9,6 +9,8 @@ import { Card } from "@/components/Card";
 import { HomeButton } from "@/components/HomeButton";
 import { PageContainer } from "@/components/PageContainer";
 import { MODULES } from "@/data/modules";
+import { audioManager } from "@/lib/audio/AudioManager";
+import { normalizeVoice, SPEED_OPTIONS, STYLE_OPTIONS, VOICE_SAMPLE, type VoicePrefs } from "@/lib/audio/voice";
 import { bestMovesOf, bestScoreOf, getAllProgress } from "@/lib/progress/progress";
 import { getAllStars } from "@/lib/rewards/RewardManager";
 import type { AppSettings, ProgressRecord } from "@/lib/storage/db";
@@ -28,6 +30,15 @@ export default function ParentDashboard() {
   const [newPin, setNewPin] = useState("");
   const [pinMsg, setPinMsg] = useState("");
   const [loadError, setLoadError] = useState(false);
+  const [voices, setVoices] = useState<{ name: string; lang: string }[]>([]);
+
+  // Device voices load asynchronously (and can change), so keep the list fresh
+  useEffect(() => {
+    const load = () => setVoices(audioManager.listVoices().map((v) => ({ name: v.name, lang: v.lang })));
+    load();
+    window.speechSynthesis?.addEventListener?.("voiceschanged", load);
+    return () => window.speechSynthesis?.removeEventListener?.("voiceschanged", load);
+  }, []);
 
   useEffect(() => {
     clearTimeout(pendingLock);
@@ -69,6 +80,13 @@ export default function ParentDashboard() {
   const setMotion = async (value: boolean | null) => {
     setSettings(await updateSettings({ reducedMotion: value }));
     setMotionOverride(value);
+  };
+
+  const setVoice = async (patch: Partial<VoicePrefs>) => {
+    const next = normalizeVoice({ ...normalizeVoice(settings.voice), ...patch });
+    audioManager.setVoicePrefs(next);
+    setSettings(await updateSettings({ voice: next }));
+    audioManager.speak(VOICE_SAMPLE, next);
   };
 
   const setTimer = async (timerMinutes: number | null) => {
@@ -135,6 +153,38 @@ export default function ParentDashboard() {
             <Button key={v} variant={themePref === v ? "primary" : "ghost"} onClick={() => setThemePref(v)}>{label}</Button>
           ))}
         </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-2 text-2xl font-bold">Voice</h2>
+        <p className="mb-2 text-sm">How the app talks to your child. Slower speech is easier for young children to follow; each change plays a short sample.</p>
+        <p className="mb-1 font-bold">Speed</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {SPEED_OPTIONS.map((o) => (
+            <Button key={o.id} variant={normalizeVoice(settings.voice).speed === o.id ? "primary" : "ghost"} onClick={() => setVoice({ speed: o.id })}>{o.label}</Button>
+          ))}
+        </div>
+        <p className="mb-1 font-bold">Style</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {STYLE_OPTIONS.map((o) => (
+            <Button key={o.id} variant={normalizeVoice(settings.voice).style === o.id ? "primary" : "ghost"} onClick={() => setVoice({ style: o.id })}>{o.label}</Button>
+          ))}
+        </div>
+        <label className="mb-3 flex flex-col gap-1">
+          <span className="font-bold">Voice</span>
+          <select
+            className="min-h-12 rounded-xl border border-foreground/20 bg-surface px-3 text-lg"
+            value={normalizeVoice(settings.voice).voiceName ?? ""}
+            onChange={(e) => setVoice({ voiceName: e.target.value || null })}
+          >
+            <option value="">Best available (automatic)</option>
+            {voices.map((v) => (
+              <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
+            ))}
+          </select>
+          {voices.length === 0 && <span className="text-sm opacity-70">This device has not listed its voices yet; the best one is chosen automatically.</span>}
+        </label>
+        <Button variant="ghost" onClick={() => audioManager.speak(VOICE_SAMPLE, normalizeVoice(settings.voice))}>🔊 Test voice</Button>
       </Card>
 
       <Card>

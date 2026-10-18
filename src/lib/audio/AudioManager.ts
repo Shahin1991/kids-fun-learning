@@ -1,5 +1,6 @@
 import { Howl, Howler } from "howler";
 import { tones, type SfxName } from "./tone-generator";
+import { chooseVoice, DEFAULT_VOICE, rankVoices, speechChunks, VOICE_PITCH, VOICE_RATE, type VoicePrefs } from "./voice";
 
 type SoundName = "success" | "failure" | "reward";
 
@@ -25,10 +26,23 @@ class AudioManager {
   }
 
   private voice: SpeechSynthesisVoice | null = null;
+  private voicePrefs: VoicePrefs = DEFAULT_VOICE;
   private speechUnlocked = false;
   private speakTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Chrome can garbage-collect an utterance before it finishes, which silences it; keep a reference. */
-  private current: SpeechSynthesisUtterance | null = null;
+  /** Chrome can garbage-collect an utterance before it finishes, which silences it; keep references. */
+  private current: SpeechSynthesisUtterance[] = [];
+
+  /** Speed, style and device voice from the parent dashboard. */
+  setVoicePrefs(prefs: VoicePrefs) {
+    this.voicePrefs = prefs;
+    this.voice = null;
+  }
+
+  /** English voices on this device, best first (empty until the browser has loaded them). */
+  listVoices(): SpeechSynthesisVoice[] {
+    if (typeof window === "undefined" || !window.speechSynthesis) return [];
+    return rankVoices(window.speechSynthesis.getVoices());
+  }
 
   /**
    * Browsers block audio and speech until a completed tap, click or key press.
@@ -49,9 +63,7 @@ class AudioManager {
 
   private pickVoice(synth: SpeechSynthesis): SpeechSynthesisVoice | null {
     if (this.voice) return this.voice;
-    const voices = synth.getVoices();
-    const english = voices.filter((v) => v.lang.toLowerCase().startsWith("en"));
-    this.voice = english.find((v) => /en[-_]US/i.test(v.lang) && /google|samantha|natural|enhanced/i.test(v.name)) ?? english.find((v) => /en[-_]US/i.test(v.lang)) ?? english[0] ?? null;
+    this.voice = chooseVoice(synth.getVoices(), this.voicePrefs.voiceName);
     return this.voice;
   }
 
@@ -110,29 +122,37 @@ class AudioManager {
     }
   }
 
-  speak(text: string) {
+  /** `prefs` overrides the saved voice settings (the dashboard's "Test voice" button). */
+  speak(text: string, prefs?: VoicePrefs) {
     if (!this.soundEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
     const synth = window.speechSynthesis;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-US";
-    u.rate = 0.85;
-    u.pitch = 1.3;
-    u.volume = 1;
-    const voice = this.pickVoice(synth);
-    if (voice) u.voice = voice;
-    this.current = u;
-    u.onend = u.onerror = () => {
-      if (this.current === u) this.current = null;
-    };
+    const p = prefs ?? this.voicePrefs;
+    const voice = prefs ? chooseVoice(synth.getVoices(), prefs.voiceName) : this.pickVoice(synth);
+    // One utterance per sentence: the engine pauses between them, so children can keep up
+    const utterances = speechChunks(text).map((chunk) => {
+      const u = new SpeechSynthesisUtterance(chunk);
+      u.lang = voice?.lang ?? "en-US";
+      u.rate = VOICE_RATE[p.speed];
+      u.pitch = VOICE_PITCH[p.style];
+      u.volume = 1;
+      if (voice) u.voice = voice;
+      u.onend = u.onerror = () => {
+        this.current = this.current.filter((x) => x !== u);
+      };
+      return u;
+    });
+    if (!utterances.length) return;
+    this.current = utterances;
     if (this.speakTimer) clearTimeout(this.speakTimer);
     const busy = synth.speaking || synth.pending;
     synth.resume();
+    const go = () => utterances.forEach((u) => synth.speak(u));
     if (busy) {
       // A new line interrupts the old one; Chrome drops an utterance spoken in the same tick as cancel().
       synth.cancel();
-      this.speakTimer = setTimeout(() => synth.speak(u), 70);
+      this.speakTimer = setTimeout(go, 70);
     } else {
-      synth.speak(u);
+      go();
     }
   }
 

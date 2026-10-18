@@ -61,6 +61,16 @@ References:
 **Goal:** a warm, natural, child-friendly voice and playful, real-sounding effects, still fully
 offline with no network calls.
 
+**Done (October 2026):** the quick win (option 1).
+- Speech is slower by default: speed 0.75 instead of 0.85, with "Extra slow" at 0.6.
+- Pitch is near natural, not 1.3.
+- Long lines are spoken one sentence at a time, so there's a pause between sentences.
+- The best voice is chosen automatically (Premium/Enhanced/Natural, then Google, with novelty voices skipped).
+- The parent dashboard has a **Voice** card: speed, style (Natural, Bright, Deep, Squeaky), the device's voice and a test button.
+- Code: `src/lib/audio/voice.ts` and `AudioManager.speak`.
+
+Options 2–4 are still open.
+
 **Options to evaluate:**
 1. **Quick win (hours):** better voice picking and settings. Prefer the high-quality voices
    ("Enhanced"/"Premium"/"Natural" on Apple, "Google UK/US English" on Android and Chrome),

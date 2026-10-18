@@ -111,3 +111,9 @@
 - Pure rules and layouts are in `peg-drop.ts`, `catapult.ts` and `marble-run.ts`, tested in `physics-play.test.ts`.
 - Marble Run builds its course in `buildRun()` with no Three.js, so the tests run the real physics. Every puzzle's solution must land the marble in the cup, and leaving the ramps parked must miss. Design new puzzles by placing the solution ramps first and the ledges at their ends. Then check that nudging each ramp one grid step mostly still works.
 - Catapult towers start asleep, so they don't wobble before they're hit. The first time the ball hits a block it wakes the whole tower, so no block is left asleep in mid-air.
+
+## Voice settings (`lib/audio/voice.ts`)
+- Saved as `settings.voice` and applied by `AudioProvider` at start-up. The parent dashboard's Voice card changes it and plays a sample each time.
+- Speeds are 0.6, 0.75 (the default) and 0.9. Styles are pitches: Natural 1.05, Bright 1.25, Deep 0.85 and Squeaky 1.6.
+- `speak()` turns text over 40 characters into one utterance per sentence, because the engine pauses between utterances. Every utterance stays referenced until it ends, because Chrome can garbage-collect a playing one.
+- A picked voice that the device no longer has falls back to the best available one.
