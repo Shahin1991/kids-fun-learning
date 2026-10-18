@@ -62,6 +62,7 @@ export const MODULES: LearningModule[] = [
   { id: "connect-4", title: "Connect 4", ageGroup: "advanced", route: "/advanced/connect-4", icon: "🔴", colorToken: "kid-red", description: "Drop discs and connect four in a row" },
   { id: "uno", title: "Uno", ageGroup: "advanced", route: "/advanced/uno", icon: "🃏", colorToken: "kid-red", description: "Match colours and numbers, shout UNO!" },
   { id: "ludo", title: "Ludo", ageGroup: "advanced", route: "/advanced/ludo", icon: "🎲", colorToken: "kid-yellow", description: "Race your pawns home and send rivals back" },
+  { id: "times-tables", title: "Times Tables", ageGroup: "advanced", route: "/advanced/times-tables", icon: "✖️", colorToken: "kid-purple", description: "Build groups, tap the times grid, then quiz" },
   { id: "coin-shop", title: "Coin Shop", ageGroup: "advanced", route: "/advanced/coin-shop", icon: "🪙", colorToken: "kid-yellow", description: "Pay with coins and work out the change" },
   { id: "carrom", title: "Carrom", ageGroup: "advanced", route: "/advanced/carrom", icon: "⚪", colorToken: "kid-orange", description: "Flick the striker and pocket the coins" },
   { id: "snooker", title: "Snooker", ageGroup: "advanced", route: "/advanced/snooker", icon: "🎱", colorToken: "kid-green", description: "Pot a red, then a colour, in 3D" },
