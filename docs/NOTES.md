@@ -23,6 +23,12 @@
 - Uses `cannon-es` (pure JS, no WASM) with Three.js rendering; Rapier would add a ~1.5 MB WASM binary.
 - Settings were tuned in a headless simulation: friction 0.8, no bounce, low spin and a short drop keep towers stackable. Blocks are mostly locked to the screen plane (`linearFactor.z`, `angularFactor`).
 - Sounds are played by the page through `audioManager` so they follow the sound toggle; pitch rises with tower height.
+- Smooth motion:
+  - Meshes draw `interpolatedPosition`/`interpolatedQuaternion`, because the fixed 1/60 s step runs zero or two steps on some frames.
+  - The hovering block and the camera ease toward a smoothed height instead of snapping each time it is re-measured (about 8 times a second).
+  - That height counts every landed block, wobbling or not. Blocks still falling from the hand never count: a just-dropped block is nearly still and used to make the view leap up by metres.
+  - Milestones still need a steady tower.
+  - The loop freezes while `isAppPaused()`.
 
 ## Letter & Number Parade / Balloon Pop
 - Letters and numbers are chunky tubes built from stroke data in `src/lib/parade/glyphs.ts` (no font file; three's npm package ships none).
@@ -94,3 +100,14 @@
 - Pure logic in `src/lib/sports3d/` (`physics2d.ts` disc solver, `carrom.ts`, `snooker.ts`, `darts.ts`, `archery.ts`, `cue-bot.ts`), tested in `sports3d.test.ts`.
 - Engines: `SportScene` (base: loop, pause, HUD, timers) → `TableEngine` (slingshot aim, guide, robot, pot animation) → `CarromEngine` / `SnookerEngine`; `DartsEngine` and `ArcheryEngine` extend `SportScene` directly. One React shell, `components/sports3d/SportsGame.tsx`, for all four.
 - Testing in an automated browser: a hidden tab pauses `requestAnimationFrame`, so shim it with `setTimeout` before driving the games.
+
+## Physics toys: Peg Drop, Catapult, Marble Run (`lib/physics-play/`)
+- Built on the sports shell: each engine extends `SportScene` and the page uses `SportsGame` with `opponents={["solo"]}` and a game-specific `levelLabel`. Finishing a game earns a star.
+- cannon-es everywhere, through `physics.ts`:
+  - `stepWorld` runs a fixed 1/60 s step.
+  - `syncMesh` draws the interpolated pose (the Block Tower lesson).
+  - `lockToPlane` keeps play in the screen plane.
+  - `fitFrontCamera` frames the play area between the HUD at the top and the hint bar at the bottom.
+- Pure rules and layouts are in `peg-drop.ts`, `catapult.ts` and `marble-run.ts`, tested in `physics-play.test.ts`.
+- Marble Run builds its course in `buildRun()` with no Three.js, so the tests run the real physics. Every puzzle's solution must land the marble in the cup, and leaving the ramps parked must miss. Design new puzzles by placing the solution ramps first and the ledges at their ends. Then check that nudging each ramp one grid step mostly still works.
+- Catapult towers start asleep, so they don't wobble before they're hit. The first time the ball hits a block it wakes the whole tower, so no block is left asleep in mid-air.

@@ -39,6 +39,8 @@ export const MODULES: LearningModule[] = [
   { id: "bubble-pop", title: "Bubble Pop", ageGroup: "early-learning", route: "/early-learning/bubble-pop", icon: "🫧", colorToken: "kid-blue", description: "Pop the matching bubble" },
   { id: "letter-parade", title: "Letter & Number Parade", ageGroup: "early-learning", route: "/early-learning/letter-parade", icon: "🎺", colorToken: "kid-purple", description: "Tap the giant letter or number that is called out" },
   { id: "block-tower", title: "Block Tower", ageGroup: "early-learning", route: "/early-learning/block-tower", icon: "🧱", colorToken: "kid-red", description: "Stack wobbly blocks, then knock them down" },
+  { id: "peg-drop", title: "Peg Drop", ageGroup: "early-learning", route: "/early-learning/peg-drop", icon: "🟡", colorToken: "kid-yellow", description: "Drop balls through the pegs and add up the cups" },
+  { id: "catapult", title: "Catapult", ageGroup: "early-learning", route: "/early-learning/catapult", icon: "🏰", colorToken: "kid-orange", description: "Pull back the slingshot and knock the towers down" },
   { id: "cake-bakery", title: "Cake Bakery", ageGroup: "early-learning", route: "/early-learning/cake-bakery", icon: "🎂", colorToken: "kid-red", description: "Mix, bake, frost and decorate your own cake" },
   { id: "magna-tiles", title: "Magna Tiles", ageGroup: "early-learning", route: "/early-learning/magna-tiles", icon: "🔷", colorToken: "kid-blue", description: "Snap magnetic tiles into houses, towers and more" },
   { id: "patterns", title: "Pattern Parade", ageGroup: "early-learning", route: "/early-learning/patterns", icon: "🔴", colorToken: "kid-purple", description: "What comes next in the pattern?" },
@@ -65,6 +67,7 @@ export const MODULES: LearningModule[] = [
   { id: "snooker", title: "Snooker", ageGroup: "advanced", route: "/advanced/snooker", icon: "🎱", colorToken: "kid-green", description: "Pot a red, then a colour, in 3D" },
   { id: "darts", title: "Darts", ageGroup: "advanced", route: "/advanced/darts", icon: "🎯", colorToken: "kid-red", description: "Throw three darts and add up your score" },
   { id: "archery", title: "Archery", ageGroup: "advanced", route: "/advanced/archery", icon: "🏹", colorToken: "kid-blue", description: "Draw the bow, beat the wind, hit the gold" },
+  { id: "marble-run", title: "Marble Run", ageGroup: "advanced", route: "/advanced/marble-run", icon: "🎢", colorToken: "kid-blue", description: "Place the ramps so the marble rolls into the cup" },
   { id: "road-runner", title: "Road Runner", ageGroup: "advanced", route: "/advanced/road-runner", icon: "🛣️", colorToken: "kid-yellow", description: "Dodge across three lanes" },
 
   { id: "alternate-uses", title: "Alternate Uses", ageGroup: "others", route: "/others/alternate-uses", icon: "💡", colorToken: "kid-yellow", description: "How many uses can you think of?" },

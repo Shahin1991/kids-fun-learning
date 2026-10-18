@@ -17,6 +17,8 @@ export interface SportsGameProps {
   variant: { label: string; options: { id: string; text: string }[]; initial: string };
   /** One-line "how to play" shown until the first game ends. */
   hint: string;
+  /** Label for the Easy/Medium/Hard row (defaults to the sports wording) */
+  levelLabel?: string;
 }
 
 const OPPONENT_TEXT: Record<Opponent, string> = { robot: "🤖 Robo", friend: "👫 Friend", solo: "🧒 Just me" };
@@ -50,7 +52,7 @@ function playSound(e: SportSound) {
 }
 
 /** Full-screen shell for the 3D sports games: canvas, scoreboard, status line, settings and the end panel. */
-export default function SportsGame({ title, moduleId, make, opponents, variant, hint }: SportsGameProps) {
+export default function SportsGame({ title, moduleId, make, opponents, variant, hint, levelLabel }: SportsGameProps) {
   const router = useRouter();
   const reduced = useAppReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -156,7 +158,7 @@ export default function SportsGame({ title, moduleId, make, opponents, variant, 
               {(close) => (
                 <>
                   {opponents.length > 1 && <ChipRow label="Play with" value={setup.opponent} options={opponents.map((o) => ({ id: o, text: OPPONENT_TEXT[o] }))} onPick={(o) => restart({ ...setup, opponent: o })} />}
-                  <ChipRow label={setup.opponent === "robot" ? "Robo's skill & wobble" : "Wobble"} value={setup.level} options={LEVELS} onPick={(l) => restart({ ...setup, level: l })} />
+                  <ChipRow label={levelLabel ?? (setup.opponent === "robot" ? "Robo's skill & wobble" : "Wobble")} value={setup.level} options={LEVELS} onPick={(l) => restart({ ...setup, level: l })} />
                   <ChipRow label={variant.label} value={setup.variant} options={variant.options} onPick={(v) => restart({ ...setup, variant: v })} />
                   <button
                     type="button"

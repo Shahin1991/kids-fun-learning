@@ -18,6 +18,8 @@ Built in the October 2026 pass: **Make Ten**, **Rhyme Time**, **Word Builder** (
 
 Built in the October 2026 sports pass: **Carrom**, **Snooker**, **Darts** (count-up maths) and **Archery** (wind), all 3D with Robo / pass-and-play / solo. Decisions: `docs/SPORTS_3D_DECISIONS.md`.
 
+Built in the October 2026 physics pass: **Peg Drop** (count the cups), **Catapult** (knock the towers down) and **Marble Run** (ramp puzzles). Decisions: `docs/PHYSICS_GAMES.md`. Researched but not built yet: **Domino Chain**, **Hamster Ball Maze** (tilt), **Float or Sink** (buoyancy) and **Fire Hose** (water arcs); see that file for the plan for each.
+
 Next, roughly by expected learning value:
 1. **Robot Path 2**: loops ("repeat 3 times"), turn left/right commands, "fix the broken program" levels; adds computational-thinking depth.
 2. **Tangram / Jigsaw** (5-8): spatial reasoning; tap-to-rotate, snap to silhouette.

@@ -1,5 +1,6 @@
 import * as CANNON from "cannon-es";
 import * as THREE from "three";
+import { isAppPaused } from "@/lib/app-pause";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 export type TowerMode = "build" | "knock";
@@ -39,6 +40,8 @@ interface Block {
   body: CANNON.Body;
   mesh: THREE.Mesh;
   landed: boolean;
+  /** Has touched the table or another block; a block still falling from the hand is not part of the tower */
+  touched: boolean;
   squash: number;
 }
 
@@ -69,6 +72,11 @@ export class BlockTowerEngine {
   private metricsT = 0;
   private lastState = "";
   private camLook = 2.5;
+  private camDist = 13;
+  /** Smoothed tower height that the hovering block and camera follow (the measured height changes in steps) */
+  private shownHeight = 0;
+  /** Top of every landed block, wobbling or not (blocks flung by a poke or Boom! excepted); what the view follows */
+  private viewHeight = 0;
   private shake = 0;
   private raycaster = new THREE.Raycaster();
   private pointer = new THREE.Vector2();
@@ -124,6 +132,8 @@ export class BlockTowerEngine {
     this.milestone = 0;
     this.stableFor = 0;
     this.height = 0;
+    this.shownHeight = 0;
+    this.viewHeight = 0;
     this.nextHover();
     this.emitState(true);
   }
@@ -145,6 +155,8 @@ export class BlockTowerEngine {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // Snap the zoom to fit the new shape instead of gliding to it (e.g. on first load in portrait)
+    this.camDist = (13 + this.shownHeight * 0.9) * Math.max(1, 1.2 / this.camera.aspect);
   }
 
   destroy() {
@@ -255,8 +267,9 @@ export class BlockTowerEngine {
     mesh.position.copy(this.hover.position);
     this.scene.add(mesh);
 
-    const block: Block = { body, mesh, landed: false, squash: 0 };
+    const block: Block = { body, mesh, landed: false, touched: false, squash: 0 };
     body.addEventListener("collide", (e: { contact: CANNON.ContactEquation }) => {
+      block.touched = true;
       const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
       if (v < 1.2) return;
       if (!block.landed && v > 2) {
@@ -334,19 +347,26 @@ export class BlockTowerEngine {
   // ---- simulation ----
   private metrics() {
     let top = 0;
+    let viewTop = 0;
     let moving = false;
     let count = 0;
     for (const b of this.blocks) {
       if (b.body.position.y < -4 || Math.abs(b.body.position.x) > TABLE_HALF + 1) continue;
       count++;
-      if (b.body.velocity.length() > 0.35 || b.body.angularVelocity.length() > 0.5) {
+      // A block that has just been let go is nearly still at first; it only counts once it lands.
+      if (!b.touched) continue;
+      const speed = b.body.velocity.length();
+      b.body.updateAABB();
+      if (speed < 2.5) viewTop = Math.max(viewTop, b.body.aabb.upperBound.y);
+      if (speed > 0.35 || b.body.angularVelocity.length() > 0.5) {
         moving = true;
         continue;
       }
-      b.body.updateAABB();
       top = Math.max(top, b.body.aabb.upperBound.y);
     }
+    // Milestones and the score need a steady tower; the camera follows wobbling blocks too so it does not dip
     this.height = top;
+    this.viewHeight = viewTop;
     if (!moving && top >= milestoneHeight(this.milestone + 1)) this.stableFor += 0.12;
     else this.stableFor = 0;
     if (this.stableFor > 1) {
@@ -359,10 +379,11 @@ export class BlockTowerEngine {
   }
 
   private emitState(force: boolean, count = this.blocks.length) {
-    const key = `${count}:${this.height.toFixed(1)}`;
+    // The on-screen height follows landed blocks too, so it does not flicker down while the tower wobbles
+    const key = `${count}:${this.viewHeight.toFixed(1)}`;
     if (!force && key === this.lastState) return;
     this.lastState = key;
-    this.opts.onState?.({ blocks: count, height: Math.round(this.height * 10) / 10 });
+    this.opts.onState?.({ blocks: count, height: Math.round(this.viewHeight * 10) / 10 });
   }
 
   private celebrate() {
@@ -381,6 +402,8 @@ export class BlockTowerEngine {
     this.raf = requestAnimationFrame(this.loop);
     const dt = Math.min(1 / 30, this.lastT ? (t - this.lastT) / 1000 : 1 / 60);
     this.lastT = t;
+    // Freeze while the play timer has paused the app
+    if (isAppPaused()) return;
     this.time += dt;
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.world.step(1 / 60, dt, 4);
@@ -392,8 +415,12 @@ export class BlockTowerEngine {
         this.blocks.splice(i, 1);
         continue;
       }
-      b.mesh.position.set(b.body.position.x, b.body.position.y, b.body.position.z);
-      b.mesh.quaternion.set(b.body.quaternion.x, b.body.quaternion.y, b.body.quaternion.z, b.body.quaternion.w);
+      // Physics runs in fixed 1/60 s steps; drawing the interpolated pose keeps motion smooth when a
+      // frame happens to run zero or two steps (120 Hz screens, or a busy frame).
+      const p = b.body.interpolatedPosition;
+      const q = b.body.interpolatedQuaternion;
+      b.mesh.position.set(p.x, p.y, p.z);
+      b.mesh.quaternion.set(q.x, q.y, q.z, q.w);
       if (b.squash > 0 && !this.opts.reducedMotion) {
         b.squash = Math.max(0, b.squash - dt * 2.5);
         const k = Math.cos((1 - b.squash) * 16) * b.squash * 0.16;
@@ -407,10 +434,13 @@ export class BlockTowerEngine {
       this.metrics();
     }
 
+    // The measured height changes in steps; ease toward it so the hovering block and camera glide.
+    this.shownHeight += (Math.max(0, this.viewHeight) - this.shownHeight) * Math.min(1, dt * 3);
+
     // Hovering block breathes and sways while it waits.
     if (this.hover) {
       const idle = this.opts.reducedMotion ? 0 : 1;
-      const top = Math.max(this.height, 0);
+      const top = this.shownHeight;
       this.hover.position.x += (this.hoverX - this.hover.position.x) * Math.min(1, dt * 14);
       this.hover.position.y = top + 2.6 + Math.sin(this.time * 2) * 0.12 * idle;
       this.hover.position.z = 0;
@@ -435,9 +465,10 @@ export class BlockTowerEngine {
 
     // Camera follows the tower upward.
     const aspect = this.camera.aspect;
-    const wanted = Math.max(2.4, this.height * 0.8 + 1.8);
+    const wanted = Math.max(2.4, this.shownHeight * 0.8 + 1.8);
     this.camLook += (wanted - this.camLook) * Math.min(1, dt * 2);
-    const dist = (13 + this.height * 0.9) * Math.max(1, 1.2 / aspect);
+    this.camDist += ((13 + this.shownHeight * 0.9) * Math.max(1, 1.2 / aspect) - this.camDist) * Math.min(1, dt * 2);
+    const dist = this.camDist;
     this.shake = Math.max(0, this.shake - dt);
     const sx = this.shake > 0 ? (Math.random() - 0.5) * this.shake * 0.6 : 0;
     this.camera.position.set(sx, this.camLook + 0.9, dist);
