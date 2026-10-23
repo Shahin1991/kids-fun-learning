@@ -44,6 +44,7 @@ export const MODULES: LearningModule[] = [
   { id: "cake-bakery", title: "Cake Bakery", ageGroup: "early-learning", route: "/early-learning/cake-bakery", icon: "🎂", colorToken: "kid-red", description: "Mix, bake, frost and decorate your own cake" },
   { id: "magna-tiles", title: "Magna Tiles", ageGroup: "early-learning", route: "/early-learning/magna-tiles", icon: "🔷", colorToken: "kid-blue", description: "Snap magnetic tiles into houses, towers and more" },
   { id: "patterns", title: "Pattern Parade", ageGroup: "early-learning", route: "/early-learning/patterns", icon: "🔴", colorToken: "kid-purple", description: "What comes next in the pattern?" },
+  { id: "colour-mixer", title: "Colour Mixer", ageGroup: "early-learning", route: "/early-learning/colour-mixer", icon: "🎨", colorToken: "kid-purple", description: "Mix paints to make new colours" },
   { id: "first-sound", title: "First Sound", ageGroup: "early-learning", route: "/early-learning/first-sound", icon: "🔊", colorToken: "kid-orange", description: "Which letter does the word start with?" },
   { id: "number-path", title: "Number Path", ageGroup: "early-learning", route: "/early-learning/number-path", icon: "🎲", colorToken: "kid-green", description: "Roll the dice and hop along the numbers" },
   { id: "tic-tac-toe", title: "Tic Tac Toe", ageGroup: "early-learning", route: "/early-learning/tic-tac-toe", icon: "❌", colorToken: "kid-blue", description: "Beat the robot: three in a row wins" },
