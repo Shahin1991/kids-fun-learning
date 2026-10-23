@@ -57,6 +57,7 @@ export const MODULES: LearningModule[] = [
   { id: "vehicles", title: "Vehicle World", ageGroup: "advanced", route: "/advanced/vehicles", icon: "🚒", colorToken: "kid-orange", description: "Vehicles with sounds and facts" },
   { id: "geography", title: "Geography", ageGroup: "advanced", route: "/advanced/geography", icon: "🌍", colorToken: "kid-green", description: "Flags, countries and continents" },
   { id: "science", title: "Science", ageGroup: "advanced", route: "/advanced/science", icon: "🔭", colorToken: "kid-purple", description: "Space, plants and weather" },
+  { id: "science-lab", title: "Science Lab", ageGroup: "advanced", route: "/advanced/science-lab", icon: "🧪", colorToken: "kid-green", description: "Body, plants, weather, magnets, electricity and more, animated" },
   { id: "clock", title: "Clock Time", ageGroup: "advanced", route: "/advanced/clock", icon: "🕒", colorToken: "kid-blue", description: "Learn to tell the time" },
   { id: "robot-path", title: "Robot Path", ageGroup: "advanced", route: "/advanced/robot-path", icon: "🤖", colorToken: "kid-green", description: "Line up arrows to guide the robot to the star" },
   { id: "connect-4", title: "Connect 4", ageGroup: "advanced", route: "/advanced/connect-4", icon: "🔴", colorToken: "kid-red", description: "Drop discs and connect four in a row" },
