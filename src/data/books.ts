@@ -4,6 +4,7 @@ import { ANIMALS } from "./animals";
 import { COLORS } from "./colors";
 import { COUNT_OBJECTS } from "./numbers";
 import { SHAPES } from "./shapes";
+import { CBSE_BOOKS } from "./cbse-stories";
 import { STORIES } from "./stories";
 
 /** One page of a picture book. Only the fields a page needs are set. */
@@ -40,6 +41,13 @@ export interface BookDef {
   /** Cover and spine colour */
   color: string;
   dark: string;
+  /** Spine label when the title is too long to stand on a shelf */
+  short?: string;
+  /** Which shelf tab it lives on; books without one are the first books */
+  shelf?: string;
+  kind?: "story" | "poem";
+  /** Printed on the cover: where the tale or poem comes from */
+  credit?: string;
   pages: BookPage[];
 }
 
@@ -117,6 +125,7 @@ export const BOOKS: BookDef[] = [
     ],
   },
   ...STORIES,
+  ...CBSE_BOOKS,
 ];
 
 export const getBook = (id: string) => BOOKS.find((b) => b.id === id);

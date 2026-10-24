@@ -1,10 +1,10 @@
 import type { SceneDef } from "@/components/art/Scene";
 import type { BookDef, BookPage } from "./books";
 
-const DAY: SceneDef["sky"] = ["#bfe6ff", "#eaf8ff"];
-const NIGHT: SceneDef["sky"] = ["#1e2a6b", "#4a3c8f"];
-const RAIN: SceneDef["sky"] = ["#9db4c9", "#cfdbe6"];
-const GRASS = "#7ccf6e";
+export const DAY: SceneDef["sky"] = ["#bfe6ff", "#eaf8ff"];
+export const NIGHT: SceneDef["sky"] = ["#1e2a6b", "#4a3c8f"];
+export const RAIN: SceneDef["sky"] = ["#9db4c9", "#cfdbe6"];
+export const GRASS = "#7ccf6e";
 const NIGHT_GRASS = "#2f5a52";
 
 /** A story page: a picture and a few words, read aloud as written. */
@@ -12,8 +12,11 @@ const page = (id: string, text: string, scene: SceneDef, bg: string, fg: string)
 
 const PAPER = ["#fff1c9", "#ffe0ea", "#d9f0ff", "#dcf6d3", "#eadcff", "#ffe5cc"];
 const INKS = ["#e67e00", "#d6336c", "#1971c2", "#2f9e44", "#7048e8", "#e8590c"];
-const pages = (id: string, list: [string, SceneDef][]): BookPage[] =>
-  [...list.map(([t, s], i) => page(`${id}${i + 1}`, t, s, PAPER[i % PAPER.length], INKS[i % INKS.length]), { id: `${id}-end`, bg: "#fff3b0", fg: "#e67e00", big: "The End", illo: "star", caption: "", say: "The end!" } as BookPage)];
+export const pages = (id: string, list: [string, SceneDef][]): BookPage[] =>
+  [
+    ...list.map(([t, s], i) => page(`${id}${i + 1}`, t, s, PAPER[i % PAPER.length], INKS[i % INKS.length])),
+    { id: `${id}-end`, bg: "#fff3b0", fg: "#e67e00", big: "The End", illo: "star", caption: "", say: "The end!" },
+  ];
 
 const STAR_SPOTS = [[10, 14, 11], [90, 12, 13], [88, 52, 9], [12, 50, 10], [28, 10, 8], [74, 8, 9]] as const;
 const stars = (n: number): SceneDef["items"] => STAR_SPOTS.slice(0, n).map(([x, y, size], i) => ({ id: "star", x, y, size, tilt: i * 25 - 30 }));

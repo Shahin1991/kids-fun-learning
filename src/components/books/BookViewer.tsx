@@ -24,7 +24,7 @@ function StoryFace({ page, n, total }: { page: BookPage; n: number; total: numbe
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-between gap-2 px-4 pb-3 pt-4 text-ink" style={{ background: `linear-gradient(100deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0) 7%), ${page.bg}` }}>
       <Scene scene={page.scene!} />
-      <p className="flex flex-1 items-center text-center font-extrabold leading-snug" style={{ color: page.fg, fontSize: "clamp(1.3rem, 6vw, 2rem)" }}>{page.text}</p>
+      <p className="flex flex-1 items-center whitespace-pre-line text-center font-extrabold leading-snug" style={{ color: page.fg, fontSize: "clamp(1.3rem, 6vw, 2rem)" }}>{page.text}</p>
       <p className="text-sm font-bold opacity-50">{n} / {total}</p>
     </div>
   );
@@ -72,6 +72,7 @@ function CoverFace({ book, hint }: { book: BookDef; hint: boolean }) {
           <ItemArt illo={book.illo} emoji={book.emoji} label="" size={110} />
         </span>
         <h2 className="text-center font-extrabold leading-tight drop-shadow" style={{ fontSize: "clamp(1.8rem, 8.5vw, 2.8rem)" }}>{book.title}</h2>
+        {book.credit && <p className="text-center text-sm font-bold opacity-90">{book.credit}</p>}
       </div>
       <span className="absolute inset-x-8 bottom-16 h-1 rounded bg-yellow-300/80" aria-hidden />
       {hint && (

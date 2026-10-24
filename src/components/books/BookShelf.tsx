@@ -9,9 +9,12 @@ import { BookViewer, type BookFrom } from "./BookViewer";
 
 const HEIGHTS = [190, 170, 200, 180, 188];
 const PER_SHELF = 3;
+const SHELVES = ["First books", "Class 1", "Class 2", "Class 3"] as const;
+const SHELF_ICONS = ["📚", "1️⃣", "2️⃣", "3️⃣"];
 
 function Spine({ book, i, hidden, onPick }: { book: BookDef; i: number; hidden: boolean; onPick: (b: BookDef, el: HTMLElement) => void }) {
   const h = HEIGHTS[i % HEIGHTS.length];
+  const label = book.short ?? book.title;
   return (
     <motion.button
       type="button"
@@ -28,7 +31,7 @@ function Spine({ book, i, hidden, onPick }: { book: BookDef; i: number; hidden: 
       <span className="absolute inset-x-0 top-1.5 h-1 bg-yellow-300/80" aria-hidden />
       <span className="absolute inset-x-0 bottom-1.5 h-1 bg-yellow-300/80" aria-hidden />
       <span className="mt-2 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-3xl" aria-hidden><ItemArt illo={book.illo} emoji={book.emoji} label="" size={36} /></span>
-      <span className="flex-1 text-lg font-extrabold leading-none drop-shadow" style={{ writingMode: "vertical-rl" }}>{book.title}</span>
+      <span className={`flex-1 font-extrabold leading-none drop-shadow ${label.length > 11 ? "text-base" : "text-lg"}`} style={{ writingMode: "vertical-rl" }}>{label}</span>
     </motion.button>
   );
 }
@@ -37,6 +40,7 @@ function Spine({ book, i, hidden, onPick }: { book: BookDef; i: number; hidden: 
 export function BookShelf() {
   const [open, setOpen] = useState<{ book: BookDef; from: BookFrom } | null>(null);
   const [away, setAway] = useState<string | null>(null);
+  const [shelf, setShelf] = useState<(typeof SHELVES)[number]>("First books");
 
   const pick = (book: BookDef, el: HTMLElement) => {
     const r = el.getBoundingClientRect();
@@ -49,8 +53,9 @@ export function BookShelf() {
     });
   };
 
+  const shown = BOOKS.filter((b) => (b.shelf ?? "First books") === shelf);
   const rows: BookDef[][] = [];
-  for (let i = 0; i < BOOKS.length; i += PER_SHELF) rows.push(BOOKS.slice(i, i + PER_SHELF));
+  for (let i = 0; i < shown.length; i += PER_SHELF) rows.push(shown.slice(i, i + PER_SHELF));
 
   return (
     <div className="flex flex-1 flex-col items-center gap-3">
@@ -58,7 +63,14 @@ export function BookShelf() {
         <span className="animate-float text-4xl" aria-hidden>🦉</span>
         Pick a book! <span aria-hidden>🔊</span>
       </button>
-      <div className="w-full max-w-md rounded-[2rem] border-[10px] border-amber-900 bg-gradient-to-b from-amber-300 to-amber-400 px-2 pb-2 pt-1 shadow-2xl">
+      <div className="flex flex-wrap justify-center gap-2" role="tablist" aria-label="Bookshelves">
+        {SHELVES.map((name, k) => (
+          <button key={name} type="button" role="tab" aria-selected={shelf === name} onClick={() => { audioManager.playPop(1); setShelf(name); }} className={`min-h-touch rounded-3xl px-4 text-lg font-bold shadow active:scale-95 ${shelf === name ? "bg-kid-purple text-white" : "bg-surface"}`}>
+            <span aria-hidden>{SHELF_ICONS[k]}</span> {name}
+          </button>
+        ))}
+      </div>
+      <div key={shelf} className="w-full max-w-md rounded-[2rem] border-[10px] border-amber-900 bg-gradient-to-b from-amber-300 to-amber-400 px-2 pb-2 pt-1 shadow-2xl">
         {rows.map((row, r) => (
           <div key={r} className="pt-4">
             <div className="flex items-end justify-center gap-2 px-1">

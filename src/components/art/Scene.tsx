@@ -1,7 +1,10 @@
 import { Illo } from "./illustrations";
 
 export interface SceneItem {
-  id: string;
+  /** A drawn illustration from `illustrations.tsx`... */
+  id?: string;
+  /** ...or an emoji, for characters we have no drawing of (monkeys, pigs, a wolf). */
+  emoji?: string;
   /** Centre, as % of the scene width / height */
   x: number;
   y: number;
@@ -23,11 +26,11 @@ export interface SceneDef {
 /** A little picture-book scene: sky, a rolling hill, and illustrations placed on it. */
 export function Scene({ scene }: { scene: SceneDef }) {
   return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border-4 border-white/70 shadow-md" style={{ background: `linear-gradient(${scene.sky[0]}, ${scene.sky[1]})` }} aria-hidden>
+    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border-4 border-white/70 shadow-md" style={{ background: `linear-gradient(${scene.sky[0]}, ${scene.sky[1]})`, containerType: "inline-size" }} aria-hidden>
       {scene.ground && <div className="absolute -bottom-[38%] -left-[10%] h-[70%] w-[120%] rounded-[50%]" style={{ background: scene.ground }} />}
       {scene.items.map((it, i) => (
         <div key={i} className="absolute aspect-square" style={{ left: `${it.x}%`, top: `${it.y}%`, width: `${it.size}%`, transform: `translate(-50%, -50%) rotate(${it.tilt ?? 0}deg) scaleX(${it.flip ? -1 : 1})` }}>
-          <Illo id={it.id} />
+          {it.emoji ? <span className="flex size-full items-center justify-center leading-none" style={{ fontSize: `${it.size * 0.8}cqw` }}>{it.emoji}</span> : it.id ? <Illo id={it.id} /> : null}
         </div>
       ))}
     </div>
