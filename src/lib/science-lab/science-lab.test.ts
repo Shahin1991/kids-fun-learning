@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LAB_GROUPS, LAB_LESSONS } from "@/data/science-lab";
-import { litFraction, litPath } from "./moon";
+import { litFraction, litPath, phaseName } from "./moon";
+import { stepMs } from "./timing";
 
 describe("lab lessons", () => {
   it("has unique ids and at least two steps each", () => {
@@ -22,5 +23,26 @@ describe("moon phases", () => {
   it("draws nothing at new moon and a straight edge at a quarter", () => {
     expect(litPath(0, 40)).toBe("");
     expect(litPath(90, 40)).toContain("A0.00,40");
+  });
+});
+
+describe("phase names", () => {
+  it("names the main phases, waxing and waning alike", () => {
+    expect(phaseName(0)).toBe("New moon");
+    expect(phaseName(360)).toBe("New moon");
+    expect(phaseName(50)).toBe("Crescent");
+    expect(phaseName(310)).toBe("Crescent");
+    expect(phaseName(90)).toBe("Half moon");
+    expect(phaseName(270)).toBe("Half moon");
+    expect(phaseName(180)).toBe("Full moon");
+    expect(phaseName(-90)).toBe("Half moon");
+  });
+});
+
+describe("auto-play timing", () => {
+  it("gives short captions a floor and long ones more time", () => {
+    expect(stepMs("Hello there")).toBe(6000);
+    const long = LAB_LESSONS.flatMap((l) => l.steps).reduce((a, b) => (b.say.length > a.say.length ? b : a));
+    expect(stepMs(long.say)).toBeGreaterThan(10000);
   });
 });

@@ -17,3 +17,13 @@ export function litPath(angle: number, r: number): string {
   const side = waxing ? 1 : 0;
   return `M0,${-r} A${r},${r} 0 0 ${side} 0,${r} A${rx.toFixed(2)},${r} 0 0 ${sweep ^ (waxing ? 0 : 1)} 0,${-r} Z`;
 }
+
+/** What the moon is called at a phase angle (degrees, 0 = new, 180 = full). */
+export function phaseName(angle: number) {
+  const a = ((angle % 360) + 360) % 360;
+  if (a < 20 || a > 340) return "New moon";
+  if (a < 75 || a > 285) return "Crescent";
+  if (a < 105 || a > 255) return "Half moon";
+  if (a < 160 || a > 200) return "Almost full";
+  return "Full moon";
+}

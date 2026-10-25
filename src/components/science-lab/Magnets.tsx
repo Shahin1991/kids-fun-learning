@@ -1,7 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { VIEW, useLoop, type SceneProps } from "./types";
+import { useEffect, useState } from "react";
+import { audioManager } from "@/lib/audio/AudioManager";
+import { BOUNCE, VIEW, pin, useLoop, type SceneProps } from "./types";
 
 const N = "#ff4d6d";
 const S = "#4d96ff";
@@ -27,13 +29,69 @@ function Bar({ left, label = true }: { left: "N" | "S"; label?: boolean }) {
 }
 
 const ITEMS = [
-  { e: "📎", iron: true },
-  { e: "🪵", iron: false },
-  { e: "🔩", iron: true },
-  { e: "🧸", iron: false },
-  { e: "📌", iron: true },
-  { e: "🍎", iron: false },
+  { e: "📎", name: "paper clip", iron: true },
+  { e: "🪵", name: "wood", iron: false },
+  { e: "🔩", name: "bolt", iron: true },
+  { e: "🧸", name: "teddy", iron: false },
+  { e: "📌", name: "pin", iron: true },
+  { e: "🍎", name: "apple", iron: false },
 ];
+/** How long the scene waits for a tap before testing the next thing itself, so auto-play still shows it. */
+const IDLE_MS = 2600;
+
+/** Tap a thing to hold the magnet over it: iron flies up and sticks, everything else just wobbles. */
+function PickUp() {
+  const loop = useLoop();
+  const [tested, setTested] = useState<number[]>([]);
+  const all = tested.length === ITEMS.length;
+
+  const test = (i: number, byChild: boolean) => {
+    if (tested.includes(i)) return;
+    setTested((t) => [...t, i]);
+    audioManager.playPop(ITEMS[i].iron ? 3 : 0);
+    if (byChild) audioManager.speak(`${ITEMS[i].name}: ${ITEMS[i].iron ? "it sticks!" : "no, it does not stick"}`);
+  };
+
+  // nobody tapping: test the next thing in a moment; once all are tested, start over
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (all) setTested([]);
+      else test(ITEMS.findIndex((_, i) => !tested.includes(i)), false);
+    }, all ? IDLE_MS * 2 : IDLE_MS);
+    return () => clearTimeout(t);
+  });
+
+  let stuck = 0;
+  return (
+    <>
+      <motion.text fontSize="64" textAnchor="middle" x="200" y="70" animate={{ rotate: [-6, 6, -6] }} transition={loop({ duration: 2 })} style={pin(200, 24)}>🧲</motion.text>
+      {ITEMS.map((it, i) => {
+        const x = 50 + i * 60;
+        const done = tested.includes(i);
+        const slot = it.iron && done ? stuck++ : 0;
+        return (
+          <g key={it.e}>
+            {it.iron ? (
+              <motion.text textAnchor="middle" fontSize="32" initial={false} animate={done ? { x: 182 + slot * 18, y: 108 + (slot % 2) * 8, rotate: (slot - 1) * 14 } : { x, y: 250, rotate: 0 }} transition={done ? BOUNCE : { duration: 0.5 }}>{it.e}</motion.text>
+            ) : (
+              <motion.text textAnchor="middle" fontSize="32" x={x} y={250} initial={false} animate={done ? { rotate: [0, -14, 12, -8, 0], y: [0, -14, 0, -5, 0] } : { rotate: 0, y: 0 }} transition={{ duration: 0.7 }} style={pin(x, 240)}>{it.e}</motion.text>
+            )}
+            {done && (
+              <motion.text x={x} y="288" textAnchor="middle" fontSize="22" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={BOUNCE} style={pin(x, 280)}>{it.iron ? "✅" : "❌"}</motion.text>
+            )}
+            <rect x={x - 28} y="210" width="56" height="84" fill="transparent" className="cursor-pointer" onClick={() => test(i, true)} role="button" aria-label={`Test the ${it.name}`} />
+          </g>
+        );
+      })}
+      {tested.length === 0 && (
+        <motion.text x="200" y="180" textAnchor="middle" fontSize="20" fontWeight="800" fill="#3b2f4a" animate={{ scale: [1, 1.1, 1] }} transition={loop({ duration: 1.2 })} style={pin(200, 174)}>Tap a thing to test it 👆</motion.text>
+      )}
+      {all && [[120, 90], [280, 100], [200, 30]].map(([x, y], i) => (
+        <motion.text key={i} x={x} y={y} textAnchor="middle" fontSize="26" initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1], opacity: [1, 1, 0.8] }} transition={{ duration: 0.6, delay: i * 0.12 }} style={pin(x, y - 8)}>✨</motion.text>
+      ))}
+    </>
+  );
+}
 
 export function Magnets({ step }: SceneProps) {
   const loop = useLoop();
@@ -51,24 +109,7 @@ export function Magnets({ step }: SceneProps) {
         </>
       )}
 
-      {step === 1 && (
-        <>
-          <motion.text fontSize="64" textAnchor="middle" x="200" y="70" animate={{ rotate: [-6, 6, -6] }} transition={loop({ duration: 2 })} style={{ originX: "50%", originY: "50%" }}>🧲</motion.text>
-          {ITEMS.map((it, i) => {
-            const x = 50 + i * 60;
-            return (
-              <g key={i}>
-                {it.iron ? (
-                  <motion.text textAnchor="middle" fontSize="32" initial={{ x, y: 250 }} animate={{ x: [x, 200, 200, x], y: [250, 112 + (i % 3) * 6, 112 + (i % 3) * 6, 250] }} transition={loop({ duration: 4, delay: i * 0.25, times: [0, 0.35, 0.7, 1] })}>{it.e}</motion.text>
-                ) : (
-                  <motion.text textAnchor="middle" fontSize="32" initial={{ x, y: 250 }} animate={{ x, y: 250, rotate: [0, -4, 4, 0] }} transition={loop({ duration: 2.4, delay: i * 0.2 })}>{it.e}</motion.text>
-                )}
-                <text x={x} y="288" textAnchor="middle" fontSize="22">{it.iron ? "✅" : "❌"}</text>
-              </g>
-            );
-          })}
-        </>
-      )}
+      {step === 1 && <PickUp />}
 
       {step === 2 && (
         <>
