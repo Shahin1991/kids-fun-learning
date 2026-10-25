@@ -1,7 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { SPRING, VIEW, pin, useLoop, type SceneProps } from "./types";
+import { useState } from "react";
+import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
+import { audioManager } from "@/lib/audio/AudioManager";
+import { BOUNCE, SPRING, VIEW, pin, useBurst, useLoop, type SceneProps } from "./types";
 
 const SKY = ["#8fd3ff", "#b7d7f2", "#9aa8b8", "#5a6678", "#dbe9f5"];
 const GROUND = ["#6bcb77", "#6bcb77", "#5aa866", "#4a8a55", "#f4f8ff"];
@@ -16,11 +19,54 @@ function Cloud({ x, y, s = 1, fill = "#ffffff" }: { x: number; y: number; s?: nu
   );
 }
 
-/** One sky and one tree; the weather changes with the step. */
+/** Rain (or snow) falling from under a cloud at (x, y) to the ground. */
+function Shower({ x, y, snow }: { x: number; y: number; snow: boolean }) {
+  const loop = useLoop();
+  return (
+    <>
+      {Array.from({ length: 8 }, (_, i) => {
+        const cx = x - 42 + i * 12;
+        return snow ? (
+          <motion.circle key={i} cx={cx} r={4 + (i % 3)} fill="#ffffff" stroke="#c9d6e6" initial={{ y: y + 10, opacity: 0 }} animate={{ y: 250, x: [0, 8, -6, 4], opacity: [0, 1, 1, 0] }} transition={loop({ duration: 2.4 + (i % 3) * 0.4, delay: (i % 4) * 0.3, ease: "linear" })} />
+        ) : (
+          <motion.line key={i} x1={cx} x2={cx - 4} y1="0" y2="12" stroke="#4d96ff" strokeWidth="3" strokeLinecap="round" initial={{ y: y + 10, opacity: 0 }} animate={{ y: 236, opacity: [0, 1, 1, 0] }} transition={loop({ duration: 0.8, delay: (i % 4) * 0.15, ease: "linear" })} />
+        );
+      })}
+    </>
+  );
+}
+
+/** One sky and one tree; the weather changes with the step. Tap a cloud to make it rain, or snow when it is cold. */
 export function Weather({ step }: SceneProps) {
   const loop = useLoop();
+  const reduced = useAppReducedMotion();
   const dark = step === 2 || step === 3;
   const sway = step === 1 ? 8 : step === 3 ? 5 : 1.5;
+  const shower = useBurst(2800);
+  // which cloud was tapped last: 0 the drifting one, 1 the big one on the right
+  const [which, setWhich] = useState(0);
+
+  const tap = (n: number) => {
+    if (!shower.count) audioManager.speak(step === 4 ? "Snowflakes are falling!" : "Plip plop! It is raining.");
+    audioManager.playSfx("plunk", 0.8);
+    setWhich(n);
+    shower.fire();
+  };
+
+  /** A cloud the child can tap: it squashes, then rains or snows for a moment. */
+  const cloud = (n: number, x: number, y: number, s: number, fill: string) => {
+    const mine = which === n && shower.count > 0;
+    return (
+      <g>
+        <motion.g key={mine ? shower.count : 0} initial={mine && !reduced ? { scaleX: 1.15, scaleY: 0.8 } : false} animate={{ scaleX: 1, scaleY: 1 }} transition={BOUNCE} style={pin(x, y)}>
+          {/* a white cloud greys over while it rains */}
+          <Cloud x={x} y={y} s={s} fill={mine && shower.on && step < 2 ? "#a3afbf" : fill} />
+        </motion.g>
+        {mine && shower.on && <Shower x={x} y={y} snow={step === 4} />}
+        <ellipse cx={x} cy={y - 6} rx={62 * s} ry={36 * s} fill="transparent" className="cursor-pointer" role="button" aria-label={step === 4 ? "Make it snow" : "Make it rain"} onClick={() => tap(n)} />
+      </g>
+    );
+  };
 
   return (
     <svg viewBox={VIEW} className="h-full w-full" role="img" aria-label="Weather scene">
@@ -39,14 +85,17 @@ export function Weather({ step }: SceneProps) {
 
       {/* clouds drift; faster in wind, grey in rain */}
       <motion.g animate={{ x: step === 1 ? [-140, 460] : [0, 24, 0] }} transition={loop({ duration: step === 1 ? 6 : 10, ease: step === 1 ? "linear" : "easeInOut" })}>
-        <Cloud x={90} y={step === 0 ? 70 : 52} s={step === 0 ? 0.8 : 1.2} fill={step === 2 ? "#c3ccd8" : step === 3 ? "#6c7689" : step === 4 ? "#eef3f9" : "#ffffff"} />
+        {cloud(0, 90, step === 0 ? 70 : 52, step === 0 ? 0.8 : 1.2, step === 2 ? "#c3ccd8" : step === 3 ? "#6c7689" : step === 4 ? "#eef3f9" : "#ffffff")}
       </motion.g>
       {dark && (
         <motion.g animate={{ x: [0, -20, 0] }} transition={loop({ duration: 8 })}>
-          <Cloud x={250} y={50} s={1.4} fill={step === 3 ? "#4a5468" : "#b3bdca"} />
+          {cloud(1, 250, 50, 1.4, step === 3 ? "#4a5468" : "#b3bdca")}
         </motion.g>
       )}
-      {step === 4 && <Cloud x={260} y={50} s={1.3} fill="#eef3f9" />}
+      {step === 4 && cloud(1, 260, 50, 1.3, "#eef3f9")}
+      {!shower.count && (
+        <motion.text x="210" y="150" textAnchor="middle" fontSize="17" fontWeight="800" fill="#3b2f4a" animate={{ scale: [1, 1.08, 1] }} transition={loop({ duration: 1.2 })} style={pin(210, 144)}>Tap a cloud 👆</motion.text>
+      )}
 
       {/* ground */}
       <motion.path d="M0,300 L0,236 Q120,214 240,232 T400,226 L400,300 Z" initial={false} animate={{ fill: GROUND[step] }} transition={{ duration: 0.8 }} />

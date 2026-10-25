@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LAB_GROUPS, LAB_LESSONS } from "@/data/science-lab";
 import { litFraction, litPath, phaseName } from "./moon";
+import { homeSide, nearestTurn, turnBetween } from "./spin";
 import { stepMs } from "./timing";
 
 describe("lab lessons", () => {
@@ -44,5 +45,24 @@ describe("auto-play timing", () => {
     expect(stepMs("Hello there")).toBe(6000);
     const long = LAB_LESSONS.flatMap((l) => l.steps).reduce((a, b) => (b.say.length > a.say.length ? b : a));
     expect(stepMs(long.say)).toBeGreaterThan(10000);
+  });
+});
+
+describe("spinning the Earth", () => {
+  it("takes the short way round", () => {
+    expect(turnBetween(170, -170)).toBe(20);
+    expect(turnBetween(-170, 170)).toBe(-20);
+    expect(turnBetween(10, 30)).toBe(20);
+    expect(turnBetween(0, 180)).toBe(180);
+  });
+  it("settles on the step's angle without unwinding whole spins", () => {
+    expect(nearestTurn(-700, -90)).toBe(-810);
+    expect(nearestTurn(0, 90)).toBe(90);
+  });
+  it("puts the house in daylight when it faces the Sun on the left", () => {
+    expect(homeSide(-90)).toBe("day");
+    expect(homeSide(270)).toBe("day");
+    expect(homeSide(90)).toBe("night");
+    expect(homeSide(-270)).toBe("night");
   });
 });

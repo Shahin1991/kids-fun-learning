@@ -12,7 +12,7 @@ All modules from requirement.md are implemented. Remaining ideas:
 
 Built so far from this research: Number Path, Pattern Parade, First Sound, Clock Time, Robot Path, Tic Tac Toe and Connect 4 (3D, three bot levels, reasoning/planning), Snakes & Ladders and Ludo (3D, bots, 2-4 players; Ludo has three bot levels), Uno (animated cards, 1-3 bots, three levels).
 
-Memory and reasoning ideas still to build: Simon Says (repeat the sequence), What's Missing?, Odd One Out, Sliding Puzzle, Sudoku for kids (4x4 pictures), Nim (take 1-3 sticks), Checkers-lite.
+Memory and reasoning ideas still to build: Simon Says (repeat the sequence), What's Missing?, Odd One Out, Sliding Puzzle, Nim (take 1-3 sticks), Checkers-lite. (Sudoku now has its own entry below.)
 
 Built in the October 2026 pass: **Make Ten**, **Rhyme Time**, **Word Builder** (tap-to-place letters), **Coin Shop** (USD / GBP / AED, exact pay and change), **Music Maker** (xylophone: free play, copy-me, four songs) and **Colouring** (tap-to-fill pages and finger painting).
 
@@ -49,6 +49,10 @@ Cross-cutting UX to-dos:
 - A "bookmark" that remembers the last page per book, and a first-run hint on the shelf.
 - More shelves unlocked by stars (collection feeling), seasonal books.
 
+## Logic and word puzzles: next
+- **Sudoku for kids** (4-8): logic and deduction. Start with a 4x4 grid of pictures (animals, fruit), move to 4x4 numbers, then 6x6 for ages 7-8. Tap a cell, then tap a picture or number to fill it in (tap-to-place, no dragging). There is no way to fail: a clash wobbles and glows on both cells instead of saying "wrong", and a hint button fills one safe cell. Puzzles are generated with a single solution (a small solver in `src/lib/sudoku/` with vitest tests, like `robot-path.test.ts`).
+- **Crossword puzzles** (6-8): spelling and vocabulary, which also fills the 7-8 literacy gap. Mini 5x5 grids with picture clues (the Twemoji art in `public/art`) and the clue read aloud. Letters are filled by tapping from a small letter tray, reusing the Word Builder tile UI. Words come from themed lists (animals, colours, CBSE Class 1-3 book words). Completed words light up and are spoken. Puzzle layouts are hand-made JSON at first, with a generator later.
+
 ## Recommended next (gaps found in the October 2026 audit)
 Coverage is thinnest in social-emotional learning, literacy for 7-8 and toddler logic. In priority order:
 1. **Calm Corner** (4-8): a breathing bubble to follow, a feelings check-in, and kind-choice stories. Social-emotional is the biggest gap after the toddler Feelings game.
@@ -56,8 +60,9 @@ Coverage is thinnest in social-emotional learning, literacy for 7-8 and toddler 
 3. **Sort It / Odd One Out** (3-6): sort by category or colour on `PickRound`; gives toddlers a simple logic game.
 4. **Sight Words and Little Readers** (6-8): read a short sentence and pick its picture; ages 7-8 have no literacy activity yet.
 5. **Simon Says / What's Missing?** (4-7): memory games; Music Maker's copy-me engine can drive Simon Says.
-6. **Body Parts and My Day** (2-4): tap-the-nose and daily-routine sequencing for toddlers.
-7. **Tracing 2**: numbers and pre-writing lines (the Alphabet trace engine already exists).
-8. **Fractions Pizza** and a **Hundreds Chart** (7-8).
-9. Cross-cutting: per-child profiles with a parent progress report, persisted difficulty per game, and recorded voice-over as a speech fallback.
-10. **Child voices** (all ages): device speech voices are adult only; raising the pitch ("Squeaky", "Bright") sounds robotic, not like a child. Cloud text-to-speech has child voices (Amazon Polly: Ivy, Justin, Kevin; Azure: Ana, Maisie; check the current lists), but calling it live would break offline play and put a key in the app. Plan: a build script sends every spoken line to the service once and saves audio files into the app (precached, so they work offline); `audioManager.speak` plays the file when one exists and falls back to device speech otherwise. Main work: 74 speech call sites, 24 of them built from templates (picture names, numbers), which must be listed out or split into fixed pieces. Generation costs a few dollars at most. Needs a Polly or Azure account and key, set up by the parent.
+6. **Sudoku for kids** and **Mini Crosswords** (4-8): logic and spelling puzzles; see "Logic and word puzzles: next".
+7. **Body Parts and My Day** (2-4): tap-the-nose and daily-routine sequencing for toddlers.
+8. **Tracing 2**: numbers and pre-writing lines (the Alphabet trace engine already exists).
+9. **Fractions Pizza** and a **Hundreds Chart** (7-8).
+10. Cross-cutting: per-child profiles with a parent progress report, persisted difficulty per game, and recorded voice-over as a speech fallback.
+11. **Child voices** (all ages): device speech voices are adult only; raising the pitch ("Squeaky", "Bright") sounds robotic, not like a child. Cloud text-to-speech has child voices (Amazon Polly: Ivy, Justin, Kevin; Azure: Ana, Maisie; check the current lists), but calling it live would break offline play and put a key in the app. Plan: a build script sends every spoken line to the service once and saves audio files into the app (precached, so they work offline); `audioManager.speak` plays the file when one exists and falls back to device speech otherwise. Main work: 74 speech call sites, 24 of them built from templates (picture names, numbers), which must be listed out or split into fixed pieces. Generation costs a few dollars at most. Needs a Polly or Azure account and key, set up by the parent.

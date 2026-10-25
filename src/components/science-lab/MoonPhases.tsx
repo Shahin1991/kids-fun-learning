@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { litPath, phaseName } from "@/lib/science-lab/moon";
-import { VIEW, pin, useLoop, type SceneProps } from "./types";
+import { VIEW, pin, useLoop, viewPoint, type SceneProps } from "./types";
 
 /** Phase angle for each step. */
 const ANGLE = [0, 50, 90, 180, 270];
@@ -18,7 +18,6 @@ const BIG = { x: 296, y: 150, r: 74 };
 export function MoonPhases({ step }: SceneProps) {
   const loop = useLoop();
   const reduced = useAppReducedMotion();
-  const svg = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
   const [dragged, setDragged] = useState(false);
   // the phase name follows the step until the child drags the moon somewhere else
@@ -37,10 +36,8 @@ export function MoonPhases({ step }: SceneProps) {
   }, [angle, step, reduced]);
 
   const move = (e: PointerEvent) => {
-    if (!dragging.current || !svg.current) return;
-    const r = svg.current.getBoundingClientRect();
-    const x = ((e.clientX - r.left) / r.width) * 400;
-    const y = ((e.clientY - r.top) / r.height) * 300;
+    if (!dragging.current) return;
+    const { x, y } = viewPoint(e);
     const a = (Math.atan2(CY - y, CX - x) * 180) / Math.PI;
     const deg = (a + 360) % 360;
     angle.set(deg);
@@ -57,7 +54,7 @@ export function MoonPhases({ step }: SceneProps) {
   };
 
   return (
-    <svg ref={svg} viewBox={VIEW} className="h-full w-full" role="img" aria-label="The moon going around the Earth, and the shape we see" onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
+    <svg viewBox={VIEW} className="h-full w-full" role="img" aria-label="The moon going around the Earth, and the shape we see" onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
       <rect width="400" height="300" fill="#141a4a" />
       {Array.from({ length: 22 }, (_, i) => (
         <motion.circle key={i} cx={(i * 83) % 400} cy={(i * 47) % 300} r={1 + (i % 3) * 0.6} fill="#ffffff" animate={{ opacity: [0.3, 1, 0.3] }} transition={loop({ duration: 2 + (i % 4), delay: (i % 5) * 0.4 })} />

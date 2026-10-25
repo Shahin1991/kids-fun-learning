@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, type Transition } from "framer-motion";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 
 /** Every lab scene is drawn in the same 400 x 300 box and told which step to show. */
@@ -46,4 +46,27 @@ export function Pop({ x, y, children }: { x: number; y: number; children: ReactN
 /** Scale/rotate around a point of the 400 x 300 drawing (framer's own origin is relative to the element's box). */
 export function pin(x: number, y: number) {
   return { transformBox: "view-box" as const, originX: `${x}px`, originY: `${y}px` };
+}
+
+/** Where a pointer is in the 400 x 300 drawing, from an event on the scene's svg or anything inside it. */
+export function viewPoint(e: PointerEvent<Element>) {
+  const el = e.currentTarget;
+  const svg = el instanceof SVGSVGElement ? el : (el as SVGElement).ownerSVGElement;
+  const r = (svg ?? el).getBoundingClientRect();
+  return { x: ((e.clientX - r.left) / r.width) * 400, y: ((e.clientY - r.top) / r.height) * 300 };
+}
+
+/** A short burst set off by a tap: `on` for `ms` after the latest `fire`; `count` is how many taps so far. */
+export function useBurst(ms: number) {
+  const [count, setCount] = useState(0);
+  const [on, setOn] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const fire = () => {
+    setCount((c) => c + 1);
+    setOn(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOn(false), ms);
+  };
+  return { on, count, fire };
 }
