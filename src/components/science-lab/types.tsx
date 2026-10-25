@@ -1,4 +1,7 @@
-import type { Transition } from "framer-motion";
+"use client";
+
+import { motion, type Transition } from "framer-motion";
+import type { ReactNode } from "react";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 
 /** Every lab scene is drawn in the same 400 x 300 box and told which step to show. */
@@ -17,6 +20,28 @@ export function useLoop() {
 }
 
 export const SPRING: Transition = { type: "spring", stiffness: 140, damping: 14 };
+
+/** Snappier spring that overshoots, for things popping into view. */
+export const BOUNCE: Transition = { type: "spring", stiffness: 420, damping: 13 };
+
+/**
+ * Pops its children in from nothing around (x, y) with a little overshoot, and shrinks them away on exit
+ * (inside an `AnimatePresence`). Still under reduced motion.
+ */
+export function Pop({ x, y, children }: { x: number; y: number; children: ReactNode }) {
+  const reduced = useAppReducedMotion();
+  return (
+    <motion.g
+      initial={reduced ? false : { scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={reduced ? { opacity: 0, transition: { duration: 0 } } : { scale: 0, opacity: 0, transition: { duration: 0.18 } }}
+      transition={reduced ? { duration: 0 } : BOUNCE}
+      style={pin(x, y)}
+    >
+      {children}
+    </motion.g>
+  );
+}
 
 /** Scale/rotate around a point of the 400 x 300 drawing (framer's own origin is relative to the element's box). */
 export function pin(x: number, y: number) {

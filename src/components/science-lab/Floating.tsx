@@ -23,21 +23,38 @@ const THINGS: Thing[] = [
   { id: "bolt", e: "🔩", name: "bolt", floats: false },
 ];
 
-/** A thing falling into the tank: floaters bob on the top, sinkers wobble down to the bottom. */
+/** Where each droplet of a splash lands, relative to the point the thing hit the water. */
+const DROPLETS = [-22, -9, 9, 22];
+
+/** A thing falling into the tank: floaters bob on the top, sinkers wobble down to the bottom. Both splash as they hit the water. */
 function Drop({ t, x, delay = 0, repeat = false }: { t: Thing; x: number; delay?: number; repeat?: boolean }) {
   const reduced = useAppReducedMotion();
   const rest = t.floats ? TANK.water - 6 : TANK.bottom - 18;
   const y = t.floats ? [50, TANK.water - 6, TANK.water + 6, TANK.water - 10, TANK.water - 2, TANK.water - 8, TANK.water - 6] : [50, TANK.water - 6, rest, rest];
   const times = t.floats ? [0, 0.25, 0.38, 0.52, 0.65, 0.8, 1] : [0, 0.25, 0.8, 1];
+  const duration = t.floats ? 3 : 2.6;
+  const timing = { duration, delay, ...(repeat ? { repeat: Infinity, repeatDelay: 0.8 } : {}) };
+  // the splash runs on the same clock as the fall and fires at the moment of impact (a quarter of the way in)
+  const splash = { ...timing, times: [0, 0.24, 0.26, 0.5], ease: "easeOut" as const };
   return (
-    <motion.text
-      textAnchor="middle" dominantBaseline="central" fontSize="34"
-      initial={{ x, y: 50 }}
-      animate={{ x: t.floats ? x : [x, x + 8, x - 8, x + 4, x, x], y, opacity: repeat && !reduced ? (t.floats ? [0, 1, 1, 1, 1, 1, 0] : [0, 1, 1, 0]) : 1 }}
-      transition={reduced ? { duration: 0 } : { duration: t.floats ? 3 : 2.6, times, delay, ease: "easeInOut", ...(repeat ? { repeat: Infinity, repeatDelay: 0.8 } : {}) }}
-    >
-      {t.e}
-    </motion.text>
+    <>
+      {!reduced && (
+        <>
+          <motion.ellipse cx={x} cy={TANK.water} fill="none" stroke="#ffffff" strokeWidth="3" initial={{ rx: 0, ry: 0, opacity: 0 }} animate={{ rx: [0, 0, 6, 30], ry: [0, 0, 2, 7], opacity: [0, 0, 1, 0] }} transition={splash} />
+          {DROPLETS.map((dx) => (
+            <motion.circle key={dx} cx={x} cy={TANK.water} r="3.5" fill="#9fd0ff" initial={{ x: 0, y: 0, opacity: 0 }} animate={{ x: [0, 0, dx * 0.6, dx], y: [0, 0, -22 + Math.abs(dx) * 0.4, 2], opacity: [0, 0, 1, 0] }} transition={splash} />
+          ))}
+        </>
+      )}
+      <motion.text
+        textAnchor="middle" dominantBaseline="central" fontSize="34"
+        initial={{ x, y: 50 }}
+        animate={{ x: t.floats ? x : [x, x + 8, x - 8, x + 4, x, x], y, opacity: repeat && !reduced ? (t.floats ? [0, 1, 1, 1, 1, 1, 0] : [0, 1, 1, 0]) : 1 }}
+        transition={reduced ? { duration: 0 } : { ...timing, times, ease: "easeInOut" }}
+      >
+        {t.e}
+      </motion.text>
+    </>
   );
 }
 

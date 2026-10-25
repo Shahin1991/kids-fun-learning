@@ -43,12 +43,23 @@ export function Electricity({ step }: SceneProps) {
   const loop = useLoop();
   const [on, setOn] = useState(true);
   const [idx, setIdx] = useState(0);
+  // bumps on every test so testing the same thing twice still drops it in again
+  const [tries, setTries] = useState(0);
+  // the testers cycle by themselves until the child picks one
+  const [picked, setPicked] = useState(false);
 
   useEffect(() => {
-    if (step !== 2) return;
+    if (step !== 2 || picked) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % TESTERS.length), 2600);
     return () => clearInterval(t);
-  }, [step]);
+  }, [step, picked]);
+
+  const test = (i: number) => {
+    setPicked(true);
+    setIdx(i);
+    setTries((n) => n + 1);
+    audioManager.speak(TESTERS[i].say);
+  };
 
   if (step === 3) return <Static />;
   if (step === 4) return <Safety />;
@@ -80,6 +91,15 @@ export function Electricity({ step }: SceneProps) {
       <rect x="188" y={T + 8} width="24" height="14" rx="3" fill="#8a94a6" />
       <motion.circle cx="200" cy={T - 8} r="24" initial={false} animate={{ fill: closed ? "#ffe14d" : "#dfe6ee" }} stroke="#b9c3d0" strokeWidth="3" transition={{ duration: 0.25 }} />
       <path d="M190,66 q5,-12 10,0 q5,-12 10,0" stroke={closed ? "#f2a900" : "#9aa5b5"} strokeWidth="2.5" fill="none" />
+      {closed && (
+        <motion.g key={`rays-${step}-${on}-${idx}-${tries}`} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: [0.6, 1.15, 1], opacity: 1 }} transition={{ duration: 0.4 }} style={pin(200, T - 8)}>
+          <motion.g animate={{ opacity: [0.5, 1, 0.5] }} transition={loop({ duration: 1.2 })}>
+            {[-70, -40, 0, 40, 70, 110, -110].map((a) => (
+              <line key={a} x1="200" y1={T - 42} x2="200" y2={T - 52} stroke="#f2a900" strokeWidth="4" strokeLinecap="round" transform={`rotate(${a} 200 ${T - 8})`} />
+            ))}
+          </motion.g>
+        </motion.g>
+      )}
 
       {/* switch or the thing being tested sits in the gap on the bottom wire */}
       <rect x="168" y={B - 10} width="64" height="20" fill="#fff8e1" />
@@ -87,7 +107,19 @@ export function Electricity({ step }: SceneProps) {
         <>
           <circle cx="170" cy={B} r="5" fill="#3b2f4a" />
           <circle cx="230" cy={B} r="5" fill="#3b2f4a" />
-          <motion.text key={idx} x="200" y={B + 12} textAnchor="middle" fontSize="34" initial={{ y: B - 40, opacity: 0 }} animate={{ y: B + 12, opacity: 1 }} transition={SPRING} onAnimationStart={() => audioManager.playPop(tester.ok ? 3 : 0)}>{tester.e}</motion.text>
+          {TESTERS.map((it, i) => {
+            const x = 125 + i * 50;
+            const cur = i === idx;
+            return (
+              <g key={it.e} className="cursor-pointer" onClick={() => test(i)} role="button" aria-label={`Test the ${it.say.split(":")[0].toLowerCase()}`}>
+                <motion.rect x={x - 21} y="128" width="42" height="44" rx="10" initial={false} animate={{ fill: cur ? "#ffe9a8" : "#ffffff" }} stroke="#e5d9bd" strokeWidth="2" />
+                <text x={x} y="151" textAnchor="middle" dominantBaseline="central" fontSize="26" opacity={cur ? 0.35 : 1}>{it.e}</text>
+                <rect x={x - 25} y="120" width="50" height="60" fill="transparent" />
+              </g>
+            );
+          })}
+          {!picked && <motion.text x="200" y="112" textAnchor="middle" fontSize="16" fontWeight="800" fill="#3b2f4a" animate={{ scale: [1, 1.1, 1] }} transition={loop({ duration: 1.2 })} style={pin(200, 106)}>Tap one to test it 👆</motion.text>}
+          <motion.text key={`${idx}-${tries}`} x="200" y={B + 12} textAnchor="middle" fontSize="34" initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={SPRING} onAnimationStart={() => audioManager.playPop(tester.ok ? 3 : 0)}>{tester.e}</motion.text>
           <text x="200" y="274" textAnchor="middle" fontSize="20" fontWeight="800" fill="#3b2f4a">{tester.say} {tester.ok ? "✅" : "❌"}</text>
         </>
       ) : (
