@@ -30,6 +30,9 @@ export const MODULES: LearningModule[] = [
   { id: "emotions", title: "Feelings", ageGroup: "toddler", route: "/toddler/emotions", icon: "😊", colorToken: "kid-yellow", description: "Meet the faces and feelings" },
   { id: "balloon-pop", title: "Balloon Pop", ageGroup: "toddler", route: "/toddler/balloon-pop", icon: "🎈", colorToken: "kid-red", description: "Pop the wobbly balloons" },
   { id: "music-maker", title: "Music Maker", ageGroup: "toddler", route: "/toddler/music-maker", icon: "🎹", colorToken: "kid-purple", description: "Play the xylophone, copy tunes and play songs" },
+  { id: "peekaboo-farm", title: "Peekaboo Farm", ageGroup: "toddler", route: "/toddler/peekaboo-farm", icon: "🙈", colorToken: "kid-green", description: "Tap the barn, hay and bushes to find who's hiding" },
+  { id: "car-wash", title: "Car Wash", ageGroup: "toddler", route: "/toddler/car-wash", icon: "🧽", colorToken: "kid-blue", description: "Scrub the mud off, rinse the bubbles, beep beep!" },
+  { id: "dress-up", title: "Dress for the Weather", ageGroup: "toddler", route: "/toddler/dress-up", icon: "☂️", colorToken: "kid-yellow", description: "Sunny, rainy or snowy: pick what to wear" },
   { id: "colouring", title: "Colouring", ageGroup: "toddler", route: "/toddler/colouring", icon: "🖍️", colorToken: "kid-orange", description: "Colour in pictures or finger-paint" },
 
   { id: "books", title: "Picture Books", ageGroup: "early-learning", route: "/early-learning/books", icon: "📚", colorToken: "kid-purple", description: "Pick a book from the shelf and swipe the pages" },
@@ -52,6 +55,8 @@ export const MODULES: LearningModule[] = [
   { id: "balance-scale", title: "Balance Scale", ageGroup: "early-learning", route: "/early-learning/balance-scale", icon: "⚖️", colorToken: "kid-orange", description: "Make both sides equal" },
   { id: "make-ten", title: "Make Ten", ageGroup: "early-learning", route: "/early-learning/make-ten", icon: "🔟", colorToken: "kid-red", description: "How many more make ten?" },
   { id: "rhyme-time", title: "Rhyme Time", ageGroup: "early-learning", route: "/early-learning/rhyme-time", icon: "🎤", colorToken: "kid-purple", description: "Find the picture that rhymes" },
+  { id: "juice-stand", title: "Juice Stand", ageGroup: "early-learning", route: "/early-learning/juice-stand", icon: "🧃", colorToken: "kid-orange", description: "Blend the juice each customer orders, then count their coins" },
+  { id: "bead-builder", title: "Bead Builder", ageGroup: "early-learning", route: "/early-learning/bead-builder", icon: "📿", colorToken: "kid-purple", description: "Thread beads in a pattern to make a necklace" },
   { id: "word-builder", title: "Word Builder", ageGroup: "early-learning", route: "/early-learning/word-builder", icon: "🔤", colorToken: "kid-blue", description: "Spell little words letter by letter" },
 
   { id: "math-racer", title: "Math Racer", ageGroup: "advanced", route: "/advanced/math-racer", icon: "🏎️", colorToken: "kid-red", description: "Answer to race down the road" },
@@ -66,6 +71,8 @@ export const MODULES: LearningModule[] = [
   { id: "ludo", title: "Ludo", ageGroup: "advanced", route: "/advanced/ludo", icon: "🎲", colorToken: "kid-yellow", description: "Race your pawns home and send rivals back" },
   { id: "world-globe", title: "World Globe", ageGroup: "advanced", route: "/advanced/world-globe", icon: "🌐", colorToken: "kid-blue", description: "Spin the globe and guess countries by shape" },
   { id: "times-tables", title: "Times Tables", ageGroup: "advanced", route: "/advanced/times-tables", icon: "✖️", colorToken: "kid-purple", description: "Build groups, tap the times grid, then quiz" },
+  { id: "hindi-arabic", title: "Hindi & Arabic", ageGroup: "advanced", route: "/advanced/hindi-arabic", icon: "🔡", colorToken: "kid-purple", description: "अ आ and أ ب ت: hear each letter with a picture word, then trace it" },
+  { id: "tens-ones", title: "Tens & Ones", ageGroup: "advanced", route: "/advanced/tens-ones", icon: "🪢", colorToken: "kid-green", description: "Bundle sticks into tens to build each number" },
   { id: "coin-shop", title: "Coin Shop", ageGroup: "advanced", route: "/advanced/coin-shop", icon: "🪙", colorToken: "kid-yellow", description: "Pay with coins and work out the change" },
   { id: "carrom", title: "Carrom", ageGroup: "advanced", route: "/advanced/carrom", icon: "⚪", colorToken: "kid-orange", description: "Flick the striker and pocket the coins" },
   { id: "snooker", title: "Snooker", ageGroup: "advanced", route: "/advanced/snooker", icon: "🎱", colorToken: "kid-green", description: "Pot a red, then a colour, in 3D" },

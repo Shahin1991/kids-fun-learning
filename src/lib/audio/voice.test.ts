@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chooseVoice, DEFAULT_VOICE, normalizeVoice, rankVoices, speechChunks, VOICE_PITCH, VOICE_RATE } from "./voice";
+import { chooseVoice, DEFAULT_VOICE, normalizeVoice, rankVoices, speechChunks, voicesForLang, VOICE_PITCH, VOICE_RATE } from "./voice";
 
 describe("voice preferences", () => {
   it("defaults to slow, natural speech and repairs bad or missing saves", () => {
@@ -43,5 +43,19 @@ describe("voice preferences", () => {
     expect(chooseVoice(apple, null)).toBeNull();
     // A voice the parent picked is still used
     expect(chooseVoice(apple, "Ava (Premium)")?.name).toBe("Ava (Premium)");
+  });
+
+  it("finds voices for another language, installed ones first", () => {
+    const voices = [
+      { name: "Samantha", lang: "en-US" },
+      { name: "Lekha (Enhanced)", lang: "hi-IN", localService: true },
+      { name: "Lekha", lang: "hi_IN", localService: true },
+      { name: "Google हिन्दी", lang: "hi-IN", localService: false },
+      { name: "Maged", lang: "ar-SA", localService: true },
+    ];
+    expect(voicesForLang(voices, "hi").map((v) => v.name)).toEqual(["Lekha", "Google हिन्दी", "Lekha (Enhanced)"]);
+    expect(voicesForLang(voices, "ar").map((v) => v.name)).toEqual(["Maged"]);
+    expect(voicesForLang(voices, "hi", new Set(["Lekha"]))[0].name).toBe("Google हिन्दी");
+    expect(voicesForLang(voices, "ur")).toEqual([]);
   });
 });

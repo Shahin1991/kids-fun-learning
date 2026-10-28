@@ -13,15 +13,17 @@ class FakeUtterance {
   constructor(public text: string) {}
 }
 
-function fakeSynth(silent: string[]) {
+const EN_VOICES = [
+  { name: "Ava (Premium)", lang: "en-US" },
+  { name: "Samantha", lang: "en-US" },
+];
+
+function fakeSynth(silent: string[], voices = EN_VOICES) {
   const spoken: { text: string; voice: string | null }[] = [];
   const synth = {
     speaking: false,
     pending: false,
-    getVoices: () => [
-      { name: "Ava (Premium)", lang: "en-US" },
-      { name: "Samantha", lang: "en-US" },
-    ],
+    getVoices: () => voices,
     resume() {},
     cancel() {},
     addEventListener() {},
@@ -36,8 +38,8 @@ function fakeSynth(silent: string[]) {
   return { synth, spoken };
 }
 
-async function setup(silent: string[]) {
-  const { synth, spoken } = fakeSynth(silent);
+async function setup(silent: string[], voices = EN_VOICES) {
+  const { synth, spoken } = fakeSynth(silent, voices);
   vi.stubGlobal("window", { speechSynthesis: synth });
   vi.stubGlobal("document", { visibilityState: "visible" });
   vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
@@ -80,5 +82,29 @@ describe("speech voice fallback", () => {
     audioManager.stopSpeech();
     await vi.advanceTimersByTimeAsync(5000);
     expect(spoken).toHaveLength(1);
+  });
+
+  it("speaks another language with its own voice, else the English spelling", async () => {
+    const withHindi = await setup([], [...EN_VOICES, { name: "Lekha", lang: "hi-IN" }]);
+    withHindi.audioManager.speakIn("hi", "क से कबूतर", "ka say kabootar");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(withHindi.spoken).toEqual([{ text: "क से कबूतर", voice: "Lekha" }]);
+    vi.unstubAllGlobals();
+
+    const noHindi = await setup([]);
+    noHindi.audioManager.speakIn("hi", "क से कबूतर", "ka say kabootar");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(noHindi.spoken).toEqual([{ text: "ka say kabootar", voice: "Ava (Premium)" }]);
+  });
+
+  it("falls back to the English spelling when the language's voice stays silent", async () => {
+    const { audioManager, spoken } = await setup(["Lekha"], [...EN_VOICES, { name: "Lekha", lang: "hi-IN" }]);
+    audioManager.speakIn("hi", "क से कबूतर", "ka say kabootar");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(spoken).toEqual([
+      { text: "क से कबूतर", voice: "Lekha" },
+      { text: "ka say kabootar", voice: "Ava (Premium)" },
+    ]);
+    expect(audioManager.hasVoiceFor("hi")).toBe(false);
   });
 });

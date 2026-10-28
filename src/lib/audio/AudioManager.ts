@@ -1,6 +1,6 @@
 import { Howl, Howler } from "howler";
 import { tones, type SfxName } from "./tone-generator";
-import { chooseVoice, DEFAULT_VOICE, rankVoices, speechChunks, VOICE_PITCH, VOICE_RATE, type VoicePrefs } from "./voice";
+import { chooseVoice, DEFAULT_VOICE, rankVoices, speechChunks, voicesForLang, VOICE_PITCH, VOICE_RATE, type VoicePrefs } from "./voice";
 
 type SoundName = "success" | "failure" | "reward";
 
@@ -144,11 +144,33 @@ class AudioManager {
     const synth = window.speechSynthesis;
     const p = prefs ?? this.voicePrefs;
     const voice = prefs ? chooseVoice(synth.getVoices(), prefs.voiceName, this.silentVoices) : this.pickVoice(synth);
+    this.say(synth, text, p, voice, () => this.speakWithDefaultVoice(text, p));
+  }
+
+  /** True when the device has a voice for this language ("hi", "ar"). */
+  hasVoiceFor(lang: string): boolean {
+    if (typeof window === "undefined" || !window.speechSynthesis) return false;
+    return voicesForLang(window.speechSynthesis.getVoices(), lang, this.silentVoices).length > 0;
+  }
+
+  /**
+   * Speaks `text` in another language ("hi", "ar") with a voice for it, or `fallback` (the same sounds
+   * spelled for the English voice) when the device has none or that voice stays silent.
+   */
+  speakIn(lang: string, text: string, fallback: string) {
+    if (!this.soundEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
+    const synth = window.speechSynthesis;
+    const voice = voicesForLang(synth.getVoices(), lang, this.silentVoices)[0];
+    if (!voice) return this.speak(fallback);
+    this.say(synth, text, this.voicePrefs, voice, () => this.speak(fallback));
+  }
+
+  private say(synth: SpeechSynthesis, text: string, p: VoicePrefs, voice: SpeechSynthesisVoice | null, retry: () => void) {
     const gen = ++this.speechGen;
     if (this.speechWatch) clearTimeout(this.speechWatch);
     const utterances = this.utterances(text, p, voice);
     if (!utterances.length) return;
-    if (voice) this.watchVoice(utterances[0], voice, gen, text, prefs);
+    if (voice) this.watchVoice(utterances[0], voice, gen, retry);
     if (this.speakTimer) clearTimeout(this.speakTimer);
     const busy = synth.speaking || synth.pending;
     synth.resume();
@@ -164,9 +186,9 @@ class AudioManager {
 
   /**
    * If the chosen voice never starts, errors, or "finishes" instantly, it is not really available:
-   * skip it from now on and say the line again with the device's default voice.
+   * skip it from now on and say the line again another way (`retry`).
    */
-  private watchVoice(u: SpeechSynthesisUtterance, voice: SpeechSynthesisVoice, gen: number, text: string, prefs?: VoicePrefs) {
+  private watchVoice(u: SpeechSynthesisUtterance, voice: SpeechSynthesisVoice, gen: number, retry: () => void) {
     let startedAt = 0;
     let done = false;
     const fail = () => {
@@ -175,7 +197,7 @@ class AudioManager {
       this.silentVoices.add(voice.name);
       this.voice = null;
       this.stopSpeech();
-      this.speakTimer = setTimeout(() => this.speakWithDefaultVoice(text, prefs ?? this.voicePrefs), 70);
+      this.speakTimer = setTimeout(retry, 70);
     };
     const settle = () => {
       done = true;

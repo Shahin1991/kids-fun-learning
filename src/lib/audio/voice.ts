@@ -84,6 +84,17 @@ export function rankVoices<T extends VoiceLike>(voices: T[], skip: ReadonlySet<s
   return voices.filter((v) => voiceScore(v) > -1 && !skip.has(v.name)).sort((a, b) => voiceScore(b) - voiceScore(a) || a.name.localeCompare(b.name));
 }
 
+/**
+ * Voices for another language ("hi", "ar"), best first. On-device voices come first and Premium or
+ * Enhanced ones last, because Apple lists those even when they were never downloaded.
+ */
+export function voicesForLang<T extends VoiceLike>(voices: T[], lang: string, skip: ReadonlySet<string> = new Set()): T[] {
+  const score = (v: VoiceLike) => (v.localService ? 2 : 0) + (/google/i.test(v.name) ? 1 : 0) - (/premium|enhanced/i.test(v.name) ? 4 : 0);
+  return voices
+    .filter((v) => v.lang.toLowerCase().replace("_", "-").split("-")[0] === lang.toLowerCase() && !skip.has(v.name))
+    .sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name));
+}
+
 /** Apple's speech engine (iPad, iPhone, Safari on Mac) names its voices com.apple.… */
 export const isAppleSpeech = (voices: VoiceLike[]) => voices.some((v) => v.voiceURI?.startsWith("com.apple."));
 
