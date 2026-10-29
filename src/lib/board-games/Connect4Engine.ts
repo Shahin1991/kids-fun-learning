@@ -39,6 +39,8 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
   private falling: DiscObj[] = [];
   private turn: "player" | "bot" | "busy" | "over" = "player";
   private level: GameLevel;
+  /** A friend drops the yellow discs instead of the robot */
+  private friend: boolean;
   private games = 0;
   private timers: ReturnType<typeof setTimeout>[] = [];
   private hoverCol = 3;
@@ -69,6 +71,7 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
   constructor(container: HTMLElement, private opts: BoardOptions = {}) {
     super(container, 0xc8f0d0, opts, 40);
     this.level = opts.level ?? "easy";
+    this.friend = opts.friend ?? false;
     addToyRoom(this.stage.scene, 0xd6f5dd, 0xd9a86c);
     const make = (c: number) => ({
       face: new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.3, clearcoat: 0.9, clearcoatRoughness: 0.15 }),
@@ -101,6 +104,11 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     this.newGame();
   }
 
+  setFriend(friend: boolean) {
+    this.friend = friend;
+    this.newGame();
+  }
+
   newGame() {
     this.timers.forEach(clearTimeout);
     this.timers = [];
@@ -127,9 +135,9 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     this.timers.push(setTimeout(() => this.beginTurn(), this.reduced ? 0 : 600));
   }
 
-  /** Oops: take back your last disc (and Robo's answer to it). The discs slip out of the bottom. Only on your turn. */
+  /** Oops: take back your last disc (and Robo's answer to it). The discs slip out of the bottom. Only on your turn. With a friend, just the last disc. */
   undo() {
-    if (this.turn !== "player" || !this.history.some((h) => h.by === "player")) return;
+    if (this.friend ? !this.humanTurn() || !this.history.length : this.turn !== "player" || !this.history.some((h) => h.by === "player")) return;
     while (this.history.length) {
       const e = this.history.pop()!;
       const i = idx(e.row, e.col);
@@ -142,6 +150,15 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
       }
       this.discs[i] = null;
       this.board[i] = 0;
+      if (this.friend) {
+        // Back to whoever dropped it
+        this.turn = e.by;
+        this.setHoverAs(e.by === "player" ? 1 : 2);
+        this.aimCol = -1;
+        this.opts.onStatus?.(e.by);
+        this.emitUndo();
+        return;
+      }
       if (e.by === "player") break;
     }
     this.aimCol = -1;
@@ -150,7 +167,12 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
   }
 
   private emitUndo() {
-    this.opts.onUndoable?.(this.turn === "player" && this.history.some((h) => h.by === "player"));
+    this.opts.onUndoable?.(this.friend ? this.humanTurn() && this.history.length > 0 : this.turn === "player" && this.history.some((h) => h.by === "player"));
+  }
+
+  /** A person is aiming: always on "player", and on "bot" too when a friend plays yellow. */
+  private humanTurn() {
+    return this.turn === "player" || (this.friend && this.turn === "bot");
   }
 
   activate(id: string) {
@@ -223,6 +245,7 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
 
   private setHoverAs(d: Disc) {
     this.hoverAs = d;
+    this.ghostMats[0].color.setHex(d === 1 ? PLAYER_COLOR : BOT_COLOR);
     this.hoverDisc.children.forEach((c, i) => {
       const m = this.mats[d];
       (c as THREE.Mesh).material = i === 0 ? m.face : m.core;
@@ -233,6 +256,7 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     this.turn = "bot";
     this.opts.onStatus?.("bot");
     this.setHoverAs(2);
+    if (this.friend) return this.emitUndo();
     // The bot's disc wanders over a couple of columns, then settles on its choice.
     const wander = Math.floor(Math.random() * COLS);
     this.hoverCol = wander;
@@ -246,8 +270,8 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
   }
 
   private tryDrop(col: number) {
-    if (this.turn !== "player" || landingRow(this.board, col) < 0) return;
-    this.dropDisc(col, "player");
+    if (!this.humanTurn() || landingRow(this.board, col) < 0) return;
+    this.dropDisc(col, this.turn as "player" | "bot");
   }
 
   private dropDisc(col: number, by: "player" | "bot") {
@@ -307,14 +331,14 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
   // ---- input ----
   // Press (or hover) to aim, slide to another column, let go to drop. Letting go off the board cancels.
   protected onDown(info: PickInfo | null) {
-    if (this.turn !== "player") return;
+    if (!this.humanTurn()) return;
     this.pressed = true;
     this.aimCol = typeof info?.owner === "number" ? info.owner : -1;
     if (this.aimCol >= 0) this.hoverCol = this.aimCol;
   }
 
   protected onMove(e: PointerEvent) {
-    if (this.turn !== "player") return;
+    if (!this.humanTurn()) return;
     if (e.pointerType === "touch" && !this.pressed) return;
     const info = this.pick(e);
     this.aimCol = typeof info?.owner === "number" ? info.owner : -1;
@@ -376,12 +400,13 @@ export class Connect4Engine extends ToyScene implements BoardEngine {
     if (show) {
       const bob = this.reduced ? 0 : Math.sin(this.time * 5) * 0.08;
       this.hoverDisc.position.set(this.hoverX, TOP_Y + 0.85 + bob, 0);
-      this.hoverDisc.scale.setScalar(this.turn === "bot" ? 1 : 0.95 + Math.sin(this.time * 6) * 0.03);
-      this.hoverDisc.rotation.z = this.turn === "bot" && !this.reduced ? Math.sin(this.time * 9) * 0.15 : 0;
+      const robot = this.turn === "bot" && !this.friend;
+      this.hoverDisc.scale.setScalar(robot ? 1 : 0.95 + Math.sin(this.time * 6) * 0.03);
+      this.hoverDisc.rotation.z = robot && !this.reduced ? Math.sin(this.time * 9) * 0.15 : 0;
     }
 
     // Aiming feedback
-    const aiming = this.turn === "player";
+    const aiming = this.humanTurn();
     this.wiggle = Math.max(0, this.wiggle - dt * 3);
     this.arrow.visible = aiming;
     const full = this.aimCol >= 0 && landingRow(this.board, this.aimCol) < 0;

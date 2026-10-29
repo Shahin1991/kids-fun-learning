@@ -6,6 +6,8 @@ export type GameStatus = "player" | "bot" | "win" | "lose" | "draw";
 export interface BoardOptions {
   reducedMotion?: boolean;
   level?: GameLevel;
+  /** Two people share the device: the robot's side ("bot") is played by Player 2. */
+  friend?: boolean;
   onStatus?: (s: GameStatus) => void;
   /** A disc or mark landed on the board (for sound). */
   onPlace?: (p: { by: "player" | "bot"; n: number }) => void;
@@ -16,7 +18,9 @@ export interface BoardOptions {
 
 export interface BoardEngine extends ToyEngine {
   setLevel(level: GameLevel): void;
+  /** Switch between playing the robot and a friend; starts a new game. */
+  setFriend(friend: boolean): void;
   newGame(): void;
-  /** Take back your last move and the bot's reply */
+  /** Take back your last move and the bot's reply (with a friend: just the last move) */
   undo(): void;
 }

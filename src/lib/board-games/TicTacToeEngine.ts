@@ -27,7 +27,7 @@ interface Piece {
 const cellX = (i: number) => ((i % 3) - 1) * SPACING;
 const cellZ = (i: number) => (Math.floor(i / 3) - 1) * SPACING;
 
-/** Chunky toy X and O pieces drop onto a wooden board; the bot answers at three difficulty levels. */
+/** Chunky toy X and O pieces drop onto a wooden board; the bot answers at three difficulty levels, or a friend plays O. */
 export class TicTacToeEngine extends ToyScene implements BoardEngine {
   private board: Cell[] = Array(9).fill(null);
   private pieces: (Piece | null)[] = Array(9).fill(null);
@@ -37,7 +37,10 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
   private games = 0;
   private botTimer: ReturnType<typeof setTimeout> | undefined;
   private ghost: THREE.Group;
+  /** Player 2's ghost when playing with a friend */
+  private ghostO: THREE.Group;
   private ghostCell = -1;
+  private friend: boolean;
   private line: THREE.Mesh | null = null;
   private lineT = 0;
   private lineMat = new THREE.MeshStandardMaterial({ color: 0xffd93d, emissive: 0xffb400, emissiveIntensity: 0.9, roughness: 0.3 });
@@ -50,11 +53,15 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
   constructor(container: HTMLElement, private opts: BoardOptions = {}) {
     super(container, 0xbfe6ff, opts, 40);
     this.level = opts.level ?? "easy";
+    this.friend = opts.friend ?? false;
     addToyRoom(this.stage.scene, 0xcdeeff, 0xd9a86c);
     this.buildBoard();
     this.ghost = this.makePiece("X", true);
     this.ghost.visible = false;
     this.stage.scene.add(this.ghost);
+    this.ghostO = this.makePiece("O", true);
+    this.ghostO.visible = false;
+    this.stage.scene.add(this.ghostO);
     // A little "thinking" bubble that floats over the board while the bot decides.
     this.thinking = new THREE.Group();
     for (let i = 0; i < 3; i++) {
@@ -71,6 +78,11 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
   // ---- public API ----
   setLevel(level: GameLevel) {
     this.level = level;
+    this.newGame();
+  }
+
+  setFriend(friend: boolean) {
+    this.friend = friend;
     this.newGame();
   }
 
@@ -92,8 +104,21 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
     this.beginTurn();
   }
 
-  /** Oops: take back your last move (and Robo's answer to it). Only while it is your turn. */
+  /** Oops: take back your last move (and Robo's answer to it). Only while it is your turn. With a friend, just the last move. */
   undo() {
+    if (this.friend) {
+      const e = this.humanTurn() ? this.history.pop() : undefined;
+      if (!e) return;
+      const p = this.pieces[e.cell];
+      if (p) this.leaving.push(p);
+      this.pieces[e.cell] = null;
+      this.board[e.cell] = null;
+      this.turn = e.by;
+      this.ghostCell = -1;
+      this.opts.onStatus?.(e.by);
+      this.emitUndo();
+      return;
+    }
     if (this.turn !== "player" || !this.history.some((h) => h.by === "player")) return;
     while (this.history.length) {
       const e = this.history.pop()!;
@@ -109,7 +134,12 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
   }
 
   private emitUndo() {
-    this.opts.onUndoable?.(this.turn === "player" && this.history.some((h) => h.by === "player"));
+    this.opts.onUndoable?.(this.friend ? this.humanTurn() && this.history.length > 0 : this.turn === "player" && this.history.some((h) => h.by === "player"));
+  }
+
+  /** A person is choosing a square: always on "player", and on "bot" too when a friend plays O. */
+  private humanTurn() {
+    return this.turn === "player" || (this.friend && this.turn === "bot");
   }
 
   activate(id: string) {
@@ -178,6 +208,7 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
 
   private scheduleBot() {
     clearTimeout(this.botTimer);
+    if (this.friend) return;
     this.thinking.visible = true;
     this.botTimer = setTimeout(() => {
       this.thinking.visible = false;
@@ -187,8 +218,8 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
   }
 
   private tryPlace(cell: number) {
-    if (this.turn !== "player" || this.board[cell]) return;
-    this.place(cell, "player");
+    if (!this.humanTurn() || this.board[cell]) return;
+    this.place(cell, this.turn as "player" | "bot");
   }
 
   private place(cell: number, by: "player" | "bot") {
@@ -198,6 +229,7 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
     this.turn = "busy";
     this.emitUndo();
     this.ghost.visible = false;
+    this.ghostO.visible = false;
     const group = this.makePiece(mark);
     group.position.set(cellX(cell), 7, cellZ(cell));
     this.stage.scene.add(group);
@@ -216,6 +248,7 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
       this.turn = "bot";
       this.opts.onStatus?.("bot");
       this.scheduleBot();
+      this.emitUndo();
     } else {
       this.turn = "player";
       this.opts.onStatus?.("player");
@@ -258,9 +291,10 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
   }
 
   protected onMove(e: PointerEvent) {
-    if (this.turn !== "player") {
+    if (!this.humanTurn()) {
       this.ghostCell = -1;
       this.ghost.visible = false;
+      this.ghostO.visible = false;
       return;
     }
     const info = this.pick(e);
@@ -293,12 +327,14 @@ export class TicTacToeEngine extends ToyScene implements BoardEngine {
       return false;
     });
 
-    // Hover ghost
-    const showGhost = this.turn === "player" && this.ghostCell >= 0;
-    this.ghost.visible = showGhost;
+    // Hover ghost, in the mark of whoever is choosing
+    const showGhost = this.humanTurn() && this.ghostCell >= 0;
+    const ghost = this.turn === "bot" ? this.ghostO : this.ghost;
+    this.ghost.visible = showGhost && ghost === this.ghost;
+    this.ghostO.visible = showGhost && ghost === this.ghostO;
     if (showGhost) {
-      this.ghost.position.set(cellX(this.ghostCell), REST_Y + 0.15 + Math.sin(this.time * 5) * 0.08, cellZ(this.ghostCell));
-      this.ghost.rotation.y += dt * 1.5;
+      ghost.position.set(cellX(this.ghostCell), REST_Y + 0.15 + Math.sin(this.time * 5) * 0.08, cellZ(this.ghostCell));
+      ghost.rotation.y += dt * 1.5;
     }
 
     // Bot thinking dots bounce in a wave

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { AGE_GROUP_ORDER, getModulesByAgeGroup, type AgeGroup } from "@/data/modules";
+import { getModulesForSection, HOME_SECTION_ORDER, type HomeSection } from "@/data/modules";
 import { readAgePref, saveAgePref, type AgeChoice } from "@/lib/age-pref";
 import { AgePicker } from "./AgePicker";
 import { getSettings } from "@/lib/storage/settings";
@@ -16,13 +16,14 @@ import { WelcomeBanner } from "./WelcomeBanner";
 import { ThemeToggle } from "./ThemeToggle";
 
 const AGE_LABEL: Record<AgeChoice, string> = { toddler: "Ages 2-3", "early-learning": "Ages 4-6", advanced: "Ages 7-8", others: "More games", all: "All ages" };
-const expandFor = (c: AgeChoice) => new Set<AgeGroup>(c === "all" ? AGE_GROUP_ORDER : [c]);
+/** The chosen age's section opens; from 4 up "Play Together" opens too, since its games moved out of the age bands. */
+const expandFor = (c: AgeChoice) => new Set<HomeSection>(c === "all" ? HOME_SECTION_ORDER : c === "early-learning" || c === "advanced" ? [c, "together"] : [c]);
 
 export function HomeScreen() {
   /** null until settings load, so switched-off modules never flash up (or get tapped) first. */
   const [disabled, setDisabled] = useState<string[] | null>(null);
   const [pref, setPref] = useState<AgeChoice | null>(null);
-  const [open, setOpen] = useState<Set<AgeGroup>>(() => new Set(AGE_GROUP_ORDER));
+  const [open, setOpen] = useState<Set<HomeSection>>(() => new Set(HOME_SECTION_ORDER));
   const [picking, setPicking] = useState(false);
 
   useEffect(() => {
@@ -44,14 +45,14 @@ export function HomeScreen() {
     setPicking(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const toggle = (g: AgeGroup) =>
+  const toggle = (g: HomeSection) =>
     setOpen((s) => {
       const n = new Set(s);
       if (n.has(g)) n.delete(g);
       else n.add(g);
       return n;
     });
-  const jump = (g: AgeGroup) => {
+  const jump = (g: HomeSection) => {
     setOpen((s) => new Set([...s, g]));
     setTimeout(() => document.getElementById(`group-${g}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
@@ -78,8 +79,8 @@ export function HomeScreen() {
       {disabled && (
         <>
           <WelcomeBanner hidden={disabled} age={pref} ageLabel={pref ? AGE_LABEL[pref] : "Pick your age"} onJump={jump} onChangeAge={() => setPicking(true)} />
-          {AGE_GROUP_ORDER.map((g) => (
-            <AgeGroupSection key={g} ageGroup={g} open={open.has(g)} onToggle={() => toggle(g)} modules={getModulesByAgeGroup(g).filter((m) => !disabled.includes(m.id))} />
+          {HOME_SECTION_ORDER.map((g) => (
+            <AgeGroupSection key={g} ageGroup={g} open={open.has(g)} onToggle={() => toggle(g)} modules={getModulesForSection(g).filter((m) => !disabled.includes(m.id))} />
           ))}
         </>
       )}

@@ -10,6 +10,8 @@ export interface LearningModule {
   description: string;
   /** True while the route is a "coming soon" placeholder. */
   placeholder?: boolean;
+  /** Two people can play on one device (taking turns or side by side), so it lives in "Play Together" on the home screen. */
+  together?: boolean;
 }
 
 export const AGE_GROUP_LABELS: Record<AgeGroup, string> = {
@@ -20,6 +22,13 @@ export const AGE_GROUP_LABELS: Record<AgeGroup, string> = {
 };
 
 export const AGE_GROUP_ORDER: AgeGroup[] = ["toddler", "early-learning", "advanced", "others"];
+
+/** Home screen sections: the age bands, plus "Play Together" for the games two people can share. */
+export type HomeSection = AgeGroup | "together";
+
+export const HOME_SECTION_LABELS: Record<HomeSection, string> = { ...AGE_GROUP_LABELS, together: "Play Together" };
+
+export const HOME_SECTION_ORDER: HomeSection[] = ["toddler", "early-learning", "advanced", "together", "others"];
 
 export const MODULES: LearningModule[] = [
   { id: "animals", title: "Animals", ageGroup: "toddler", route: "/toddler/animals", icon: "🐶", colorToken: "kid-orange", description: "Tap an animal to hear its name and sound" },
@@ -50,8 +59,8 @@ export const MODULES: LearningModule[] = [
   { id: "colour-mixer", title: "Colour Mixer", ageGroup: "early-learning", route: "/early-learning/colour-mixer", icon: "🎨", colorToken: "kid-purple", description: "Mix paints to make new colours" },
   { id: "first-sound", title: "First Sound", ageGroup: "early-learning", route: "/early-learning/first-sound", icon: "🔊", colorToken: "kid-orange", description: "Which letter does the word start with?" },
   { id: "number-path", title: "Number Path", ageGroup: "early-learning", route: "/early-learning/number-path", icon: "🎲", colorToken: "kid-green", description: "Roll the dice and hop along the numbers" },
-  { id: "tic-tac-toe", title: "Tic Tac Toe", ageGroup: "early-learning", route: "/early-learning/tic-tac-toe", icon: "❌", colorToken: "kid-blue", description: "Beat the robot: three in a row wins" },
-  { id: "snakes-ladders", title: "Snakes & Ladders", ageGroup: "early-learning", route: "/early-learning/snakes-ladders", icon: "🐍", colorToken: "kid-green", description: "Roll, climb ladders and dodge the snakes" },
+  { id: "tic-tac-toe", title: "Tic Tac Toe", ageGroup: "early-learning", route: "/early-learning/tic-tac-toe", icon: "❌", colorToken: "kid-blue", description: "Three in a row wins: play the robot or a friend", together: true },
+  { id: "snakes-ladders", title: "Snakes & Ladders", ageGroup: "early-learning", route: "/early-learning/snakes-ladders", icon: "🐍", colorToken: "kid-green", description: "Roll, climb ladders and dodge the snakes", together: true },
   { id: "balance-scale", title: "Balance Scale", ageGroup: "early-learning", route: "/early-learning/balance-scale", icon: "⚖️", colorToken: "kid-orange", description: "Make both sides equal" },
   { id: "make-ten", title: "Make Ten", ageGroup: "early-learning", route: "/early-learning/make-ten", icon: "🔟", colorToken: "kid-red", description: "How many more make ten?" },
   { id: "rhyme-time", title: "Rhyme Time", ageGroup: "early-learning", route: "/early-learning/rhyme-time", icon: "🎤", colorToken: "kid-purple", description: "Find the picture that rhymes" },
@@ -64,16 +73,16 @@ export const MODULES: LearningModule[] = [
   { id: "lunchbox", title: "My Lunchbox", ageGroup: "early-learning", route: "/early-learning/lunchbox", icon: "🍱", colorToken: "kid-yellow", description: "Pack a balanced lunch from every food group" },
   { id: "word-builder", title: "Word Builder", ageGroup: "early-learning", route: "/early-learning/word-builder", icon: "🔤", colorToken: "kid-blue", description: "Spell little words letter by letter" },
 
-  { id: "math-racer", title: "Math Racer", ageGroup: "advanced", route: "/advanced/math-racer", icon: "🏎️", colorToken: "kid-red", description: "Answer to race down the road" },
+  { id: "math-racer", title: "Math Racer", ageGroup: "advanced", route: "/advanced/math-racer", icon: "🏎️", colorToken: "kid-red", description: "Answer to race down the road", together: true },
   { id: "vehicles", title: "Vehicle World", ageGroup: "advanced", route: "/advanced/vehicles", icon: "🚒", colorToken: "kid-orange", description: "Vehicles with sounds and facts" },
   { id: "geography", title: "Geography", ageGroup: "advanced", route: "/advanced/geography", icon: "🌍", colorToken: "kid-green", description: "Flags, countries and continents" },
   { id: "science", title: "Science", ageGroup: "advanced", route: "/advanced/science", icon: "🔭", colorToken: "kid-purple", description: "Space, plants and weather" },
   { id: "science-lab", title: "Science Lab", ageGroup: "advanced", route: "/advanced/science-lab", icon: "🧪", colorToken: "kid-green", description: "Body, plants, weather, magnets, electricity and more, animated" },
   { id: "clock", title: "Clock Time", ageGroup: "advanced", route: "/advanced/clock", icon: "🕒", colorToken: "kid-blue", description: "Learn to tell the time" },
   { id: "robot-path", title: "Robot Path", ageGroup: "advanced", route: "/advanced/robot-path", icon: "🤖", colorToken: "kid-green", description: "Line up arrows to guide the robot to the star" },
-  { id: "connect-4", title: "Connect 4", ageGroup: "advanced", route: "/advanced/connect-4", icon: "🔴", colorToken: "kid-red", description: "Drop discs and connect four in a row" },
-  { id: "uno", title: "Uno", ageGroup: "advanced", route: "/advanced/uno", icon: "🃏", colorToken: "kid-red", description: "Match colours and numbers, shout UNO!" },
-  { id: "ludo", title: "Ludo", ageGroup: "advanced", route: "/advanced/ludo", icon: "🎲", colorToken: "kid-yellow", description: "Race your pawns home and send rivals back" },
+  { id: "connect-4", title: "Connect 4", ageGroup: "advanced", route: "/advanced/connect-4", icon: "🔴", colorToken: "kid-red", description: "Drop discs and connect four in a row", together: true },
+  { id: "uno", title: "Uno", ageGroup: "advanced", route: "/advanced/uno", icon: "🃏", colorToken: "kid-red", description: "Match colours and numbers, shout UNO!", together: true },
+  { id: "ludo", title: "Ludo", ageGroup: "advanced", route: "/advanced/ludo", icon: "🎲", colorToken: "kid-yellow", description: "Race your pawns home and send rivals back", together: true },
   { id: "world-globe", title: "World Globe", ageGroup: "advanced", route: "/advanced/world-globe", icon: "🌐", colorToken: "kid-blue", description: "Spin the globe and guess countries by shape" },
   { id: "times-tables", title: "Times Tables", ageGroup: "advanced", route: "/advanced/times-tables", icon: "✖️", colorToken: "kid-purple", description: "Build groups, tap the times grid, then quiz" },
   { id: "hindi-arabic", title: "Hindi & Arabic", ageGroup: "advanced", route: "/advanced/hindi-arabic", icon: "🔡", colorToken: "kid-purple", description: "अ आ and أ ب ت: hear each letter with a picture word, then trace it" },
@@ -83,10 +92,10 @@ export const MODULES: LearningModule[] = [
   { id: "measure-it", title: "Measure It", ageGroup: "advanced", route: "/advanced/measure-it", icon: "📏", colorToken: "kid-orange", description: "Measure with blocks and a ruler, then fill jugs with cups" },
   { id: "tally", title: "Tally & Charts", ageGroup: "advanced", route: "/advanced/tally", icon: "📊", colorToken: "kid-blue", description: "Tally the animals walking past, then make a bar chart" },
   { id: "coin-shop", title: "Coin Shop", ageGroup: "advanced", route: "/advanced/coin-shop", icon: "🪙", colorToken: "kid-yellow", description: "Pay with coins and work out the change" },
-  { id: "carrom", title: "Carrom", ageGroup: "advanced", route: "/advanced/carrom", icon: "⚪", colorToken: "kid-orange", description: "Flick the striker and pocket the coins" },
-  { id: "snooker", title: "Snooker", ageGroup: "advanced", route: "/advanced/snooker", icon: "🎱", colorToken: "kid-green", description: "Pot a red, then a colour, in 3D" },
-  { id: "darts", title: "Darts", ageGroup: "advanced", route: "/advanced/darts", icon: "🎯", colorToken: "kid-red", description: "Throw three darts and add up your score" },
-  { id: "archery", title: "Archery", ageGroup: "advanced", route: "/advanced/archery", icon: "🏹", colorToken: "kid-blue", description: "Draw the bow, beat the wind, hit the gold" },
+  { id: "carrom", title: "Carrom", ageGroup: "advanced", route: "/advanced/carrom", icon: "⚪", colorToken: "kid-orange", description: "Flick the striker and pocket the coins", together: true },
+  { id: "snooker", title: "Snooker", ageGroup: "advanced", route: "/advanced/snooker", icon: "🎱", colorToken: "kid-green", description: "Pot a red, then a colour, in 3D", together: true },
+  { id: "darts", title: "Darts", ageGroup: "advanced", route: "/advanced/darts", icon: "🎯", colorToken: "kid-red", description: "Throw three darts and add up your score", together: true },
+  { id: "archery", title: "Archery", ageGroup: "advanced", route: "/advanced/archery", icon: "🏹", colorToken: "kid-blue", description: "Draw the bow, beat the wind, hit the gold", together: true },
   { id: "marble-run", title: "Marble Run", ageGroup: "advanced", route: "/advanced/marble-run", icon: "🎢", colorToken: "kid-blue", description: "Place the ramps so the marble rolls into the cup" },
   { id: "road-runner", title: "Road Runner", ageGroup: "advanced", route: "/advanced/road-runner", icon: "🛣️", colorToken: "kid-yellow", description: "Dodge across three lanes" },
 
@@ -104,4 +113,9 @@ export function getModuleById(id: string): LearningModule | undefined {
 
 export function getModulesByAgeGroup(ageGroup: AgeGroup): LearningModule[] {
   return MODULES.filter((m) => m.ageGroup === ageGroup);
+}
+
+/** A home section's games: the "Play Together" games show there instead of in their age band. */
+export function getModulesForSection(section: HomeSection): LearningModule[] {
+  return section === "together" ? MODULES.filter((m) => m.together) : MODULES.filter((m) => m.ageGroup === section && !m.together);
 }

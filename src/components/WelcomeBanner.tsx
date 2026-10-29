@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AGE_GROUP_LABELS, AGE_GROUP_ORDER, MODULES, type AgeGroup, type LearningModule } from "@/data/modules";
+import { HOME_SECTION_LABELS, HOME_SECTION_ORDER, MODULES, type HomeSection, type LearningModule } from "@/data/modules";
 import type { AgeChoice } from "@/lib/age-pref";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { getAllProgress } from "@/lib/progress/progress";
 import { getAllStars } from "@/lib/rewards/RewardManager";
 import { TapBounce } from "./TapBounce";
 
-const SHORT: Record<AgeGroup, string> = { toddler: "Ages 2-3", "early-learning": "Ages 4-6", advanced: "Ages 7-8", others: "More" };
+const SHORT: Record<HomeSection, string> = { toddler: "Ages 2-3", "early-learning": "Ages 4-6", advanced: "Ages 7-8", together: "Together", others: "More" };
 
-export const GROUP_ICONS: Record<AgeGroup, string> = { toddler: "🧸", "early-learning": "🎨", advanced: "🚀", others: "🎮" };
+export const GROUP_ICONS: Record<HomeSection, string> = { toddler: "🧸", "early-learning": "🎨", advanced: "🚀", together: "👫", others: "🎮" };
 
 /** Friendly top of the home screen: greeting you can hear, star total, quick jumps, and "keep playing". */
-export function WelcomeBanner({ hidden, age, ageLabel, onJump, onChangeAge }: { hidden: string[]; age: AgeChoice | null; ageLabel: string; onJump: (g: AgeGroup) => void; onChangeAge: () => void }) {
+export function WelcomeBanner({ hidden, age, ageLabel, onJump, onChangeAge }: { hidden: string[]; age: AgeChoice | null; ageLabel: string; onJump: (g: HomeSection) => void; onChangeAge: () => void }) {
   const [stars, setStars] = useState(0);
   const [recent, setRecent] = useState<LearningModule[]>([]);
 
@@ -52,12 +52,12 @@ export function WelcomeBanner({ hidden, age, ageLabel, onJump, onChangeAge }: { 
           <span className="text-2xl font-extrabold">{stars}</span>
         </div>
       </div>
-      <nav aria-label="Jump to a group" className="grid grid-cols-4 gap-2">
-        {AGE_GROUP_ORDER.map((g) => (
+      <nav aria-label="Jump to a group" className="grid grid-cols-5 gap-1.5 sm:gap-2">
+        {HOME_SECTION_ORDER.map((g) => (
           <a key={g} href={`#group-${g}`} onClick={(e) => {
               e.preventDefault();
               onJump(g);
-            }} aria-label={AGE_GROUP_LABELS[g]} className="flex min-h-20 flex-col items-center justify-center gap-0.5 rounded-2xl bg-surface px-1 text-center text-4xl shadow active:scale-95">
+            }} aria-label={HOME_SECTION_LABELS[g]} className="flex min-h-20 flex-col items-center justify-center gap-0.5 rounded-2xl bg-surface px-1 text-center text-4xl shadow active:scale-95">
             <span aria-hidden>{GROUP_ICONS[g]}</span>
             <span className="text-xs font-bold leading-tight sm:text-sm">{SHORT[g]}</span>
           </a>
