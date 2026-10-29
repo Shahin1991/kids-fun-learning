@@ -6,7 +6,10 @@ export type { AgeGroup };
 
 export interface AppSettings {
   id: "app-settings";
+  /** Sound effects only; the voice has its own switch. */
   soundEnabled: boolean;
+  /** Spoken instructions, switched off only from the parent dashboard; missing means on. */
+  voiceEnabled?: boolean;
   musicEnabled: boolean;
   /** null = follow the OS preference */
   reducedMotion: boolean | null;

@@ -44,7 +44,7 @@ export const FOODS: Food[] = [
   { id: "carrot", name: "carrot", emoji: "🥕", group: "veg" },
   { id: "cucumber", name: "cucumber", emoji: "🥒", group: "veg" },
   { id: "broccoli", name: "broccoli", emoji: "🥦", group: "veg" },
-  { id: "peas", name: "peas", emoji: "🫛", group: "veg" },
+  { id: "tomato", name: "tomato", emoji: "🍅", group: "veg" },
   { id: "pepper", name: "pepper", emoji: "🫑", group: "veg" },
   { id: "milk", name: "milk", emoji: "🥛", group: "drink" },
   { id: "water", name: "water", emoji: "💧", group: "drink" },

@@ -228,9 +228,10 @@ export default function CarWash() {
       phaseRef.current = "shine";
       setPhase("shine");
       rubbing.current = false;
-      audioManager.play("reward");
-      audioManager.speak(`Sparkly clean! Beep beep! Thank you!`);
       const n = count + 1;
+      // A star round plays the jingle with its celebration
+      if (n % STAR_EVERY !== 0) audioManager.play("reward");
+      audioManager.speak(`Sparkly clean! Beep beep! Thank you!`);
       if (n % STAR_EVERY === 0) void finishActivity(MODULE_ID, { score: n });
       later(() => setPhase("leave"), 2400);
       later(() => setCount(n), reduced ? 2700 : 3600);

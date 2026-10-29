@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AGE_GROUP_LABELS, AGE_GROUP_ORDER, MODULES, type AgeGroup, type LearningModule } from "@/data/modules";
+import type { AgeChoice } from "@/lib/age-pref";
 import { audioManager } from "@/lib/audio/AudioManager";
 import { getAllProgress } from "@/lib/progress/progress";
 import { getAllStars } from "@/lib/rewards/RewardManager";
@@ -13,7 +14,7 @@ const SHORT: Record<AgeGroup, string> = { toddler: "Ages 2-3", "early-learning":
 export const GROUP_ICONS: Record<AgeGroup, string> = { toddler: "🧸", "early-learning": "🎨", advanced: "🚀", others: "🎮" };
 
 /** Friendly top of the home screen: greeting you can hear, star total, quick jumps, and "keep playing". */
-export function WelcomeBanner({ hidden, ageLabel, onJump, onChangeAge }: { hidden: string[]; ageLabel: string; onJump: (g: AgeGroup) => void; onChangeAge: () => void }) {
+export function WelcomeBanner({ hidden, age, ageLabel, onJump, onChangeAge }: { hidden: string[]; age: AgeChoice | null; ageLabel: string; onJump: (g: AgeGroup) => void; onChangeAge: () => void }) {
   const [stars, setStars] = useState(0);
   const [recent, setRecent] = useState<LearningModule[]>([]);
 
@@ -26,11 +27,13 @@ export function WelcomeBanner({ hidden, ageLabel, onJump, onChangeAge }: { hidde
           .sort((a, b) => b[1] - a[1])
           .map(([id]) => MODULES.find((m) => m.id === id))
           .filter((m): m is LearningModule => Boolean(m) && !hidden.includes(m!.id))
+          // Only the chosen age's games, so a toddler isn't offered an older sibling's
+          .filter((m) => !age || age === "all" || m.ageGroup === age)
           .slice(0, 4);
         setRecent(last);
       })
       .catch(() => {});
-  }, [hidden]);
+  }, [hidden, age]);
 
   const greet = () => audioManager.speak("Hi! Tap a picture to play. Have fun!");
 

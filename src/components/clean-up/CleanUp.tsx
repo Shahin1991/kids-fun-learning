@@ -83,7 +83,6 @@ export default function CleanUp() {
     setClean(true);
     timers.current.push(
       setTimeout(() => {
-        audioManager.play("reward");
         audioManager.speak("The park is all clean! The flowers are happy!");
       }, 900),
     );

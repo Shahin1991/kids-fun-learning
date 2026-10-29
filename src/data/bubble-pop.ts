@@ -10,7 +10,7 @@ export interface BubbleItem {
 }
 
 export const BUBBLE_MODES: { id: BubbleMode; label: string; icon: string }[] = [
-  { id: "colors", label: "Colors", icon: "🎨" },
+  { id: "colors", label: "Colours", icon: "🎨" },
   { id: "shapes", label: "Shapes", icon: "🔺" },
   { id: "letters", label: "Letters", icon: "🔤" },
   { id: "numbers", label: "Numbers", icon: "🔢" },

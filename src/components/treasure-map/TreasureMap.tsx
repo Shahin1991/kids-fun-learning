@@ -78,14 +78,16 @@ export default function TreasureMap() {
     audioManager.playNote(Math.min(9, nextTaken.length));
     if (next.x === map.treasure.x && next.y === map.treasure.y) {
       setDug(true);
+      const n = found + 1;
+      // A star round plays the jingle with its celebration
+      const star = n % STAR_EVERY === 0;
       timers.current.push(
         setTimeout(() => {
-          audioManager.play("reward");
+          if (!star) audioManager.play("reward");
           audioManager.speak("X marks the spot! You found the treasure!");
         }, 400),
       );
-      const n = found + 1;
-      if (n % STAR_EVERY === 0) void finishActivity(MODULE_ID, { score: n });
+      if (star) void finishActivity(MODULE_ID, { score: n });
       timers.current.push(
         setTimeout(() => {
           const m = makeMap(n);

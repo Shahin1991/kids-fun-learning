@@ -29,6 +29,7 @@ Next, roughly by expected learning value:
 6. **Fractions Pizza** (7-8): split and share; halves, quarters.
 
 Cross-cutting UX to-dos:
+- See `docs/CHILD_UX_REVIEW.md` (October 2026) for the ranked child-development and UX findings: voice muted by the sound button, the play-limit lock, the default PIN, one-tap exits, "Other Games", duplicate jingles and endless loops.
 - A real voice-over recording (not browser speech synthesis) for the title/greeting lines, so non-English devices and devices without voices still talk.
 - Per-child profiles and a parent "what did they practise" report (the parent dashboard already stores per-module progress).
 - Adaptive difficulty persisted per game (start where the child left off, not at level 1).

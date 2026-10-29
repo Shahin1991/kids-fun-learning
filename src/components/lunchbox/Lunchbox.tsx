@@ -49,7 +49,6 @@ export default function Lunchbox() {
     timers.current.push(setTimeout(() => setClosed(true), 700));
     timers.current.push(
       setTimeout(() => {
-        audioManager.play("reward");
         audioManager.speak(`Snap! A balanced lunch for ${kid.name}. ${lunchSpeech(full)}.`);
       }, 1100),
     );

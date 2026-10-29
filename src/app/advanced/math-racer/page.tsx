@@ -146,10 +146,8 @@ export default function MathRacerPage() {
         const { RacerEngine } = await import("@/lib/math-racer/RacerEngine");
         const e = new RacerEngine(container, {
           reducedMotion: reduced,
-          onFinished: () => {
-            audioManager.play("reward");
-            setWon(true);
-          },
+          // The last answer already awarded the star, with its jingle
+          onFinished: () => setWon(true),
         });
         engine.current = e;
         if (modeRef.current === 2) e.setPlayers(2);

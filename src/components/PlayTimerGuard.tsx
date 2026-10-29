@@ -117,6 +117,8 @@ export function PlayTimerGuard() {
     const musicWasOn = audioManager.isMusicOn;
     audioManager.setMusic(false);
     audioManager.stopSpeech();
+    // Non-readers need to hear why the game stopped
+    audioManager.speak("Time is up! Great playing today. Let's take a break. Ask a grown-up if you want to play more.");
     const overlayRoot = overlayRef.current;
     const others = Array.from(document.body.children).filter((el) => el !== overlayRoot && !el.hasAttribute("inert")) as HTMLElement[];
     others.forEach((el) => el.setAttribute("inert", ""));

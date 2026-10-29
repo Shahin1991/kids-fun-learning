@@ -121,9 +121,10 @@ export default function DressUp() {
       return;
     }
     setDressed(true);
-    audioManager.play("reward");
-    audioManager.speak(`${item.why} ${PLAY[weather]}`);
     const n = done + 1;
+    // A star round plays the jingle with its celebration
+    if (n % STAR_EVERY !== 0) audioManager.play("reward");
+    audioManager.speak(`${item.why} ${PLAY[weather]}`);
     setDone(n);
     if (n % STAR_EVERY === 0) void finishActivity(MODULE_ID, { score: n });
     timers.current.push(

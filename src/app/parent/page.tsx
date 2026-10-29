@@ -89,6 +89,12 @@ export default function ParentDashboard() {
     audioManager.speak(VOICE_SAMPLE, next);
   };
 
+  const setVoiceOn = async (voiceEnabled: boolean) => {
+    audioManager.setVoiceEnabled(voiceEnabled);
+    setSettings(await updateSettings({ voiceEnabled }));
+    if (voiceEnabled) audioManager.speak(VOICE_SAMPLE, normalizeVoice(settings.voice));
+  };
+
   const setTimer = async (timerMinutes: number | null) => {
     setSettings(await updateSettings({ timerMinutes }));
   };
@@ -157,7 +163,12 @@ export default function ParentDashboard() {
 
       <Card>
         <h2 className="mb-2 text-2xl font-bold">Voice</h2>
-        <p className="mb-2 text-sm">How the app talks to your child. Slower speech is easier for young children to follow; each change plays a short sample.</p>
+        <p className="mb-2 text-sm">How the app talks to your child. Slower speech is easier for young children to follow; each change plays a short sample. The 🔊 button in the games only turns off sound effects, so the voice keeps giving instructions.</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {([[true, "Voice on"], [false, "Voice off"]] as const).map(([v, label]) => (
+            <Button key={label} variant={(settings.voiceEnabled ?? true) === v ? "primary" : "ghost"} onClick={() => setVoiceOn(v)}>{label}</Button>
+          ))}
+        </div>
         <p className="mb-1 font-bold">Speed</p>
         <div className="mb-3 flex flex-wrap gap-2">
           {SPEED_OPTIONS.map((o) => (

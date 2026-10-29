@@ -54,7 +54,8 @@ export function LessonPlayer({ lesson, moduleId }: { lesson: LabLesson; moduleId
       setStep(next);
       if (next === last && prev !== last) {
         setCheer((c) => c + 1);
-        audioManager.play("reward");
+        // The first time through, the star's celebration plays the jingle
+        if (done.current) audioManager.play("reward");
       }
       if (next === last && !done.current) {
         done.current = true;

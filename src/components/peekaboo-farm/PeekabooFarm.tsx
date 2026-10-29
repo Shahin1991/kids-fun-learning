@@ -200,7 +200,6 @@ export default function PeekabooFarm() {
   const finishRound = () => {
     setAllOut(true);
     setTarget(null);
-    audioManager.play("reward");
     audioManager.speak("You found everyone! Hooray!");
     void finishActivity(MODULE_ID, { score: round + 1 });
     timers.current.round = setTimeout(() => {

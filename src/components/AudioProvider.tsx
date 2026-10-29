@@ -28,6 +28,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         setMusic(s.musicEnabled);
         musicOnUnlock.current = s.soundEnabled && s.musicEnabled;
         audioManager.configure(s.soundEnabled, false);
+        audioManager.setVoiceEnabled(s.voiceEnabled ?? true);
         audioManager.setVoicePrefs(normalizeVoice(s.voice));
       })
       .catch(() => {});

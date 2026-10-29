@@ -123,7 +123,6 @@ export default function TallyCharts() {
           return;
         }
         setPhase("done");
-        audioManager.play("reward");
         audioManager.speak("You counted, made a chart and read it. Super data detective!");
         void finishActivity(MODULE_ID, { score: level + 1 });
         timers.current.push(

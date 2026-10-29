@@ -121,16 +121,18 @@ export default function BeadBuilder() {
     }
     // The string is full: tie it into a necklace
     audioManager.speak("ten!");
+    const d = done + 1;
+    // A star round plays the jingle with its celebration
+    const star = d % STAR_EVERY === 0;
     timers.current.push(
       setTimeout(() => {
         setClosed(true);
-        audioManager.play("reward");
+        if (!star) audioManager.play("reward");
         audioManager.speak(`You made a necklace! ${[...round.unit, ...round.unit].map((b) => beadById(b).name).join(", ")}!`);
       }, 500),
     );
-    const d = done + 1;
     setDone(d);
-    if (d % STAR_EVERY === 0) void finishActivity(MODULE_ID, { score: d });
+    if (star) void finishActivity(MODULE_ID, { score: d });
     timers.current.push(
       setTimeout(() => {
         setGallery((g) => [round.unit, ...g].slice(0, 6));

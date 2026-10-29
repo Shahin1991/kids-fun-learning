@@ -4,6 +4,8 @@
   color-scheme: light;
   --background: #fffaf0;
   --foreground: #3b2f4a;
+  /* Secondary text on the page background; readable in both themes, unlike text-ink/NN */
+  --muted: #6a5d7c;
   --surface: #ffffff;
   --tint: 32%;
   --toddler-dark: #e0457b;
@@ -28,6 +30,7 @@
   color-scheme: dark;
   --background: #17122a;
   --foreground: #f3eeff;
+  --muted: #c4b8e0;
   --surface: #261f3f;
   --tint: 20%;
   --toddler-dark: #ff8fbd;
@@ -39,6 +42,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
   --color-surface: var(--surface);
   --color-ink: #3b2f4a;
   --color-toddler: #ff8fb1;

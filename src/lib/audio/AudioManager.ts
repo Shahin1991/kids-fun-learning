@@ -7,7 +7,10 @@ type SoundName = "success" | "failure" | "reward";
 class AudioManager {
   private sounds = new Map<string, Howl>();
   private music: Howl | null = null;
+  /** Sound effects; the header 🔊 button. */
   private soundEnabled = true;
+  /** The spoken voice is a non-reader's only instructions, so only the parent dashboard turns it off. */
+  private voiceEnabled = true;
   private musicEnabled = false;
 
   private get(key: string, src: () => string, opts: { loop?: boolean; volume?: number } = {}): Howl {
@@ -21,8 +24,12 @@ class AudioManager {
 
   configure(soundEnabled: boolean, musicEnabled: boolean) {
     this.soundEnabled = soundEnabled;
-    if (!soundEnabled) this.stopSpeech();
     this.setMusic(musicEnabled);
+  }
+
+  setVoiceEnabled(enabled: boolean) {
+    this.voiceEnabled = enabled;
+    if (!enabled) this.stopSpeech();
   }
 
   private voice: SpeechSynthesisVoice | null = null;
@@ -140,11 +147,29 @@ class AudioManager {
 
   /** `prefs` overrides the saved voice settings (the dashboard's "Test voice" button). */
   speak(text: string, prefs?: VoicePrefs) {
-    if (!this.soundEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
+    if (!this.voiceEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
     const synth = window.speechSynthesis;
     const p = prefs ?? this.voicePrefs;
     const voice = prefs ? chooseVoice(synth.getVoices(), prefs.voiceName, this.silentVoices) : this.pickVoice(synth);
     this.say(synth, text, p, voice, () => this.speakWithDefaultVoice(text, p));
+  }
+
+  /**
+   * Speaks once the current line has finished, so an extra (a badge) never cuts off a game's line.
+   * Waits at most `maxWaitMs`, then speaks anyway.
+   */
+  speakWhenQuiet(text: string, maxWaitMs = 8000) {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const synth = window.speechSynthesis;
+    const until = Date.now() + maxWaitMs;
+    const check = () => {
+      if (synth.speaking || synth.pending) {
+        if (Date.now() < until) return void setTimeout(check, 300);
+      }
+      this.speak(text);
+    };
+    // Lets a line started on the same turn (the game's "Well done!") get going first
+    setTimeout(check, 400);
   }
 
   /** True when the device has a voice for this language ("hi", "ar"). */
@@ -158,7 +183,7 @@ class AudioManager {
    * spelled for the English voice) when the device has none or that voice stays silent.
    */
   speakIn(lang: string, text: string, fallback: string) {
-    if (!this.soundEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
+    if (!this.voiceEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
     const synth = window.speechSynthesis;
     const voice = voicesForLang(synth.getVoices(), lang, this.silentVoices)[0];
     if (!voice) return this.speak(fallback);

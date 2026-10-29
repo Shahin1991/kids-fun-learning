@@ -160,7 +160,6 @@ export default function DinoDig() {
     setComplete(true);
     timers.current.push(
       setTimeout(() => {
-        audioManager.play("reward");
         audioManager.speak(`Roar! It's a ${dino.name}! ${dino.fact}`);
       }, 700),
     );

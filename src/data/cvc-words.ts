@@ -21,5 +21,5 @@ export const CVC_WORDS: { word: string; emoji: string }[] = [
   { word: "jam", emoji: "🍯" },
   { word: "cup", emoji: "🥤" },
   { word: "leg", emoji: "🦵" },
-  { word: "fan", emoji: "🪭" },
+  { word: "ten", emoji: "🔟" },
 ];

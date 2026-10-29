@@ -55,7 +55,6 @@ export default function TrainTrack() {
     const ride = (full.length - 1) * STEP_S * 1000;
     timers.current.push(
       setTimeout(() => {
-        audioManager.play("reward");
         audioManager.speak(`Choo choo! The train got to ${lv.place.name}! Your track has ${pieces} pieces.`);
         void finishActivity(MODULE_ID, { score: round + 1 });
       }, ride),
@@ -187,7 +186,7 @@ export default function TrainTrack() {
           </motion.g>
         </svg>
       </div>
-      <p className="text-center text-lg font-bold text-ink/70">Tap a glowing square to lay track. Tap a piece to pick it back up.</p>
+      <p className="text-center text-lg font-bold text-muted">Tap a glowing square to lay track. Tap a piece to pick it back up.</p>
     </div>
   );
 }

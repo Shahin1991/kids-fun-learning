@@ -15,7 +15,7 @@ export default function ColorsPage() {
   const reduced = useAppReducedMotion();
   return (
     <ToyGame
-      title="Colors"
+      title="Colours"
       moduleId="colors"
       items={ITEMS}
       create={async (container) => {

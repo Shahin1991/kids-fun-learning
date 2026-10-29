@@ -111,7 +111,7 @@ export default function MagnaTilesGame() {
                   <button
                     key={c}
                     type="button"
-                    aria-label={`Color ${hex(c)}`}
+                    aria-label={`Colour ${hex(c)}`}
                     aria-pressed={color === c}
                     onClick={() => {
                       setColor(c);

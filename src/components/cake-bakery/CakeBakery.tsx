@@ -243,7 +243,7 @@ export default function CakeBakery() {
                 <p className="text-sm font-bold">Drag over the cake to spread frosting, or turn it by dragging the background</p>
                 {s.tiers > 1 && (
                   <div className="flex items-center gap-2" role="group" aria-label="Which layer">
-                    <span className="text-sm font-bold">Color</span>
+                    <span className="text-sm font-bold">Colour</span>
                     {[-1, ...Array.from({ length: s.tiers }, (_, i) => i)].map((i) => (
                       <button key={i} type="button" aria-pressed={layer === i} onClick={() => { setLayer(i); engine.current?.setFrostLayer(i); audioManager.playNote(1); }} className={`${chip} ${layer === i ? "bg-pink-500 text-white" : "bg-tint text-foreground"}`}>
                         {i < 0 ? "All" : `Layer ${i + 1}`}

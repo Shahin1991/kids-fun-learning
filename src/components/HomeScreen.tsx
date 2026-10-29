@@ -77,7 +77,7 @@ export function HomeScreen() {
       </header>
       {disabled && (
         <>
-          <WelcomeBanner hidden={disabled} ageLabel={pref ? AGE_LABEL[pref] : "Pick your age"} onJump={jump} onChangeAge={() => setPicking(true)} />
+          <WelcomeBanner hidden={disabled} age={pref} ageLabel={pref ? AGE_LABEL[pref] : "Pick your age"} onJump={jump} onChangeAge={() => setPicking(true)} />
           {AGE_GROUP_ORDER.map((g) => (
             <AgeGroupSection key={g} ageGroup={g} open={open.has(g)} onToggle={() => toggle(g)} modules={getModulesByAgeGroup(g).filter((m) => !disabled.includes(m.id))} />
           ))}

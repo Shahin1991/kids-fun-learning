@@ -23,7 +23,7 @@ export const AGE_GROUP_ORDER: AgeGroup[] = ["toddler", "early-learning", "advanc
 
 export const MODULES: LearningModule[] = [
   { id: "animals", title: "Animals", ageGroup: "toddler", route: "/toddler/animals", icon: "🐶", colorToken: "kid-orange", description: "Tap an animal to hear its name and sound" },
-  { id: "colors", title: "Colors", ageGroup: "toddler", route: "/toddler/colors", icon: "🎨", colorToken: "kid-red", description: "Tap a color to see it flash" },
+  { id: "colors", title: "Colours", ageGroup: "toddler", route: "/toddler/colors", icon: "🎨", colorToken: "kid-red", description: "Tap a colour to see it flash" },
   { id: "shapes", title: "Shapes", ageGroup: "toddler", route: "/toddler/shapes", icon: "🔺", colorToken: "kid-blue", description: "Drag shapes to their outlines" },
   { id: "tap-fun", title: "Tap Party", ageGroup: "toddler", route: "/toddler/tap-fun", icon: "🎆", colorToken: "kid-purple", description: "Tap anywhere for bursts of fun" },
   { id: "sizes", title: "Big or Small", ageGroup: "toddler", route: "/toddler/sizes", icon: "🐘", colorToken: "kid-green", description: "Find the big one, sort them in order" },

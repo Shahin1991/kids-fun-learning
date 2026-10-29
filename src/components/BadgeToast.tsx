@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { getAchievement, type Achievement } from "@/data/achievements";
+import { audioManager } from "@/lib/audio/AudioManager";
 import { subscribeRewards } from "@/lib/rewards/reward-events";
 
 export function BadgeToast() {
@@ -12,9 +13,12 @@ export function BadgeToast() {
     let hide: ReturnType<typeof setTimeout> | undefined;
     const off = subscribeRewards((e) => {
       if (e.type !== "achievement") return;
-      setBadge(getAchievement(e.achievementId) ?? null);
+      const a = getAchievement(e.achievementId) ?? null;
+      setBadge(a);
+      // Pre-readers can't read the toast, so it is spoken after the game's own line
+      if (a) audioManager.speakWhenQuiet(`New badge! ${a.title}. ${a.description}`);
       clearTimeout(hide);
-      hide = setTimeout(() => setBadge(null), 3500);
+      hide = setTimeout(() => setBadge(null), 6000);
     });
     return () => {
       off();

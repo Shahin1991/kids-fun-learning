@@ -142,7 +142,6 @@ function MusicMaker() {
         setPos(0);
         setSong(null);
         setMsg(`You played ${SONGS[song].title}! 🎉`);
-        audioManager.play("reward");
         audioManager.speak(`You played ${SONGS[song].title}! Bravo!`);
         void finishActivity("music-maker", { score: notes.length });
       } else setPos(p);
