@@ -1,7 +1,8 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useAnimate } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { Burst } from "@/components/Burst";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 import { finishActivity } from "@/lib/activity";
 import { audioManager } from "@/lib/audio/AudioManager";
@@ -89,13 +90,23 @@ function paintSand(g: CanvasRenderingContext2D, w: number, h: number) {
   }
 }
 
+/** A puff of sand flicked up by the brush (pixels within the dig box). */
 interface Dust {
   id: number;
   x: number;
   y: number;
+  /** Sideways flick */
+  dx: number;
+  size: number;
 }
 
-const newDust = (id: number, x: number, y: number): Dust => ({ id, x: x + (Math.random() - 0.5) * 30, y: y + (Math.random() - 0.5) * 20 });
+const newDust = (id: number, x: number, y: number): Dust => ({
+  id,
+  x: x + (Math.random() - 0.5) * 30,
+  y: y + (Math.random() - 0.5) * 20,
+  dx: (Math.random() - 0.5) * 70,
+  size: 5 + Math.random() * 9,
+});
 
 export default function DinoDig() {
   const reduced = useAppReducedMotion();
@@ -106,7 +117,11 @@ export default function DinoDig() {
   const [complete, setComplete] = useState(false);
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
   const [dust, setDust] = useState<Dust[]>([]);
+  const [held, setHeld] = useState(false);
+  /** The latest bone to come out of the sand, for its sparkle burst */
+  const [pop, setPop] = useState<{ n: number; x: number; y: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  const [panel, animatePanel] = useAnimate<HTMLDivElement>();
   const sand = useRef<HTMLCanvasElement>(null);
   const masks = useRef<Record<string, Uint8Array>>({});
   const low = useRef<HTMLCanvasElement | null>(null);
@@ -152,6 +167,13 @@ export default function DinoDig() {
     const next = [...foundRef.current, ...newly.map((b) => b.id)];
     foundRef.current = next;
     setFound(next);
+    const at = buried.find((x) => x.id === newly[0].id)!;
+    setPop((p) => ({ n: (p?.n ?? 0) + 1, x: at.x, y: at.y }));
+    // The skeleton panel thumps as the bone lands, and shakes with the roar at the end
+    if (!reduced) {
+      if (next.length < dino.bones.length) void animatePanel(panel.current, { y: [0, 5, -2, 0] }, { duration: 0.35, delay: 0.15 });
+      else void animatePanel(panel.current, { x: [0, -8, 8, -6, 6, -3, 0], rotate: [0, -1, 1, -1, 0] }, { duration: 0.6, delay: 0.7 });
+    }
     audioManager.play("success");
     if (next.length < dino.bones.length) {
       audioManager.speak(`You found a ${newly[0].name}! ${dino.bones.length - next.length} more to find.`);
@@ -191,9 +213,9 @@ export default function DinoDig() {
     g.lineTo(px * k + 0.01, py * k);
     g.stroke();
     last.current = { x: px, y: py };
-    if (++moves.current % 3 === 0 && !reduced) {
+    if (++moves.current % 2 === 0 && !reduced) {
       const id = ++dustId.current;
-      setDust((d) => [...d.slice(-10), newDust(id, px, py)]);
+      setDust((d) => [...d.slice(-16), newDust(id, px, py)]);
     }
     if (moves.current % 10 === 0) audioManager.playSfx("whoosh", 0.2);
     if (moves.current % 6 === 0) check();
@@ -210,12 +232,18 @@ export default function DinoDig() {
           e.currentTarget.setPointerCapture(e.pointerId);
           const r = e.currentTarget.getBoundingClientRect();
           last.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+          setHeld(true);
           brush(e);
         }}
         onPointerMove={brush}
         onPointerUp={() => {
           last.current = null;
+          setHeld(false);
           check();
+        }}
+        onPointerCancel={() => {
+          last.current = null;
+          setHeld(false);
         }}
         onPointerLeave={() => setPointer(null)}
         role="img"
@@ -228,9 +256,19 @@ export default function DinoDig() {
             return (
               <g key={`${dig}-${at.id}`} transform={`translate(${at.x} ${at.y}) rotate(${at.rot}) scale(0.8)`}>
                 {isFound && (
-                  <motion.circle r={b.len * 0.62} fill="#ffe066" initial={{ opacity: 0 }} animate={{ opacity: [0, 0.7, 0.35] }} transition={{ duration: 0.8 }} />
+                  // A warm glow that keeps gently pulsing, so found bones stand out from the sand
+                  <motion.circle
+                    r={b.len * 0.62}
+                    fill="#ffe066"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={reduced ? { opacity: 0.35, scale: 1 } : { opacity: [0, 0.75, 0.3, 0.5, 0.3], scale: [0.5, 1.1, 1, 1.05, 1] }}
+                    transition={reduced ? { duration: 0 } : { duration: 0.8, repeat: Infinity, repeatType: "mirror", repeatDelay: 0.4 }}
+                  />
                 )}
-                <BoneArt kind={b.kind} len={b.len} />
+                {/* Jumps out of the sand with a squash when found */}
+                <motion.g animate={isFound && !reduced ? { scale: [1, 1.3, 0.9, 1.05, 1], rotate: [0, -8, 6, 0] } : { scale: 1, rotate: 0 }} transition={{ duration: 0.6 }}>
+                  <BoneArt kind={b.kind} len={b.len} />
+                </motion.g>
               </g>
             );
           })}
@@ -240,20 +278,30 @@ export default function DinoDig() {
           {dust.map((d) => (
             <motion.span
               key={d.id}
-              className="pointer-events-none absolute h-2 w-2 rounded-full bg-[#d9b47a]"
-              style={{ left: d.x, top: d.y }}
-              initial={{ opacity: 1, y: 0, x: 0 }}
-              animate={{ opacity: 0, y: -30, x: (d.id % 2 ? 1 : -1) * 20 }}
-              transition={{ duration: 0.6 }}
+              className={`pointer-events-none absolute rounded-full ${d.id % 3 ? "bg-[#d9b47a]" : "bg-[#b8894f]"}`}
+              style={{ left: d.x, top: d.y, width: d.size, height: d.size }}
+              initial={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+              // Flicked up, then falls back down: a little arc of sand
+              animate={{ opacity: [1, 1, 0], y: [0, -34, 10], x: d.dx, scale: [1, 1.2, 0.6] }}
+              transition={{ duration: 0.75, times: [0, 0.4, 1], ease: "easeOut" }}
               onAnimationComplete={() => setDust((all) => all.filter((x) => x.id !== d.id))}
             />
           ))}
         </AnimatePresence>
         {pointer && !complete && (
-          <span className="pointer-events-none absolute -translate-x-1/4 -translate-y-3/4 text-5xl drop-shadow" style={{ left: pointer.x, top: pointer.y }} aria-hidden>
-            🖌️
+          <span className="pointer-events-none absolute -translate-x-1/4 -translate-y-3/4" style={{ left: pointer.x, top: pointer.y }} aria-hidden>
+            {/* Brushes back and forth while the child is digging */}
+            <motion.span
+              className="block text-5xl drop-shadow"
+              style={{ transformOrigin: "20% 90%" }}
+              animate={reduced ? undefined : held ? { rotate: [-16, 16, -16] } : { rotate: 0 }}
+              transition={held ? { repeat: Infinity, duration: 0.25 } : { type: "spring", stiffness: 300, damping: 12 }}
+            >
+              🖌️
+            </motion.span>
           </span>
         )}
+        {pop && <Burst key={pop.n} trigger={pop.n} items={["✨", "⭐", "🦴"]} count={8} spread={80} className="" style={{ left: `${(pop.x / W) * 100}%`, top: `${(pop.y / H) * 100}%` }} size="text-2xl" />}
         {!pointer && found.length === 0 && (
           <motion.span className="pointer-events-none absolute left-1/2 top-1/2 text-6xl" animate={reduced ? undefined : { x: [-50, 50, -50], rotate: [-10, 10, -10] }} transition={{ repeat: Infinity, duration: 1.8 }} aria-hidden>
             🖌️
@@ -262,19 +310,30 @@ export default function DinoDig() {
       </div>
 
       {/* The skeleton fills in as bones are found */}
-      <div className="relative aspect-[400/240] w-full max-w-md rounded-3xl bg-surface shadow-md">
-        <svg viewBox="0 0 400 240" className="absolute inset-0 h-full w-full" aria-label={`${dino.name} skeleton, ${found.length} of ${dino.bones.length} bones`}>
-          {dino.bones.map((b) => (
-            <g key={`${dig}-${b.id}`} transform={`translate(${b.x} ${b.y}) rotate(${b.rot})`}>
-              {found.includes(b.id) ? (
-                <motion.g initial={reduced ? false : { scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 260, damping: 12 }}>
-                  <BoneArt kind={b.kind} len={b.len} />
-                </motion.g>
-              ) : (
-                <BoneArt kind={b.kind} len={b.len} fill="none" stroke="#9a8f7a" dashed />
-              )}
-            </g>
-          ))}
+      {/* Thumps each time a bone lands; shakes with the roar when the dinosaur is done */}
+      <div ref={panel} className="relative aspect-[400/240] w-full max-w-md rounded-3xl bg-surface shadow-md">
+        <svg viewBox="0 0 400 240" className="absolute inset-0 h-full w-full overflow-visible" aria-label={`${dino.name} skeleton, ${found.length} of ${dino.bones.length} bones`}>
+          {/* When it's whole, the skeleton comes alive and stomps on the spot */}
+          <motion.g
+            style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }}
+            animate={complete && !reduced ? { rotate: [0, -3, 0, 3, 0], y: [0, -10, 0, -10, 0] } : { rotate: 0, y: 0 }}
+            transition={complete ? { repeat: Infinity, duration: 1.1, delay: 0.7, ease: "easeInOut" } : { duration: 0.3 }}
+          >
+            {dino.bones.map((b, i) => (
+              <g key={`${dig}-${b.id}`} transform={`translate(${b.x} ${b.y}) rotate(${b.rot})`}>
+                {found.includes(b.id) ? (
+                  <motion.g initial={reduced ? false : { scale: 0, rotate: -90, y: -60 }} animate={{ scale: 1, rotate: 0, y: 0 }} transition={{ type: "spring", stiffness: 260, damping: 12 }}>
+                    <BoneArt kind={b.kind} len={b.len} />
+                  </motion.g>
+                ) : (
+                  // Outlines still to find breathe, like a "fill me in" hint
+                  <motion.g animate={reduced ? undefined : { opacity: [0.45, 1, 0.45] }} transition={{ repeat: Infinity, duration: 1.8, delay: i * 0.25 }}>
+                    <BoneArt kind={b.kind} len={b.len} fill="none" stroke="#9a8f7a" dashed />
+                  </motion.g>
+                )}
+              </g>
+            ))}
+          </motion.g>
         </svg>
         <AnimatePresence>
           {complete && (
@@ -285,14 +344,37 @@ export default function DinoDig() {
               exit={{ opacity: 0 }}
               transition={{ delay: 0.6 }}
             >
-              <motion.span className="text-8xl" initial={reduced ? false : { scale: 0 }} animate={reduced ? { scale: 1 } : { scale: [0, 1.3, 1], rotate: [0, -8, 8, 0] }} transition={{ delay: 0.7, duration: 0.8 }} aria-hidden>
-                {dino.emoji}
+              <motion.span
+                className="text-8xl"
+                style={{ transformOrigin: "50% 100%" }}
+                initial={reduced ? false : { scale: 0 }}
+                animate={reduced ? { scale: 1 } : { scale: [0, 1.3, 1], rotate: [0, -8, 8, 0] }}
+                transition={{ delay: 0.7, duration: 0.8 }}
+                aria-hidden
+              >
+                {/* Stomps once it has popped in */}
+                <motion.span
+                  className="block"
+                  style={{ transformOrigin: "50% 100%" }}
+                  animate={reduced ? undefined : { scaleY: [1, 0.88, 1.06, 1], scaleX: [1, 1.1, 0.96, 1], y: [0, 0, -14, 0] }}
+                  transition={{ repeat: Infinity, duration: 0.9, delay: 1.6, repeatDelay: 0.3 }}
+                >
+                  {dino.emoji}
+                </motion.span>
               </motion.span>
-              <span className="text-2xl font-extrabold">ROAR! {dino.name}</span>
+              <motion.span
+                className="text-2xl font-extrabold"
+                initial={reduced ? false : { scale: 0 }}
+                animate={reduced ? { scale: 1 } : { scale: [0, 1.4, 1], x: [0, -4, 4, -3, 3, 0] }}
+                transition={{ delay: 1, duration: 0.6 }}
+              >
+                ROAR! {dino.name}
+              </motion.span>
               <span className="px-4 text-center text-lg font-semibold opacity-80">{dino.fact}</span>
             </motion.div>
           )}
         </AnimatePresence>
+        <Burst trigger={complete ? dig + 1 : 0} items={["🦴", "⭐", "✨", "🌟"]} count={14} spread={170} size="text-3xl" />
       </div>
     </div>
   );

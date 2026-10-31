@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { Burst } from "@/components/Burst";
 import { CoinArt } from "@/components/CoinArt";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 import { ShakeOnWrong } from "@/components/ShakeOnWrong";
@@ -53,7 +54,7 @@ function wantText(order: OrderLine[]): string {
   return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0];
 }
 
-function CustomerArt({ c, happy, size = 120 }: { c: Customer; happy: boolean; size?: number }) {
+function CustomerArt({ c, happy, reduced, size = 120 }: { c: Customer; happy: boolean; reduced: boolean; size?: number }) {
   const hair = (() => {
     switch (c.hairStyle) {
       case "long":
@@ -80,8 +81,18 @@ function CustomerArt({ c, happy, size = 120 }: { c: Customer; happy: boolean; si
       <rect x="52" y="84" width="16" height="16" rx="6" fill={c.skin} />
       <circle cx="60" cy="56" r="30" fill={c.skin} />
       <path d="M30 50 C30 22 90 22 90 50 C80 38 44 36 30 50 Z" fill={c.hair} />
-      <circle cx="49" cy="58" r="4" fill="#3b2f4a" />
-      <circle cx="71" cy="58" r="4" fill="#3b2f4a" />
+      {[49, 71].map((x) => (
+        <motion.circle
+          key={x}
+          cx={x}
+          cy={58}
+          r={4}
+          fill="#3b2f4a"
+          style={{ transformBox: "fill-box", transformOrigin: "50% 50%" }}
+          animate={reduced ? undefined : { scaleY: [1, 1, 0.1, 1] }}
+          transition={{ repeat: Infinity, duration: 3.4, times: [0, 0.93, 0.965, 1] }}
+        />
+      ))}
       <circle cx="42" cy="68" r="5" fill="#ff8fa3" opacity="0.5" />
       <circle cx="78" cy="68" r="5" fill="#ff8fa3" opacity="0.5" />
       {happy ? <path d="M48 70 Q60 84 72 70 Z" fill="#c2374f" /> : <path d="M50 72 Q60 79 70 72" fill="none" stroke="#3b2f4a" strokeWidth="3" strokeLinecap="round" />}
@@ -89,16 +100,33 @@ function CustomerArt({ c, happy, size = 120 }: { c: Customer; happy: boolean; si
   );
 }
 
-function Cup({ color, size = 1 }: { color: string; size?: number }) {
+/** A cup of juice. `level` (0..1) is how full it is, and the juice slides to it: pouring in, or being sipped away. */
+function Cup({ color, size = 1, level = 1, from = level, reduced }: { color: string; size?: number; level?: number; from?: number; reduced: boolean }) {
+  const clip = `cup-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const top = (l: number) => 89 - 51 * l;
   return (
     <svg width={70 * size} height={96 * size} viewBox="0 0 70 96" aria-hidden>
-      <path d="M44 4 L40 30" stroke="#ff6fa5" strokeWidth="5" strokeLinecap="round" />
+      <defs>
+        <clipPath id={clip}>
+          <motion.rect x={0} width={70} height={96} initial={{ y: top(reduced ? level : from) }} animate={{ y: top(level) }} transition={{ duration: reduced ? 0 : 1.6, ease: "easeInOut" }} />
+        </clipPath>
+      </defs>
+      <motion.path d="M44 4 L40 30" stroke="#ff6fa5" strokeWidth="5" strokeLinecap="round" style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }} animate={reduced ? undefined : { rotate: [-6, 6, -6] }} transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }} />
       <path d="M8 26 L62 26 L56 92 L14 92 Z" fill="#ffffff" fillOpacity="0.55" stroke="#9aa3ad" strokeWidth="3" />
-      <path d="M11 38 L59 38 L55 89 L15 89 Z" fill={color} />
+      <path d="M11 38 L59 38 L55 89 L15 89 Z" fill={color} clipPath={`url(#${clip})`} />
       <ellipse cx="24" cy="56" rx="4" ry="12" fill="#ffffff" opacity="0.45" />
     </svg>
   );
 }
+
+/** Bubbles rising through the juice in the blender. */
+const BUBBLES = [
+  { left: 18, size: 8, dur: 1.2, delay: 0 },
+  { left: 42, size: 12, dur: 1.5, delay: 0.4 },
+  { left: 64, size: 7, dur: 1.1, delay: 0.8 },
+  { left: 80, size: 10, dur: 1.4, delay: 0.2 },
+  { left: 30, size: 6, dur: 1, delay: 1 },
+];
 
 function Stand({ cur }: { cur: Currency }) {
   const reduced = useAppReducedMotion();
@@ -225,8 +253,21 @@ function Stand({ cur }: { cur: Currency }) {
           exit={reduced ? { opacity: 0 } : { x: -260, opacity: 0 }}
           transition={{ type: "spring", stiffness: 160, damping: 18 }}
         >
-          <motion.div animate={reduced ? undefined : { y: [0, -4, 0], rotate: phase === "bye" ? [0, -6, 6, 0] : 0 }} transition={{ repeat: Infinity, duration: phase === "bye" ? 0.6 : 2.4 }}>
-            <CustomerArt c={customer} happy={happy} />
+          {/* Hops in on arrival (once per visit), then breathes; jumps for joy on the way out */}
+          <motion.div className="relative" animate={reduced ? undefined : { y: [0, -14, 0, -14, 0, -6, 0] }} transition={{ duration: 0.9, ease: "easeOut" }}>
+            <motion.div
+              style={{ transformOrigin: "50% 100%" }}
+              animate={reduced ? undefined : phase === "bye" ? { y: [0, -22, 0], rotate: [0, -6, 6, 0], scaleY: [1, 1.05, 0.92, 1] } : { y: [0, -4, 0], rotate: 0, scaleY: [1, 1.02, 1] }}
+              transition={{ repeat: Infinity, duration: phase === "bye" ? 0.6 : 2.4 }}
+            >
+              <CustomerArt c={customer} happy={happy} reduced={reduced} />
+            </motion.div>
+            {happy && (
+              // The customer sips the juice while they pay
+              <motion.span className="absolute -right-3 bottom-2" initial={reduced ? false : { scale: 0, y: -40 }} animate={{ scale: 1, y: 0, rotate: reduced ? 0 : [0, -14, 0] }} transition={{ type: "spring", stiffness: 300, damping: 14, rotate: { repeat: Infinity, duration: 0.8, repeatDelay: 0.6 } }}>
+                <Cup color={color} size={0.55} from={1} level={phase === "bye" ? 0.1 : 0.45} reduced={reduced} />
+              </motion.span>
+            )}
           </motion.div>
           <button type="button" onClick={() => greet(visit)} aria-label={`Hear ${customer.name}'s order again`} className="relative mb-12 rounded-3xl bg-surface px-4 py-3 shadow-md active:scale-95">
             <span className="absolute -left-2 bottom-4 h-4 w-4 rotate-45 bg-surface" aria-hidden />
@@ -257,7 +298,8 @@ function Stand({ cur }: { cur: Currency }) {
           animate={phase === "blending" && !reduced ? { rotate: [-2.5, 2.5], x: [-2, 2] } : { rotate: 0, x: 0 }}
           transition={phase === "blending" ? { repeat: Infinity, repeatType: "mirror", duration: 0.08 } : { duration: 0.2 }}
         >
-          <div className="absolute inset-x-5 top-0 h-5 rounded-t-2xl bg-kid-purple" />
+          <motion.div className="absolute inset-x-5 top-0 h-5 rounded-t-2xl bg-kid-purple" animate={phase === "blending" && !reduced ? { y: [0, -5, 0] } : { y: 0 }} transition={phase === "blending" ? { repeat: Infinity, duration: 0.18 } : { duration: 0.2 }} />
+          <Burst trigger={phase === "order" || phase === "ready" ? inJar.length : 0} items={["💦", "✨"]} count={6} spread={55} className="left-1/2 top-6" size="text-xl" />
           <div className="absolute inset-x-3 top-4 bottom-14 overflow-hidden rounded-b-[2rem] rounded-t-md border-4 border-white/90 bg-sky-100/70 dark:bg-sky-200/30">
             <motion.div
               className="absolute inset-x-0 bottom-0"
@@ -265,12 +307,44 @@ function Stand({ cur }: { cur: Currency }) {
               initial={false}
               animate={{ height: phase === "blending" || phase === "serve" ? "78%" : "0%" }}
               transition={{ duration: reduced ? 0 : BLEND_MS / 1000 }}
-            />
+            >
+              {!reduced && (phase === "blending" || phase === "serve") && (
+                <>
+                  {/* A wavy surface that sloshes (fast while blending) */}
+                  <motion.svg viewBox="0 0 200 20" preserveAspectRatio="none" className="absolute -top-2.5 left-0 h-3 w-[200%]" animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: phase === "blending" ? 0.4 : 2.2, ease: "linear" }} aria-hidden>
+                    <path d="M0 10 Q25 0 50 10 T100 10 T150 10 T200 10 V20 H0 Z" fill={color} />
+                  </motion.svg>
+                  {BUBBLES.map((b, i) => (
+                    <motion.span
+                      key={i}
+                      className="absolute bottom-0 rounded-full bg-white/60"
+                      style={{ left: `${b.left}%`, width: b.size, height: b.size }}
+                      animate={{ y: [0, -110], opacity: [0, 0.9, 0] }}
+                      transition={{ repeat: Infinity, duration: phase === "blending" ? b.dur * 0.5 : b.dur * 1.6, delay: b.delay, ease: "easeOut" }}
+                      aria-hidden
+                    />
+                  ))}
+                </>
+              )}
+            </motion.div>
+            {phase === "blending" && !reduced && (
+              // The fruit whirls round and shrinks away into juice
+              <motion.div className="absolute inset-0" animate={{ rotate: 720, scale: [1, 0.8, 0] }} transition={{ duration: BLEND_MS / 1000, ease: "easeIn" }} aria-hidden>
+                {inJar.map((k, i) => {
+                  const a = (i / inJar.length) * Math.PI * 2;
+                  return (
+                    <span key={k} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl" style={{ marginLeft: Math.cos(a) * 34, marginTop: Math.sin(a) * 34 + 20 }}>
+                      {fruitById(k.split("-")[0]).emoji}
+                    </span>
+                  );
+                })}
+              </motion.div>
+            )}
             <div className="absolute inset-x-1 bottom-1 flex flex-wrap-reverse justify-center">
               <AnimatePresence>
                 {(phase === "order" || phase === "ready") &&
                   inJar.map((k) => (
-                    <motion.span key={k} className="text-4xl" initial={reduced ? false : { y: -160, scale: 1.3 }} animate={{ y: 0, scale: [1.3, 0.8, 1] }} exit={{ scale: 0, rotate: 180 }} transition={{ y: { type: "spring", stiffness: 300, damping: 16 }, scale: { duration: 0.45 } }}>
+                    <motion.span key={k} className="text-4xl" initial={reduced ? false : { y: -160, scale: 1.3, rotate: -60 }} animate={{ y: 0, scale: [1.3, 0.8, 1], rotate: 0 }} exit={{ scale: 0, opacity: 0 }} transition={{ y: { type: "spring", stiffness: 300, damping: 16 }, scale: { duration: 0.45 }, rotate: { duration: 0.45 } }}>
                       {fruitById(k.split("-")[0]).emoji}
                     </motion.span>
                   ))}
@@ -303,11 +377,12 @@ function Stand({ cur }: { cur: Currency }) {
                 aria-label={`Give the juice to ${customer.name}`}
                 disabled={phase !== "serve"}
                 initial={reduced ? false : { scale: 0, y: 30 }}
-                animate={phase === "serve" ? { scale: [1, 1.08, 1], y: 0 } : { scale: 0.8, y: -150, x: -60, opacity: 0 }}
-                transition={phase === "serve" ? { scale: { repeat: Infinity, duration: 1 } } : { duration: 0.6 }}
+                animate={phase === "serve" ? { scale: [1, 1.08, 1], y: 0 } : { scale: 0.5, y: [0, -190, -150], x: -90, rotate: -25, opacity: [1, 1, 0] }}
+                transition={phase === "serve" ? { scale: { repeat: Infinity, duration: 1 }, y: { type: "spring", stiffness: 300, damping: 14 } } : { duration: 0.6, ease: "easeOut" }}
+                whileTap={reduced ? undefined : { scale: 0.9 }}
                 className="rounded-2xl p-1"
               >
-                <Cup color={color} />
+                <Cup color={color} from={0} level={1} reduced={reduced} />
               </motion.button>
             )}
           </AnimatePresence>
@@ -317,11 +392,21 @@ function Stand({ cur }: { cur: Currency }) {
       {/* what the child does next */}
       {(phase === "order" || phase === "ready") && (
         <div className="flex flex-wrap justify-center gap-3" aria-label="Fruit">
-          {fruitsFor(served).map((f) => (
+          {fruitsFor(served).map((f, i) => (
             <ShakeOnWrong key={f.id} trigger={wobble[f.id] ?? 0}>
-              <button type="button" onClick={() => tapFruit(f.id)} aria-label={f.name} className="flex min-h-touch min-w-touch flex-col items-center justify-center rounded-3xl bg-amber-200 px-2 shadow-md ring-4 ring-amber-700/40 active:scale-90 dark:bg-amber-300">
-                <span className="text-5xl leading-none">{f.emoji}</span>
-              </button>
+              <motion.button
+                type="button"
+                onClick={() => tapFruit(f.id)}
+                aria-label={f.name}
+                className="flex min-h-touch min-w-touch flex-col items-center justify-center rounded-3xl bg-amber-200 px-2 shadow-md ring-4 ring-amber-700/40 dark:bg-amber-300"
+                whileTap={reduced ? { scale: 0.9 } : { scaleX: 1.15, scaleY: 0.8 }}
+                transition={{ type: "spring", stiffness: 600, damping: 15 }}
+              >
+                {/* Each fruit bobs on its own beat, so the stand looks fresh and juicy */}
+                <motion.span className="text-5xl leading-none" animate={reduced ? undefined : { y: [0, -5, 0], rotate: [-4, 4, -4] }} transition={{ repeat: Infinity, duration: 1.8 + (i % 3) * 0.3, delay: i * 0.22, ease: "easeInOut" }}>
+                  {f.emoji}
+                </motion.span>
+              </motion.button>
             </ShakeOnWrong>
           ))}
         </div>
@@ -340,15 +425,20 @@ function Stand({ cur }: { cur: Currency }) {
                 onClick={countCoin}
                 disabled={i !== counted}
                 aria-label={i === counted ? `Count ${c.say}` : c.say}
-                animate={i < counted ? { y: 40, scale: 0.6, opacity: 0.25 } : i === counted && !reduced ? { y: [0, -8, 0] } : {}}
-                transition={i === counted ? { repeat: Infinity, duration: 0.9 } : { duration: 0.3 }}
+                animate={i < counted ? (reduced ? { opacity: 0.25 } : { y: [0, -40, 90], scale: [1, 1.1, 0.4], rotate: 200, opacity: [1, 1, 0] }) : i === counted && !reduced ? { y: [0, -8, 0] } : {}}
+                transition={i === counted ? { repeat: Infinity, duration: 0.9 } : { duration: 0.5, ease: "easeIn" }}
                 className="rounded-full"
               >
                 <CoinArt coin={c} />
               </motion.button>
             ))}
           </div>
-          <span className="text-5xl" aria-hidden>🗃️</span>
+          <span className="relative">
+            <motion.span key={counted} className="block text-5xl" style={{ transformOrigin: "50% 100%" }} animate={counted && !reduced ? { scaleY: [1, 0.8, 1.15, 1], scaleX: [1, 1.15, 0.92, 1] } : {}} transition={{ duration: 0.4, delay: 0.35 }} aria-hidden>
+              🗃️
+            </motion.span>
+            <Burst trigger={counted} items={["✨", "⭐"]} count={5} spread={45} className="left-1/2 top-0" size="text-xl" />
+          </span>
         </>
       )}
 
@@ -371,8 +461,12 @@ function Stand({ cur }: { cur: Currency }) {
       )}
 
       {phase === "bye" && (
-        <motion.p className="text-5xl" initial={reduced ? false : { scale: 0 }} animate={{ scale: 1 }} aria-hidden>
-          👋 🎉
+        <motion.p className="relative text-5xl" initial={reduced ? false : { scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 12 }} aria-hidden>
+          <motion.span className="inline-block" style={{ transformOrigin: "70% 90%" }} animate={reduced ? undefined : { rotate: [0, 20, -10, 20, 0] }} transition={{ repeat: Infinity, duration: 1 }}>
+            👋
+          </motion.span>{" "}
+          🎉
+          <Burst trigger={served} items={["🎉", "⭐", "🍓", "🍊", "✨"]} count={12} spread={140} />
         </motion.p>
       )}
     </div>

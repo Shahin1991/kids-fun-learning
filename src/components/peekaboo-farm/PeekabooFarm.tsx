@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Burst } from "@/components/Burst";
 import { useAppReducedMotion } from "@/components/ReducedMotionProvider";
 import { finishActivity } from "@/lib/activity";
 import { audioManager } from "@/lib/audio/AudioManager";
@@ -30,6 +31,9 @@ const TALL: Layout = {
 
 const SPRING = { type: "spring", stiffness: 420, damping: 13 } as const;
 
+/** Top edge of each cover, so a hiding animal can peek just over it. */
+const COVER_TOP: Record<Exclude<SpotId, "barn">, number> = { haystack: -112, bush: -145, crate: -128, flowers: -150, pond: -40 };
+
 /** A cover that sits in front of the animal; reacts with a little squash when opened. */
 function Cover({ open, reduced, children }: { open: boolean; reduced: boolean; children: ReactNode }) {
   return (
@@ -39,9 +43,14 @@ function Cover({ open, reduced, children }: { open: boolean; reduced: boolean; c
   );
 }
 
-function Barn({ open, reduced, animal }: { open: boolean; reduced: boolean; animal: ReactNode }) {
+function Barn({ open, peek, reduced, animal }: { open: boolean; peek: boolean; reduced: boolean; animal: ReactNode }) {
   const door = (side: -1 | 1) => (
-    <motion.g style={{ transformBox: "fill-box", transformOrigin: side < 0 ? "0% 50%" : "100% 50%" }} animate={{ scaleX: open ? 0.12 : 1 }} transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 200, damping: 14 }}>
+    <motion.g
+      style={{ transformBox: "fill-box", transformOrigin: side < 0 ? "0% 50%" : "100% 50%" }}
+      // Peeking: the doors creak open a crack and close again
+      animate={{ scaleX: open ? 0.12 : peek ? [1, 0.72, 0.72, 1] : 1 }}
+      transition={reduced ? { duration: 0 } : peek && !open ? { duration: 1.3, times: [0, 0.25, 0.7, 1] } : { type: "spring", stiffness: 200, damping: 14 }}
+    >
       <rect x={side < 0 ? -56 : 0} y={-124} width={56} height={124} fill="#b5302f" stroke="#fff" strokeWidth={5} />
       <path d={side < 0 ? "M-56 -124 L0 0 M0 -124 L-56 0" : "M0 -124 L56 0 M56 -124 L0 0"} stroke="#fff" strokeWidth={5} />
     </motion.g>
@@ -249,29 +258,37 @@ export default function PeekabooFarm() {
 
   const L = tall ? TALL : WIDE;
 
-  const spotArt = (spot: SpotId, isOpen: boolean) => {
+  const spotArt = (spot: SpotId, isOpen: boolean, order: number) => {
     const a = hiding[spot];
+    const peek = wiggle === spot && !isOpen && !reduced;
     const sz = spot === "barn" ? 112 : 150;
     // The barn animal stands in the doorway; everyone else pops up from behind their cover
     const shownY = spot === "barn" ? 0 : spot === "pond" ? -45 : spot === "crate" ? -60 : spot === "flowers" ? -125 : -85;
     // Hidden animals sit fully under the ground line (clipped), since flowers and reeds are see-through
     const hiddenY = spot === "barn" ? 0 : sz + 10;
+    // Just the top of the head shows over the cover
+    const peekY = spot === "barn" ? 0 : COVER_TOP[spot] - 30 + sz;
     const animal = (
       <g clipPath={`url(#clip-${spot})`}>
         <motion.g
           style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }}
           initial={false}
-          animate={isOpen ? { y: shownY, scaleY: reduced ? 1 : [0.7, 1.15, 1], scaleX: reduced ? 1 : [1.2, 0.9, 1] } : { y: hiddenY, scaleY: 1, scaleX: 1 }}
-          transition={reduced ? { duration: 0 } : { y: SPRING, scaleY: { duration: 0.45 }, scaleX: { duration: 0.45 } }}
+          animate={isOpen ? { y: shownY, scaleY: reduced ? 1 : [0.7, 1.15, 1], scaleX: reduced ? 1 : [1.2, 0.9, 1] } : peek ? { y: [hiddenY, peekY, peekY, hiddenY], scaleY: 1, scaleX: 1 } : { y: hiddenY, scaleY: 1, scaleX: 1 }}
+          transition={reduced ? { duration: 0 } : peek && !isOpen ? { y: { duration: 1.3, times: [0, 0.25, 0.7, 1], ease: "easeInOut" } } : { y: SPRING, scaleY: { duration: 0.45 }, scaleX: { duration: 0.45 } }}
         >
-          <motion.g animate={isOpen && !reduced ? { rotate: [0, -4, 4, 0] } : { rotate: 0 }} transition={{ repeat: isOpen ? Infinity : 0, duration: 1.6 }} style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }}>
+          <motion.g
+            // Out and swaying; at the big finale everyone hops in a wave
+            animate={allOut && !reduced ? { y: [0, -36, 0], scaleY: [1, 1.08, 0.9, 1], rotate: 0 } : isOpen && !reduced ? { rotate: [0, -4, 4, 0], y: 0 } : { rotate: 0, y: 0 }}
+            transition={allOut && !reduced ? { repeat: Infinity, duration: 0.6, delay: 0.4 + order * 0.12, repeatDelay: 0.4 } : { repeat: isOpen ? Infinity : 0, duration: 1.6 }}
+            style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }}
+          >
             <image href={a.art} x={-sz / 2} y={spot === "barn" ? -sz - 4 : -sz} width={sz} height={sz} />
           </motion.g>
         </motion.g>
       </g>
     );
     const props = { open: isOpen, reduced };
-    if (spot === "barn") return <Barn {...props} animal={animal} />;
+    if (spot === "barn") return <Barn {...props} peek={peek} animal={animal} />;
     return (
       <>
         {spot !== "pond" && animal}
@@ -295,12 +312,24 @@ export default function PeekabooFarm() {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {target && !allOut && (
-        <button type="button" onClick={() => ask(hiding, target)} aria-label={`Where is the ${hiding[target].label}? Hear it again`} className="absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-surface/95 px-5 py-2 text-2xl font-extrabold shadow-lg active:scale-95">
-          <span aria-hidden>🔍</span>
+        <motion.button
+          key={target}
+          type="button"
+          onClick={() => ask(hiding, target)}
+          aria-label={`Where is the ${hiding[target].label}? Hear it again`}
+          className="absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-surface/95 px-5 py-2 text-2xl font-extrabold shadow-lg active:scale-95"
+          initial={reduced ? false : { scale: 0, y: -20 }}
+          animate={{ scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 420, damping: 14 }}
+        >
+          {/* The magnifier sweeps about, "looking" */}
+          <motion.span aria-hidden animate={reduced ? undefined : { rotate: [-15, 15, -15], x: [-2, 2, -2] }} transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}>
+            🔍
+          </motion.span>
           {/* eslint-disable-next-line @next/next/no-img-element -- tiny local SVG, works offline */}
           <img src={hiding[target].art} alt="" width={56} height={56} />
           <span aria-hidden>?</span>
-        </button>
+        </motion.button>
       )}
       <div ref={box} className="relative min-h-[60dvh] flex-1 overflow-hidden rounded-3xl shadow-inner">
         <svg viewBox={`0 0 ${L.w} ${L.h}`} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full touch-manipulation select-none" role="img" aria-label="A farm with animals hiding">
@@ -340,7 +369,27 @@ export default function PeekabooFarm() {
           <rect y={L.horizon + 22} width={L.w} height={9} fill="#f5e6c8" />
           <rect y={L.horizon + 42} width={L.w} height={9} fill="#f5e6c8" />
 
-          {SPOTS.map((spot) => {
+          {/* A butterfly and a bee wander over the farm */}
+          {!reduced &&
+            [
+              { e: "🦋", dur: 22, path: [0.1, 0.35, 0.6, 0.85, 0.55, 0.25, 0.1], ys: [0.3, 0.22, 0.34, 0.2, 0.28, 0.36, 0.3] },
+              { e: "🐝", dur: 16, path: [0.9, 0.65, 0.4, 0.15, 0.4, 0.7, 0.9], ys: [0.62, 0.55, 0.66, 0.58, 0.7, 0.6, 0.62] },
+            ].map((f) => (
+              <motion.text
+                key={f.e}
+                fontSize={38}
+                textAnchor="middle"
+                className="pointer-events-none"
+                initial={{ x: f.path[0] * L.w, y: f.ys[0] * L.h }}
+                animate={{ x: f.path.map((p) => p * L.w), y: f.ys.map((p) => p * L.h), rotate: [0, 8, -8, 6, -6, 8, 0] }}
+                transition={{ repeat: Infinity, duration: f.dur, ease: "easeInOut" }}
+                aria-hidden
+              >
+                {f.e}
+              </motion.text>
+            ))}
+
+          {SPOTS.map((spot, order) => {
             const [x, y, s] = L.spots[spot];
             const isOpen = allOut || (open[spot] ?? 0) > 0;
             return (
@@ -352,19 +401,21 @@ export default function PeekabooFarm() {
                   className="cursor-pointer outline-none"
                   onClick={() => tap(spot)}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && tap(spot)}
-                  animate={wiggle === spot && !isOpen ? { rotate: [0, -3, 3, -2, 0] } : { rotate: 0 }}
+                  animate={wiggle === spot && !isOpen && !reduced ? { rotate: [0, -3, 3, -2, 0] } : { rotate: 0 }}
                   transition={{ duration: 0.6 }}
+                  whileTap={reduced ? undefined : { scaleY: 0.9, scaleX: 1.05 }}
                   style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }}
                 >
                   <ellipse cx={0} cy={2} rx={130} ry={16} fill="#000" opacity={0.08} />
                   <rect x={-135} y={-250} width={270} height={262} fill="transparent" />
-                  {spotArt(spot, isOpen)}
+                  {spotArt(spot, isOpen, order)}
                   <Sparks burst={allOut ? round + 100 : (open[spot] ?? 0)} />
                 </motion.g>
               </g>
             );
           })}
         </svg>
+        <Burst trigger={allOut ? round + 1 : 0} items={["⭐", "💛", "🌟", "💖", "✨"]} count={18} spread={260} size="text-4xl" />
       </div>
     </div>
   );
