@@ -24,6 +24,13 @@ export const WHEELS: Record<CarKind, [number, number][]> = {
   bus: [[86, 172], [316, 172]],
 };
 
+/** Cartoon face per kind: eye centres in the front window, eye radius, and the mouth on the nose. */
+export const FACE: Record<CarKind, { eyes: [number, number][]; r: number; mouth: [number, number] }> = {
+  hatch: { eyes: [[246, 84], [272, 84]], r: 9, mouth: [338, 146] },
+  pickup: { eyes: [[242, 82], [268, 82]], r: 9, mouth: [340, 146] },
+  bus: { eyes: [[338, 80], [358, 80]], r: 7, mouth: [342, 140] },
+};
+
 export const CARS: Car[] = [
   { kind: "hatch", name: "car", color: "#ff6b6b", trim: "#c94545" },
   { kind: "pickup", name: "truck", color: "#4d96ff", trim: "#2f6fcf" },
